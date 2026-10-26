@@ -1,5 +1,6 @@
 #include "Menu/MenuFileBrowser.h"
 
+#include "Foundation/HiddenFiles.h"
 #include "Text/MesGlyphs.h"
 
 #include <algorithm>
@@ -23,12 +24,6 @@ namespace Weltall
 		{
 			std::transform(Text.begin(), Text.end(), Text.begin(), [](unsigned char Character) { return static_cast<char>(std::tolower(Character)); });
 			return Text;
-		}
-
-		bool IsHidden(const std::filesystem::path& Path)
-		{
-			const std::u8string Name = Path.filename().u8string();
-			return !Name.empty() && Name.front() == u8'.';
 		}
 
 		/** The folder itself when it exists, else the nearest one above it that does; none when no part of it does. */
@@ -123,7 +118,8 @@ namespace Weltall
 			{
 				continue;
 			}
-			const char Character = static_cast<char>(Unit);
+			// The font has no underscore, which names often put for a space.
+			const char Character = Unit == u8'_' ? ' ' : static_cast<char>(Unit);
 			Shown.push_back(Unit < 0x80 && MesCodeOfCharacter(Character) ? Character : '?');
 		}
 		return Shown;
@@ -163,7 +159,7 @@ namespace Weltall
 			 At.increment(Error))
 		{
 			const std::filesystem::path& Path = At->path();
-			if (IsHidden(Path))
+			if (IsHiddenFile(Path))
 			{
 				continue;
 			}

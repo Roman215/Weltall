@@ -41,6 +41,21 @@ namespace Weltall
 		constexpr int32 JumpWalkFactor = 0x30;
 		constexpr int32 JumpRunFactor = 0x60;
 
+		/**
+		 * Analog movement's pace: a walk on the ground from a lighter push than the walk's own (under Always run the push
+		 * below a run's, else any short of full) slows the leader's sprite for the tick by as much, no slower than a third.
+		 */
+		void PaceByStick(FEventContext& Context, int32 Actor, const FEventActorState& State, FSprite& Sprite, int32 Animation)
+		{
+			if (!Context.bPlayerControlled || !StickWalks(Context, State) || Animation != WalkAnimation || (State.Flags0 & EventActorFlags0::InTheAir) != 0)
+			{
+				return;
+			}
+			const int32 Pace = Context.Controls.Stick->Pace(Context.bAlwaysRun ? FAnalogStick::RunTilt : FAnalogStick::FullTilt);
+			Context.Controls.LeaderSlow = static_cast<uint16>(FieldUnslowed * FAnalogStick::FullTilt / Pace);
+			SlowActorSprite(Context, Actor, Sprite, Context.Controls.LeaderSlow);
+		}
+
 		/** Whether the move takes the actor out of the quad its script keeps it in. */
 		bool LeavesBounds(const FEventActorState& State, const std::array<int32, 3>& Move)
 		{
@@ -133,7 +148,7 @@ namespace Weltall
 		}
 		int32 Direction = static_cast<int16>(State.MoveDirection);
 		int32 Animation = WalkAnimation;
-		if ((State.Flags0 & EventActorFlags0::PadControlled) != 0 && ((Context.PadHeld & FieldRunButton) != 0) != Context.bAlwaysRun && Context.bPlayerControlled)
+		if ((State.Flags0 & EventActorFlags0::PadControlled) != 0 && ((Context.PadHeld & FieldRunButton) != 0) != RunsUnheld(Context, State) && Context.bPlayerControlled)
 		{
 			Animation = RunAnimation;
 		}
@@ -145,6 +160,7 @@ namespace Weltall
 				Animation = Current;
 			}
 		}
+		PaceByStick(Context, Actor, State, *Sprite, Animation);
 		if (State.PushCount > PushCountFloor)
 		{
 			--State.PushCount;

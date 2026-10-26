@@ -2,6 +2,7 @@
 
 #include "Formats/Lzss.h"
 #include "Foundation/LittleEndian.h"
+#include "Foundation/Sha1.h"
 #include "Media/CdImage.h"
 #include "Media/GameFileIndex.h"
 #include "Media/PsxExecutable.h"
@@ -9,7 +10,11 @@
 #include "Text/MessageOverrides.h"
 #include "Text/MessageTableIds.h"
 
+#include <algorithm>
+#include <array>
+#include <optional>
 #include <string>
+#include <string_view>
 
 namespace Weltall
 {
@@ -20,6 +25,39 @@ namespace Weltall
 		constexpr int32 FontFile = 6;
 		constexpr int32 NameTablesFile = 7;
 		constexpr uint32 BoxGlyphAddress = 0x800501D0;
+		/**
+		 * The French translation's message code, from its glyph widths' routine to the end of their table (one byte of
+		 * pixels per code from the font's first), and its SHA-1 in all four of its executables.
+		 */
+		constexpr uint32 VariableWidthCodeAddress = 0x80034F98;
+		constexpr uint32 VariableWidthCodeEnd = 0x8003569C;
+		constexpr std::string_view VariableWidthCode = "dfa6e69621c222f6fb2ff7a6b85496da41e32745";
+		constexpr uint32 VariableWidthsAddress = 0x800355CC;
+
+		/** The executable's widths of a variable-width font, as its program reads them for every code; none for the game's own program. */
+		/** A variable-width font's advances by code, and the widths its glyphs are drawn with. */
+		struct FVariableWidths
+		{
+			std::array<uint8, 256> Advances{};
+			std::array<uint8, 256> Drawn{};
+		};
+
+		std::optional<FVariableWidths> VariableWidths(const FPsxExecutable& Executable, uint32 FirstCode)
+		{
+			const std::span<const uint8> Code = Executable.Read(VariableWidthCodeAddress, VariableWidthCodeEnd - VariableWidthCodeAddress);
+			const std::span<const uint8> Table = Executable.Read(VariableWidthsAddress - FirstCode, 256);
+			// The drawing takes a code's distance from the first as 16 bits: below it, 64 KB on.
+			const std::span<const uint8> Below = Executable.Read(VariableWidthsAddress + 0x10000 - FirstCode, FirstCode);
+			if (Code.empty() || Table.empty() || Below.size() != FirstCode || FSha1::ToHex(FSha1::Hash(Code)) != VariableWidthCode)
+			{
+				return std::nullopt;
+			}
+			FVariableWidths Widths;
+			std::copy(Table.begin(), Table.end(), Widths.Advances.begin());
+			Widths.Drawn = Widths.Advances;
+			std::copy(Below.begin(), Below.end(), Widths.Drawn.begin());
+			return Widths;
+		}
 
 		TResult<std::vector<uint8>> ReadPacked(const FCdImage& Image, const FGameFileIndex& Index, int32 Number)
 		{
@@ -77,6 +115,10 @@ namespace Weltall
 		if (!ParsedFont)
 		{
 			return ParsedFont.Error();
+		}
+		if (const std::optional<FVariableWidths> Widths = VariableWidths(Executable, ParsedFont->FirstGlyphCode()))
+		{
+			ParsedFont->SetVariableWidths(Widths->Advances, Widths->Drawn);
 		}
 		if (const std::shared_ptr<const FMesFontSheet> Sheet = Image.FontSheet())
 		{

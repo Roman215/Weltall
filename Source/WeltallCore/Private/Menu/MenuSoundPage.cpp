@@ -62,7 +62,7 @@ namespace Weltall::SoundPage
 		return Sources.HasSubtitles() ? Count : SubtitleSource;
 	}
 
-	FSettingsRow Row(int32 Row, const FPlayerSettings& Settings, const FSoundSources& Sources)
+	FSettingsRow Row(int32 Row, const FPlayerSettings& Settings, const FSoundSources& Sources, bool bDiscsPicked)
 	{
 		switch (Row)
 		{
@@ -79,26 +79,33 @@ namespace Weltall::SoundPage
 		case Language:
 			if (OneLanguage(Sources))
 			{
-				return Fixed(Text::Voices, Text::VoiceValues[Sources.bEnglish ? 1 : 2], Sources.bEnglish ? Text::OnlyEnglish : Text::OnlyJapanese);
+				const auto& Why = bDiscsPicked ? (Sources.bEnglish ? Text::OnlyEnglishPicked : Text::OnlyJapanesePicked)
+											   : (Sources.bEnglish ? Text::OnlyEnglish : Text::OnlyJapanese);
+				return Fixed(Text::Voices, Text::VoiceValues[Sources.bEnglish ? 1 : 2], Why);
 			}
 			return Shown(Text::Voices, ChoiceName(Settings.VoiceLanguage, Text::VoiceValues));
 		case Subtitles:
 		{
 			if (!Sources.HasSubtitles())
 			{
-				return Fixed(Text::Subtitles, Text::NoSubtitles, Text::NoSubtitlesHelp);
+				return Fixed(Text::Subtitles, Text::NoSubtitles, bDiscsPicked ? Text::NoSubtitlesPicked : Text::NoSubtitlesHelp);
 			}
 			FSettingsRow Choice = Shown(Text::Subtitles, ChoiceName(Settings.MovieSubtitles, Text::SubtitleValues));
 			if (!Sources.bUndub)
 			{
-				Choice.Help = OptionsText::Fill(Text::SubtitlesWithoutUndub);
+				Choice.Help = OptionsText::Fill(Sources.bTranslationSubtitles ? Text::TranslationSubtitles : Text::SubtitlesWithoutUndub);
 			}
 			return Choice;
 		}
 		case SubtitleSource:
 			if (!BothSubtitles(Sources))
 			{
-				return Fixed(Text::SubtitleSource, Text::SubtitleSourceValues[Sources.bUndub ? 1 : 2], Text::OnlySource);
+				std::string_view Only = Text::TranslationSource;
+				if (Sources.bUndub || Sources.bPerfectWorksSubtitles)
+				{
+					Only = Text::SubtitleSourceValues[Sources.bUndub ? 1 : 2];
+				}
+				return Fixed(Text::SubtitleSource, Only, Text::OnlySource);
 			}
 			return Shown(Text::SubtitleSource, ChoiceName(Settings.MovieSubtitleSource, Text::SubtitleSourceValues));
 		default:

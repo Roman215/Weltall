@@ -53,11 +53,16 @@ namespace Weltall
 		Reset,
 	};
 
-	/** What the game found that the pages' rows follow: the display's window sizes, and the voices and subtitles given. */
+	/**
+	 * What the game found that the pages' rows follow: the display's window sizes, the voices and subtitles given, and
+	 * whether the player's discs come in through the device's file picker (Android), which the help then names in place
+	 * of the folders.
+	 */
 	struct FSettingsContext
 	{
 		FDisplayModes Display;
 		FSoundSources Sound;
+		bool bDiscsPicked = false;
 	};
 
 	/** A row of a page as the screen shows it: its label and value, and three lines on what it does. */

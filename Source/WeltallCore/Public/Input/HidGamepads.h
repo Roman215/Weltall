@@ -66,19 +66,24 @@ namespace Weltall
 	/** Every control held: the buttons, a trigger past XInput's threshold, and each stick's directions past XInput's dead zones. */
 	WELTALLCORE_API uint32 HeldGamepadControls(const FGamepadReading& Reading);
 
+	/** The d-pad a hat holds: 0 up to 7 clockwise, anything else at rest. */
+	WELTALLCORE_API uint32 GamepadHatButtons(int32 Hat);
+
 	/** The gamepads Weltall reads from their own reports rather than through XInput, by what it knows of their layout. */
 	enum class EHidGamepadModel : uint8
 	{
 		DualShock4,
 		DualSense,
 		PlayStationClassic,
+		/** The Switch Pro Controller, and the gamepads that pass for it (SwitchGamepads.h). */
+		SwitchPro,
 		/** Any other gamepad: its buttons as most PC gamepads number them. */
 		Other,
 	};
 
 	WELTALLCORE_API EHidGamepadModel HidGamepadModelOf(uint16 VendorId, uint16 ProductId);
 
-	/** The name the engine's input devices know a model by (which shows PlayStation's buttons); empty for Other, which goes by its own product name. */
+	/** The name the engine's input devices know a model by (which shows PlayStation's or Nintendo's buttons); empty for Other, which goes by its own product name. */
 	WELTALLCORE_API std::string_view HidGamepadName(EHidGamepadModel Model);
 
 	/** Sony's wireless adapter for the DualShock 4, which reports as one whether a controller is paired with it or not. */

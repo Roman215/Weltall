@@ -276,14 +276,18 @@ namespace Weltall
 	{
 		OptionsState = {};
 		OptionsState.Settings = Services.Settings->Settings();
-		OptionsState.Context = {Services.Settings->DisplayModes(), Services.Settings->SoundSources()};
+		OptionsState.Context = {Services.Settings->DisplayModes(), Services.Settings->SoundSources(), Services.Settings->DeviceFiles() != nullptr};
 		if (Services.Saves != nullptr)
 		{
-			OptionsState.SavePages = std::make_unique<FMenuSavePages>(*Services.Saves, Resources);
+			OptionsState.SavePages = std::make_unique<FMenuSavePages>(*Services.Saves, Resources, Services.Settings->DeviceFiles());
 		}
 		if (Services.Keys != nullptr)
 		{
 			OptionsState.ControlsPage = std::make_unique<FMenuControlsPage>(*Services.Keys);
+		}
+		if (IMenuDeviceFiles* DeviceFiles = Services.Settings->DeviceFiles())
+		{
+			OptionsState.ModFiles = std::make_unique<FMenuModFiles>(*DeviceFiles);
 		}
 		FMenuOptionsState& State = OptionsState;
 		ShowOptionsPage(true);
@@ -296,6 +300,27 @@ namespace Weltall
 			co_await Frame();
 			if (OnAssetsPage() && RefreshAssetProgress())
 			{
+				bChanged = true;
+			}
+			if (OnSavesPages())
+			{
+				// A transfer through the device's picker moved on; a file to import that came in opens its page.
+				const uint32 WasView = State.SavePages->View();
+				if (State.SavePages->Refresh())
+				{
+					ShowOptionsPage(State.SavePages->View() != WasView);
+					bChanged = true;
+				}
+			}
+			if (RefreshModFiles())
+			{
+				bChanged = true;
+			}
+			if (const FSoundSources Sources = Services.Settings->SoundSources(); Sources != State.Context.Sound)
+			{
+				// Discs added while the screen is open give the Sound page their voices and subtitles.
+				State.Context.Sound = Sources;
+				ShowOptionsPage(false);
 				bChanged = true;
 			}
 			if (bChanged)
@@ -413,6 +438,11 @@ namespace Weltall
 					State.ControlsPage->CursorMoved();
 					FillOptionsRows();
 				}
+				else if (State.ModFiles && OnModdingTurned() && !State.Opened && !State.bAssetsOpened)
+				{
+					State.ModFiles->CursorMoved();
+					FillOptionsRows();
+				}
 				else if (State.bSecondDiscAsked)
 				{
 					State.bSecondDiscAsked = false;
@@ -482,6 +512,10 @@ namespace Weltall
 		const int32 Pages = TurnedPages();
 		State.Turned = (State.Turned + Direction + Pages) % Pages;
 		State.bCustomPicked = false;
+		if (State.ModFiles)
+		{
+			State.ModFiles->CursorMoved();
+		}
 		State.bSecondDiscAsked = false;
 		ShowOptionsPage(true);
 	}

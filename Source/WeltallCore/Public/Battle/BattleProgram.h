@@ -79,5 +79,10 @@ namespace Weltall
 		/** The set whose voices share one bank, the file after its effects'. */
 		static constexpr int32 SingleBankVoiceSet = 8;
 		std::array<FVoiceSet, VoiceSetCount> VoiceSets{};
+		/**
+		 * The program keeps the battle camera after an enemy's queue write whose third byte is set, as Perfect Works Build
+		 * does (FBattleContext::KeepCamera): the French translation's.
+		 */
+		bool bQueueKeepsCamera = false;
 	};
 }

@@ -361,7 +361,7 @@ namespace Weltall
 				Hide(false);
 				bGoesOn = false;
 				OpenChoiceCursors();
-				DrawTotal(Total, TotalX, TotalY);
+				DrawTotal(Total, TotalX, TotalY - (Resources.IsFrench() ? 1 : 0));
 				if (co_await AskYesNo(SaleText))
 				{
 					CommitSale(Left, Ids, Counts, bInventory, Character);

@@ -12,10 +12,23 @@ namespace Weltall::WorldMapOps
 	{
 		constexpr int16 EnterByTouch = 1;
 
-		/** The heading the d-pad gives relative to the yaw of the view shown (a d-pad word, bits 12-15); other combinations keep the heading. */
+		/** The stick's heading (right 0, down 400h) turned to the world map's way, where up is the camera's yaw. */
+		constexpr int32 StickToWorldMap = 0x400;
+
+		/**
+		 * The heading the d-pad gives relative to the yaw of the view shown (a d-pad word, bits 12-15); other combinations
+		 * keep the heading. Under analog movement the stick, when it holds the direction, gives any heading.
+		 */
 		void ReadHeading(FWorldMapContext& Context, FWorldMapTask& Task)
 		{
 			const int32 Yaw = Context.ViewTurn != 0 ? (Context.CameraYaw + Context.ViewTurn) & 0xFFF : Context.CameraYaw;
+			if (Context.Stick)
+			{
+				Task.Heading = static_cast<int16>((Yaw + Context.Stick->Heading + StickToWorldMap) & 0xFFF);
+				Task.Direction.X = GteSin(Task.Heading);
+				Task.Direction.Z = -GteCos(Task.Heading);
+				return;
+			}
 			switch (Context.Pad.Held >> 12)
 			{
 			case 1:

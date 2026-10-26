@@ -163,11 +163,15 @@ namespace Weltall
 		{
 			return std::optional<FMovieSubtitles>();
 		}
-		const FGameDisc& Undub = VoiceDiscs[1][static_cast<std::size_t>(Disc)];
-		if (PlayerSettings.MovieSubtitles == EMovieSubtitles::Automatic && (Undub.Image == nullptr || VoiceDisc(Disc).Image != Undub.Image))
+		// The movie's own disc's subtitles where it carries them (the undub's, a translation's for its own sound); with
+		// On, the undub's over the English sound too.
+		const FGameDisc Movie = VoiceDisc(Disc);
+		const bool bOwn = Movie.Image != nullptr && !Movie.Index->MovieSubtitles().Entries().empty();
+		if (PlayerSettings.MovieSubtitles == EMovieSubtitles::Automatic && !bOwn)
 		{
 			return std::optional<FMovieSubtitles>();
 		}
+		const FGameDisc& Undub = bOwn ? Movie : VoiceDiscs[1][static_cast<std::size_t>(Disc)];
 		const FPerfectWorksSubtitles* Mod = PerfectWorksSubtitles[static_cast<std::size_t>(Disc)];
 		const EMovieSubtitleSource Source = PlayerSettings.MovieSubtitleSource;
 		const bool bModFirst = Source == EMovieSubtitleSource::PerfectWorks || (Source == EMovieSubtitleSource::Automatic && bPerfectWorksInUse);
@@ -188,9 +192,12 @@ namespace Weltall
 	FSoundSources FGameSession::SoundSources() const
 	{
 		const auto Given = [](const std::array<FGameDisc, 2>& Track) { return Track[0].Image != nullptr || Track[1].Image != nullptr; };
+		const auto Subtitled = [](const std::array<FGameDisc, 2>& Track) {
+			return std::any_of(Track.begin(), Track.end(), [](const FGameDisc& Disc) { return Disc.Image != nullptr && !Disc.Index->MovieSubtitles().Entries().empty(); });
+		};
 		const bool bUsaPlayed = DiscRelease == EDiscRelease::UsaDisc1 || DiscRelease == EDiscRelease::UsaDisc2;
 		return {Given(VoiceDiscs[0]) || bUsaPlayed, Given(VoiceDiscs[1]), PerfectWorksSubtitles[0] != nullptr || PerfectWorksSubtitles[1] != nullptr,
-			bPerfectWorksInUse};
+			bPerfectWorksInUse, Subtitled(VoiceDiscs[0])};
 	}
 
 	TResult<FGameDisc> FGameSession::DriveDisc() const

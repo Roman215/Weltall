@@ -2,6 +2,8 @@
 
 #include "Engine/GameInstance.h"
 #include "Misc/Paths.h"
+#include "Mods/DeviceMods.h"
+#include "Shell/DeviceFilesSubsystem.h"
 #include "Shell/GameDiscsSubsystem.h"
 #include "Shell/PlayerSettingsSubsystem.h"
 #include "WeltallLog.h"
@@ -16,6 +18,11 @@ void UGameModsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	Super::Initialize(Collection);
 	Collection.InitializeDependency<UGameDiscsSubsystem>();
 	Collection.InitializeDependency<UPlayerSettingsSubsystem>();
+	if (UDeviceFilesSubsystem::UsesPicker())
+	{
+		// A release added or removed while the game read the one in use takes effect now, before mods are looked for.
+		Weltall::FinishModChanges(UDeviceFilesSubsystem::PlayerFoldersRoot());
+	}
 	Found = Weltall::FindMods(std::filesystem::path(*ModsFolder()));
 	InUse = GetGameInstance()->GetSubsystem<UPlayerSettingsSubsystem>()->Settings().PerfectWorks;
 	if (Found.PerfectWorks)
@@ -69,6 +76,19 @@ void UGameModsSubsystem::Refresh()
 	if (const std::optional<Weltall::FError> Error = Weltall::ApplyMods(Library, Found, InUse))
 	{
 		UE_LOG(LogWeltall, Warning, TEXT("The mods' files are not used: %hs"), Error->Message.c_str());
+	}
+}
+
+void UGameModsSubsystem::FindAgain()
+{
+	if (Found.PerfectWorks)
+	{
+		return;
+	}
+	Found = Weltall::FindMods(std::filesystem::path(*ModsFolder()));
+	if (Found.PerfectWorks)
+	{
+		UE_LOG(LogWeltall, Log, TEXT("Perfect Works Build %hs added in %s: offered now, in use from the next start"), Found.PerfectWorks->Version().c_str(), *ModsFolder());
 	}
 }
 

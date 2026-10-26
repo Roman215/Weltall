@@ -22,8 +22,9 @@ namespace Weltall
 	};
 
 	/**
-	 * What a window's drawing needs to note the buttons its lines show: the finder, the window's font (for a name read
-	 * ahead on the line being typed) and where the cells go, each of a primitive appended, by its place in the list.
+	 * What a window's drawing needs to note the buttons its lines show: the finder, the window's font (whose units its lines
+	 * count, the game's 4 pixels without one; for a name read ahead on the line being typed) and where the cells go, each of
+	 * a primitive appended, by its place in the list.
 	 */
 	struct FMesWindowButtons
 	{

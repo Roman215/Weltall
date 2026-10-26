@@ -184,6 +184,7 @@ namespace Weltall
 		{
 			return Error;
 		}
+		RestoreSlowedSprites(Context);
 		if (auto Error = UpdateFieldParticles(Context))
 		{
 			return Error;

@@ -110,8 +110,8 @@ namespace Weltall
 		}
 		auto& Quads = ListWork->Quads;
 		Quads[0][Buffer].Clut = EvenTextClut;
-		SetQuad(Quads[0][Buffer], 0x94, 0x54, 0, 0, 0x60, 0x40);
-		SetQuad(Quads[2][Buffer], 0xFC, 0x54, 0, 0, 0x20, 0x40);
+		SetQuad(Quads[0][Buffer], Resources.Tables.Places.SpecialListX, 0x54, 0, 0, 0x60, 0x40);
+		SetQuad(Quads[2][Buffer], Resources.Tables.Places.SpecialListRightX, 0x54, 0, 0, 0x20, 0x40);
 		ListWork->CellsBuffer = Buffer;
 		ListWork->bCellsShown = true;
 	}
@@ -124,7 +124,7 @@ namespace Weltall
 			DrawSpecialInfo(Slot, Cell);
 			ListLoop.DrawnCell = Cell;
 		}
-		DrawListCursor(0x8C, static_cast<int16>(Cell * SpecialRow + 0x58));
+		DrawListCursor(Resources.Tables.Places.SpecialCursorX, static_cast<int16>(Cell * SpecialRow + Resources.Tables.Places.SpecialCursorY));
 	}
 
 	void FBattleHud::DrawSpecialInfo(uint8 Slot, uint8 Cell)
@@ -145,18 +145,18 @@ namespace Weltall
 			return;
 		}
 		auto& Quads = ListWork->Quads;
-		SetQuad(Quads[FBattleHudListWork::Info][Buffer], 0x7C, 0xA4, 0, static_cast<uint8>((Cell & 0xF) << 4), 0x60, 0x10);
+		SetQuad(Quads[FBattleHudListWork::Info][Buffer], Resources.Tables.Places.SpecialCostX, 0xA4, 0, static_cast<uint8>((Cell & 0xF) << 4), 0x60, 0x10);
 		if (const FBattleCommand* Command = SpecialCommand(Slot, Cell))
 		{
 			const uint16 Targeting = Command->Targeting;
 			const int32 Kind = (Targeting & 0x4000) != 0 ? GearKindLabel : (Targeting & 0x1000) != 0 ? AllKindLabel : OneKindLabel;
 			const int32 Targets = (Targeting & 0xF) == 1 ? AllTargetsLabel : (Targeting & 0xF) == 2 ? PartyTargetLabel : OneTargetLabel;
 			SetLabelQuad(Quads[FBattleHudListWork::Labels][Buffer], 0x24, 0xA6, Kind);
-			SetLabelQuad(Quads[FBattleHudListWork::Labels + 1][Buffer], 0x48, 0xA6, Targets);
+			SetLabelQuad(Quads[FBattleHudListWork::Labels + 1][Buffer], Resources.Tables.Places.SpecialTargetsX, 0xA6, Targets);
 		}
 		const std::array<int32, 2> Widths = RenderHelpLines(SpecialHelp, (Battle->Combatants[Slot].Gear * Specials + Cell) * 2);
-		SetTextQuad(Quads[FBattleHudListWork::Help][Buffer], 0x88, 0xB6, 0, 0, static_cast<uint8>(Widths[0]));
-		SetTextQuad(Quads[FBattleHudListWork::Help + 1][Buffer], 0x88, 0xC6, 0, 0, static_cast<uint8>(Widths[1]));
+		SetTextQuad(Quads[FBattleHudListWork::Help][Buffer], Resources.Tables.Places.SpecialHelpX, 0xB6, 0, 0, static_cast<uint8>(Widths[0]));
+		SetTextQuad(Quads[FBattleHudListWork::Help + 1][Buffer], Resources.Tables.Places.SpecialHelpX, 0xC6, 0, 0, static_cast<uint8>(Widths[1]));
 		ListWork->InfoBuffer = Buffer;
 		ListWork->bInfoShown = true;
 	}

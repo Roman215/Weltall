@@ -61,18 +61,27 @@ TEST_CASE("The Controls page shows two keys of each button and camera action, of
 	FMenuControlsPage Page(Keys);
 	FControlBindings Bindings = FControlBindings::Defaults();
 	const std::vector<FSettingsRow> Rows = Page.Rows(Bindings);
-	REQUIRE(Rows.size() == 28);
+	REQUIRE(Rows.size() == 33);
 	CHECK(Rows[0].Label == Text::Device);
 	CHECK(Rows[0].Value == Text::Keyboard);
 	CHECK(Rows[0].bReadOnly);
 	CHECK(Rows[1].bHeading);
 	CHECK(Rows[16].Label == Text::AlwaysRun.Label);
-	CHECK(Rows[17].Label == Text::WalkIntoDoors.Label);
-	CHECK(Rows[18].Label == Text::OriginalButtonIcons.Label);
-	CHECK(Rows[19].Label == Text::ButtonLayout.Label);
-	CHECK(Rows[20].Label == Text::CameraHeading);
-	CHECK(Rows[25].Label == Text::MouseSensitivity.Label);
-	CHECK(Rows[26].Label == Text::StickSensitivity.Label);
+	CHECK(Rows[17].Label == Text::AnalogMovement.Label);
+	CHECK(Rows[18].Label == Text::WalkIntoDoors.Label);
+	CHECK(Rows[19].Label == Text::OriginalButtonIcons.Label);
+	CHECK(Rows[20].Label == Text::ButtonLayout.Label);
+	CHECK(Rows[21].Label == Text::CameraHeading);
+	CHECK(Rows[26].Label == Text::MouseSensitivity.Label);
+	CHECK(Rows[27].Label == Text::StickSensitivity.Label);
+	CHECK(Rows[28].Label == Text::TouchHeading);
+	CHECK(Rows[28].bHeading);
+	CHECK(Rows[29].Label == Text::TouchMovement.Label);
+	CHECK(Rows[29].Value == "D-pad");
+	CHECK(Rows[30].Label == Text::TouchOpacity.Label);
+	CHECK(Rows[30].Value == "100%");
+	CHECK(Rows[31].Label == Text::TouchVibration.Label);
+	CHECK(Rows[31].Value == OptionsText::On);
 	CHECK(Rows.back().Label == Text::ResetKeys);
 	for (const std::string_view Label : ActionLabels)
 	{
@@ -200,7 +209,7 @@ TEST_CASE("A PlayStation button keeps its last key of each device", "[Menu]")
 	REQUIRE(Page.Step(Cross, 1, Bindings));
 	CHECK(BindOn(Page, Bindings, Text::Confirm.Label, {"Q"}) == EControlsHeard::Refused);
 	CHECK(Bindings == Start);
-	CHECK(Page.Rows(Bindings)[static_cast<std::size_t>(Cross)].Help[2] == OptionsText::Fill(Text::OnlyKey, {Text::Cancel.Label, Text::KeyNoun}));
+	CHECK(Page.Rows(Bindings)[static_cast<std::size_t>(Cross)].Help[2] == OptionsText::Fill(Text::OnlyKey, {Text::Cancel.Label}));
 
 	// Cross's only key stays; nothing is in its second place to clear.
 	CHECK_FALSE(Page.Clear(Cross, Bindings));
@@ -427,6 +436,68 @@ TEST_CASE("The Controls page's Always run row switches whether the party runs by
 	CHECK_FALSE(Bindings.bAlwaysRun);
 }
 
+TEST_CASE("The Controls page's Analog movement row switches whether the stick walks any way at its push", "[Menu]")
+{
+	Testing::FPressedKeys Keys;
+	FMenuControlsPage Page(Keys);
+	FControlBindings Bindings = FControlBindings::Defaults();
+	REQUIRE(Bindings.bAnalogMovement);
+	const int32 Row = RowOf(Page, Text::AnalogMovement.Label);
+	REQUIRE(Row == RowOf(Page, Text::AlwaysRun.Label) + 1);
+	const FSettingsRow On = Page.Rows(Bindings)[static_cast<std::size_t>(Row)];
+	CHECK(On.Value == OptionsText::On);
+	CHECK(On.Cells.empty());
+	CHECK(On.Help == OptionsText::Fill(Text::AnalogMovement.Help));
+	REQUIRE(Page.Step(Row, 1, Bindings));
+	CHECK_FALSE(Bindings.bAnalogMovement);
+	CHECK(Bindings.bAlwaysRun);
+	CHECK(Page.Rows(Bindings)[static_cast<std::size_t>(Row)].Value == OptionsText::Off);
+	REQUIRE(Page.Activate(Row, Bindings));
+	CHECK(Bindings.bAnalogMovement);
+	CHECK_FALSE(Page.Listening());
+	// The devices' resets leave it.
+	Bindings.bAnalogMovement = false;
+	REQUIRE(Page.Activate(static_cast<int32>(Page.Rows(Bindings).size()) - 1, Bindings));
+	CHECK_FALSE(Bindings.bAnalogMovement);
+}
+
+TEST_CASE("The Controls page's touch screen rows choose the cross or a stick, how solid it is drawn and its vibration", "[Menu]")
+{
+	Testing::FPressedKeys Keys;
+	FMenuControlsPage Page(Keys);
+	FControlBindings Bindings = FControlBindings::Defaults();
+	const int32 Movement = RowOf(Page, Text::TouchMovement.Label);
+	const int32 Opacity = RowOf(Page, Text::TouchOpacity.Label);
+	const int32 Vibration = RowOf(Page, Text::TouchVibration.Label);
+	REQUIRE(Movement >= 0);
+	REQUIRE(Opacity == Movement + 1);
+	REQUIRE(Vibration == Movement + 2);
+	CHECK(Page.Rows(Bindings)[static_cast<std::size_t>(Movement)].Help == OptionsText::Fill(Text::TouchMovement.Help));
+	REQUIRE(Page.Step(Movement, 1, Bindings));
+	CHECK(Bindings.TouchMovement == ETouchMovement::Stick);
+	CHECK(Page.Rows(Bindings)[static_cast<std::size_t>(Movement)].Value == "Stick");
+	REQUIRE(Page.Activate(Movement, Bindings));
+	CHECK(Bindings.TouchMovement == ETouchMovement::Cross);
+	// The opacity steps by tenths, from 20% to the full drawing, which Confirm leaves.
+	CHECK_FALSE(Page.Step(Opacity, 1, Bindings));
+	CHECK_FALSE(Page.Activate(Opacity, Bindings));
+	for (int32 Step = 0; Step < 10; ++Step)
+	{
+		Page.Step(Opacity, -1, Bindings);
+	}
+	CHECK(Bindings.TouchOpacity == LowestTouchOpacity);
+	CHECK(Page.Rows(Bindings)[static_cast<std::size_t>(Opacity)].Value == "20%");
+	REQUIRE(Page.Step(Vibration, 1, Bindings));
+	CHECK_FALSE(Bindings.bTouchVibration);
+	REQUIRE(Page.Activate(Vibration, Bindings));
+	CHECK(Bindings.bTouchVibration);
+	// The devices' resets leave them.
+	Bindings.TouchMovement = ETouchMovement::Stick;
+	REQUIRE(Page.Activate(static_cast<int32>(Page.Rows(Bindings).size()) - 1, Bindings));
+	CHECK(Bindings.TouchMovement == ETouchMovement::Stick);
+	CHECK(Bindings.TouchOpacity == LowestTouchOpacity);
+}
+
 TEST_CASE("The Controls page's Walk into doors row switches whether doors open without the button", "[Menu]")
 {
 	Testing::FPressedKeys Keys;
@@ -434,7 +505,7 @@ TEST_CASE("The Controls page's Walk into doors row switches whether doors open w
 	FControlBindings Bindings = FControlBindings::Defaults();
 	REQUIRE(Bindings.bWalkIntoDoors);
 	const int32 Row = RowOf(Page, Text::WalkIntoDoors.Label);
-	REQUIRE(Row == RowOf(Page, Text::AlwaysRun.Label) + 1);
+	REQUIRE(Row == RowOf(Page, Text::AnalogMovement.Label) + 1);
 	const FSettingsRow On = Page.Rows(Bindings)[static_cast<std::size_t>(Row)];
 	CHECK(On.Value == OptionsText::On);
 	CHECK(On.Cells.empty());

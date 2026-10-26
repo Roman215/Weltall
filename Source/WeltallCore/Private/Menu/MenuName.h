@@ -9,7 +9,8 @@ namespace Weltall
 {
 	/**
 	 * Enter Name (mode 3) as its module runs: a name number's name typed on a grid of characters, glyph
-	 * by glyph over its old one, and written into its name slots.
+	 * by glyph over its old one (the French translation's: the old one edited at a cursor), and written into its name
+	 * slots.
 	 */
 	class FMenuName final : public FMenuModule
 	{
@@ -27,6 +28,8 @@ namespace Weltall
 		uint8& Cell(int32 Row, int32 Column);
 		/** The glyphs typed so far as the name's text. */
 		void TypeText();
+		/** The glyph map's first glyph of a code (its lead byte not looked at). */
+		uint16 GlyphOfCode(uint8 Byte) const;
 		void WriteNames();
 
 		// The screen (MenuNameScreen.cpp).

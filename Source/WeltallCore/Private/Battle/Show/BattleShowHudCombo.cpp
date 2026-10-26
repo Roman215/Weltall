@@ -160,9 +160,9 @@ namespace Weltall
 		ListThumb.Count = 0;
 		if (Pool / 10 != 0)
 		{
-			ListThumb.Count += DrawSheet(DigitFrames + Pool / 10, ListThumb.Parts, ListThumb.Count, 0x56, 0x38, FullScale);
+			ListThumb.Count += DrawSheet(DigitFrames + Pool / 10, ListThumb.Parts, ListThumb.Count, 0x56, Resources.Tables.Places.ComboTensY, FullScale);
 		}
-		ListThumb.Count += DrawSheet(DigitFrames + Pool % 10, ListThumb.Parts, ListThumb.Count, 0x5E, 0x38, FullScale);
+		ListThumb.Count += DrawSheet(DigitFrames + Pool % 10, ListThumb.Parts, ListThumb.Count, 0x5E, Resources.Tables.Places.ComboUnitsY, FullScale);
 		for (std::size_t Queued = 0; Queued < Party.ComboQueue.size() && Party.ComboQueue[Queued] != NoDeathblow; ++Queued)
 		{
 			const int16 X = static_cast<int16>(0x2A + QueueStep * static_cast<int32>(Queued));

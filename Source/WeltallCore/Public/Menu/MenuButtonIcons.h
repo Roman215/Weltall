@@ -128,6 +128,15 @@ namespace Weltall
 		WELTALLCORE_API void ApplyToText(FDrawList& List, std::span<const FTextButtonCell> Cells, const IButtonGlyphs& Glyphs, std::vector<int32>* Matches = nullptr,
 			uint32* Mark = nullptr);
 
+		/**
+		 * Sets out a prompt the game draws as the controller's four face buttons (FMenuPrimitive::PromptRole) as the
+		 * player's buttons lie: each button, with what is drawn beside it, at the game's place of the face button that lies
+		 * where Glyphs show it on the pad (the Japanese layout's symbols where the Japanese release draws them). The game's
+		 * places stay unless each button shows as a face button of a place of its own, which a key has not, and unless
+		 * the pictures moved would cover pictures of another button they did not (cancel's long words at the left place).
+		 */
+		WELTALLCORE_API void PlacePrompt(std::span<FMenuPrimitive> Primitives, const IButtonGlyphs& Glyphs);
+
 		const FVram& Pictures() const { return PictureVram; }
 
 	private:

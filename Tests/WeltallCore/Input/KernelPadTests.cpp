@@ -198,3 +198,25 @@ TEST_CASE("The kernel's words carry each port's stick and the directions only it
 	CHECK((*Words)[1].StickX == FPadState::StickCentre);
 	CHECK_FALSE((*Words)[1].bAnalog);
 }
+
+TEST_CASE("The field's merged words keep the stick where the tick's last vblank left it", "[Input]")
+{
+	constexpr uint16 LogicalRight = 0x2000;
+	FKernelPad Pad;
+	FPadState Up = Holding({EPadButton::Up});
+	Up.StickButtons = FPadState::Bit(EPadButton::Up);
+	Up.StickY = 0x00;
+	Up.bAnalog = true;
+	FPadState Right = Holding({EPadButton::Right});
+	Right.StickButtons = FPadState::Bit(EPadButton::Right);
+	Right.StickX = 0xFF;
+	Right.bAnalog = true;
+	Pad.Vblank(Up, 1);
+	Pad.Vblank(Right, 2);
+	const FKernelPadWords Merged = Pad.TakeMerged();
+	CHECK(Merged.Held == (LogicalUp | LogicalRight));
+	CHECK(Merged.StickHeld == (LogicalUp | LogicalRight));
+	CHECK(Merged.StickX == 0xFF);
+	CHECK(Merged.StickY == FPadState::StickCentre);
+	CHECK(Merged.bAnalog);
+}

@@ -251,7 +251,7 @@ namespace Weltall
 				Hide(false);
 				bGoesOn = false;
 				OpenChoiceCursors();
-				DrawTotal(Total, TotalX, TotalY);
+				DrawTotal(Total, TotalX, TotalY - (Resources.IsFrench() ? 1 : 0));
 				if (co_await Ask(SaleText, std::nullopt, true))
 				{
 					CommitSale(Left, Ids, Counts);
@@ -411,7 +411,7 @@ namespace Weltall
 		DrawGoldPanel(Services.Game->Gold());
 		if (Restore != ERestore::Nothing)
 		{
-			DrawTotal(Cost, FuelTotalX, FuelTotalY);
+			DrawTotal(Cost, FuelTotalX, FuelTotalY - (Resources.IsFrench() ? 1 : 0));
 		}
 		co_await Frame();
 		OpenChoiceCursors();

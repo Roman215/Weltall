@@ -27,6 +27,20 @@
 			"SupportedTargetPlatforms": [
 				"Win64"
 			]
+		},
+		{
+			"Name": "AndroidPermission",
+			"Enabled": true,
+			"SupportedTargetPlatforms": [
+				"Android"
+			]
+		},
+		{
+			"Name": "AndroidDeviceProfileSelector",
+			"Enabled": true,
+			"SupportedTargetPlatforms": [
+				"Android"
+			]
 		}
 	]
 }

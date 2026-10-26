@@ -35,8 +35,9 @@ namespace Weltall
 		uint8 DiscNumber;
 		const char* Title;
 		/**
-		 * The release's data patched, as a translation patches it: the executable's code is the release's byte for
-		 * byte, and only its file index (where each file lies, its size) and the boot notice's picture are its own.
+		 * A translation's copy of the release, which plays in its place: its data patched, and its executable's code the
+		 * release's byte for byte, only its file index (where each file lies, its size) and the boot notice's picture its
+		 * own; or a translation's own program Weltall knows (the French translation's).
 		 */
 		bool bPatched = false;
 	};
@@ -45,7 +46,7 @@ namespace Weltall
 	 * Recognizes a disc by its boot executable: the file name gives the disc, the file's hash gives
 	 * the exact release. Different rips of the same disc therefore match, whatever their other files.
 	 * A disc whose executable differs from the USA release's only where a patch of the game's data
-	 * rewrites it is that release, patched.
+	 * rewrites it is that release, patched; so is a French translation's disc.
 	 */
 	WELTALLCORE_API TResult<FDiscIdentity> IdentifyDisc(const FIso9660& Disc);
 

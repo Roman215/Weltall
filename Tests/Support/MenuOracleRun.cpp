@@ -20,6 +20,7 @@
 #include <algorithm>
 #include <filesystem>
 #include <optional>
+#include <string>
 #include <string_view>
 
 namespace Weltall::Testing
@@ -57,7 +58,7 @@ namespace Weltall::Testing
 			std::filesystem::path Path;
 			std::optional<FSaveStore> Store;
 
-			explicit FScenarioStores(const char* Name) : Path(std::filesystem::temp_directory_path() / (std::string("WeltallMenu_") + Name))
+			explicit FScenarioStores(const std::string& Name) : Path(std::filesystem::temp_directory_path() / ("WeltallMenu_" + Name))
 			{
 				std::error_code Error;
 				std::filesystem::remove_all(Path, Error);
@@ -141,7 +142,8 @@ namespace Weltall::Testing
 		std::optional<FScenarioStores> Stores;
 		if (Scenario.Cards)
 		{
-			Stores.emplace(Scenario.Name);
+			// A scenario runs on the USA's discs and the French translation's, at once under ctest: each its own folder.
+			Stores.emplace(std::string(Resources->IsFrench() ? "French_" : "") + Scenario.Name);
 			for (int32 Card = 0; Card < 2; ++Card)
 			{
 				for (const FMenuCardSave& Save : (*Scenario.Cards)[static_cast<std::size_t>(Card)])
@@ -213,6 +215,10 @@ namespace Weltall::Testing
 				}
 				std::erase_if(Uploads.Images, [](const FVramImage& Image) { return Image.Rect == SaveTitleImage; });
 				Run.Frames.push_back(MenuFrameDigest(Menu.Snapshot(), Sound.Frame, Uploads.Images, Gear));
+				if (Frame == Scenario.KeptFrame)
+				{
+					Run.KeptBytes = MenuFrameBytes(Menu.Snapshot(), Sound.Frame, Uploads.Images, Gear);
+				}
 				Run.RepeatedKeys += RepeatedBlendKeys(Menu.Snapshot());
 				for (const FMenuPrimitive& Primitive : Menu.Snapshot().Primitives)
 				{
@@ -254,6 +260,15 @@ namespace Weltall::Testing
 	void CheckMenuScenario(const FMenuScenario& Scenario, const char* ExpectedLeaves, const char* ExpectedFrames)
 	{
 		REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+		const FMenuRun Run = RunMenuScenario(*Disc, Scenario);
+		CHECK(JoinedDigests(Run.Frames) == ExpectedFrames);
+		CHECK(Run.Leaves == ExpectedLeaves);
+		CHECK(Run.RepeatedKeys == 0);
+	}
+
+	void CheckFrenchMenuScenario(const FMenuScenario& Scenario, const char* ExpectedLeaves, const char* ExpectedFrames)
+	{
+		REQUIRE_PATCHED_DISC(Disc, EDiscRelease::UsaDisc1);
 		const FMenuRun Run = RunMenuScenario(*Disc, Scenario);
 		CHECK(JoinedDigests(Run.Frames) == ExpectedFrames);
 		CHECK(Run.Leaves == ExpectedLeaves);

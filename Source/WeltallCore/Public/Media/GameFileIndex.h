@@ -53,11 +53,19 @@ namespace Weltall
 		/** The movie subtitles the supported undub keeps in the index's spare space; none on other discs. */
 		const FMovieSubtitleTable& MovieSubtitles() const { return Subtitles; }
 
+		/**
+		 * The record the French translation's kernel counts its own files from (file 1 itself): the base the undub keeps
+		 * in the index's spare space for the records it appends, so that each disc names its own, which the translation
+		 * follows with its logo and credits. None on other discs.
+		 */
+		std::optional<std::size_t> TranslationFilesStart() const { return TranslationStart; }
+
 	private:
 		std::vector<FIndexRecord> AllRecords;
 		/** 1-based record numbers; 0 and FFFFh mean no directory. */
 		std::array<uint16, DirectoryCount> DirectoryStarts{};
 		FMovieSubtitleTable Subtitles;
+		std::optional<std::size_t> TranslationStart;
 	};
 
 	/**

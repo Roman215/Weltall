@@ -14,6 +14,8 @@
 #include <algorithm>
 #include <array>
 #include <string_view>
+#include <utility>
+#include <vector>
 
 using namespace Weltall;
 
@@ -95,6 +97,104 @@ TEST_CASE("A menu's button picture stands for the controller's button the kernel
 	CHECK(MenuRoleButton(0x08) == EPadButton::R1);
 	CHECK(MenuIconSlotOf(0x04) == EMenuIconSlot::Hint);
 	CHECK(MenuIconSlotOf(0x20) == EMenuIconSlot::FaceButton);
+}
+
+TEST_CASE("A prompt set out as the four face buttons puts each button and its words where the player's button lies", "[Menu][Input]")
+{
+	// The attack prompt as the USA game draws it: the weak attack's triangle at the top, the strong's square at the left,
+	// the fierce's cross at the bottom and cancel's circle at the right, each with its words beside it.
+	struct FPlace
+	{
+		uint16 Role;
+		int16 X;
+		int16 Y;
+	};
+	constexpr std::array<FPlace, 4> Usa{{{0x80, 176, 96}, {0x10, 160, 112}, {0x20, 176, 128}, {0x40, 192, 112}}};
+	std::vector<FMenuPrimitive> Prompt;
+	for (const FPlace& Place : Usa)
+	{
+		FMenuPrimitive Button;
+		Button.Code = MenuGpu::TexturedQuad;
+		Button.ButtonRole = Place.Role;
+		Button.PromptRole = Place.Role;
+		for (std::size_t Corner = 0; Corner < Button.Corners.size(); ++Corner)
+		{
+			Button.Corners[Corner].X = static_cast<int16>(Place.X + (Corner & 1) * 12);
+			Button.Corners[Corner].Y = static_cast<int16>(Place.Y + (Corner >> 1) * 12);
+		}
+		FMenuPrimitive Words = Button;
+		Words.ButtonRole = 0;
+		for (FMenuCorner& Corner : Words.Corners)
+		{
+			Corner.X = static_cast<int16>(Corner.X + 14);
+		}
+		Prompt.push_back(Button);
+		Prompt.push_back(Words);
+	}
+	FMenuPrimitive Ring;
+	Ring.Code = MenuGpu::TexturedQuad;
+	Ring.Corners[0].X = 100;
+	Prompt.push_back(Ring);
+	const auto At = [](const std::vector<FMenuPrimitive>& Primitives, uint16 Role, bool bWords) {
+		const auto Found = std::find_if(Primitives.begin(), Primitives.end(),
+			[Role, bWords](const FMenuPrimitive& Primitive) { return Primitive.PromptRole == Role && (Primitive.ButtonRole == 0) == bWords; });
+		REQUIRE(Found != Primitives.end());
+		return std::pair{Found->Corners[0].X, Found->Corners[0].Y};
+	};
+	const auto Placed = [&](const IButtonGlyphs& Glyphs) {
+		FMenuButtonIcons Pictures;
+		std::vector<FMenuPrimitive> Shown = Prompt;
+		Pictures.PlacePrompt(Shown, Glyphs);
+		CHECK(Shown.back().Corners[0].X == 100);
+		return Shown;
+	};
+	// Each role at the USA place given, its words still 14 pixels to its right.
+	const auto Check = [&](const std::vector<FMenuPrimitive>& Shown, std::array<int32, 4> Places) {
+		for (std::size_t Role = 0; Role < Usa.size(); ++Role)
+		{
+			const FPlace& Place = Usa[static_cast<std::size_t>(Places[Role])];
+			INFO("role " << Usa[Role].Role);
+			CHECK(At(Shown, Usa[Role].Role, false) == std::pair{Place.X, Place.Y});
+			CHECK(At(Shown, Usa[Role].Role, true) == std::pair{static_cast<int16>(Place.X + 14), Place.Y});
+		}
+	};
+	constexpr std::array<int32, 4> AsDrawn{0, 1, 2, 3};
+
+	FBindingGlyphs Original;
+	Original.Bindings.bOriginalButtonIcons = true;
+	Check(Placed(Original), AsDrawn);
+	// Circle confirms: the fierce attack's circle at the right, cancel's cross at the bottom.
+	Original.Bindings.ChangeButtonLayout(EButtonLayout::CircleConfirms);
+	++Original.Changes;
+	Check(Placed(Original), {0, 1, 3, 2});
+	// Japan: also the weak attack's square at the left and the strong's triangle at the top, as the Japanese release.
+	Original.Bindings.ChangeButtonLayout(EButtonLayout::Japan);
+	++Original.Changes;
+	Check(Placed(Original), {1, 0, 3, 2});
+
+	// An Xbox pad bound as the Japanese layout binds it: the same places, by where its letters lie.
+	Testing::FBoundGlyphs Xbox(EButtonIconSet::Xbox);
+	Xbox.Bind({{EPadButton::Triangle, "X"}, {EPadButton::Square, "Y"}, {EPadButton::Cross, "B"}, {EPadButton::Circle, "A"}});
+	Check(Placed(Xbox), {1, 0, 3, 2});
+	// Two buttons on one place, or a key: the game's places.
+	Xbox.Bind({{EPadButton::Triangle, "Y"}, {EPadButton::Square, "X"}, {EPadButton::Cross, "A"}, {EPadButton::Circle, "A"}});
+	Check(Placed(Xbox), AsDrawn);
+	FBindingGlyphs Keyboard;
+	Keyboard.Bindings.ChangeButtonLayout(EButtonLayout::Japan);
+	Check(Placed(Keyboard), AsDrawn);
+
+	// Cancel's words as long as "cancel end": at the bottom they fit, but at the left they would cover the right button.
+	for (FMenuPrimitive& Words : Prompt)
+	{
+		if (Words.PromptRole == 0x40 && Words.ButtonRole == 0)
+		{
+			Words.Corners[1].X = static_cast<int16>(Words.Corners[1].X + 30);
+			Words.Corners[3].X = static_cast<int16>(Words.Corners[3].X + 30);
+		}
+	}
+	Check(Placed(Original), {1, 0, 3, 2});
+	Xbox.Bind({{EPadButton::Triangle, "Y"}, {EPadButton::Square, "B"}, {EPadButton::Cross, "A"}, {EPadButton::Circle, "X"}});
+	Check(Placed(Xbox), AsDrawn);
 }
 
 TEST_CASE("The port's button pictures fill the menus' slots, a key widened to its label", "[Menu]")

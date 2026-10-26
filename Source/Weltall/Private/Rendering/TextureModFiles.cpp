@@ -22,7 +22,7 @@ namespace
 		return Key ? TOptional<uint64>(*Key) : TOptional<uint64>();
 	}
 
-	/** Every file of the pattern below the folder but the originals, in a fixed order. */
+	/** Every file of the pattern below the folder but the originals and those hidden or in a hidden folder (Weltall::IsHiddenFile), in a fixed order. */
 	TArray<FString> FilesBelow(const FString& Folder, const TCHAR* Originals, const TCHAR* Pattern)
 	{
 		TArray<FString> Files;
@@ -37,6 +37,7 @@ namespace
 			IFileManager::Get().FindFilesRecursive(Inside, *(Folder / Inner), Pattern, true, false);
 			Files.Append(Inside);
 		}
+		Files.RemoveAll([&Folder](const FString& File) { return (TEXT("/") + File.RightChop(Folder.Len())).Contains(TEXT("/.")); });
 		Files.Sort();
 		return Files;
 	}

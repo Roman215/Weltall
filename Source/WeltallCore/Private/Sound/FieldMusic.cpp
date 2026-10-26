@@ -145,6 +145,14 @@ namespace Weltall
 		StopWith(Locked.Driver());
 	}
 
+	TResult<bool> FFieldMusic::PlayAnew(int32 Song)
+	{
+		Stop();
+		CurrentSong = Song;
+		bLoading = true;
+		return Load(Song);
+	}
+
 	TResult<bool> FFieldMusic::RestoreBattleThemes()
 	{
 		if (!bBattleThemesEvicted)

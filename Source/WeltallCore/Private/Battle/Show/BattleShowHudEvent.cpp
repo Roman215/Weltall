@@ -104,10 +104,31 @@ namespace Weltall
 	{
 		const FBattleEventWork& Event = Battle->Event;
 		ListCursor.Count = DrawSheet(ArrowFrames + Event.ArrowFrame, ListCursor.Parts, 0, Event.ArrowX, Event.ArrowY, FullScale);
-		// The cursor points right; its first part's second and third corners change places, which turns it to point down.
 		FMenuPrimitive& First = ListCursor.Parts[0][Buffer];
-		std::swap(First.Corners[1].X, First.Corners[2].X);
-		std::swap(First.Corners[1].Y, First.Corners[2].Y);
+		if (Event.Layout == EBattleMessageLayout::French)
+		{
+			// The French translation's: the cursor's picture laid on a quad of its own, 11 by 8 from its first corner, which
+			// points it down, each corner reading a row higher (the second and fourth the first's and third's).
+			std::array<FMenuCorner, 4>& Corners = First.Corners;
+			const int16 X = Corners[0].X;
+			const int16 Y = Corners[0].Y;
+			const uint8 TopV = static_cast<uint8>(Corners[0].V - 1);
+			const uint8 BottomV = static_cast<uint8>(Corners[2].V - 1);
+			const std::array<std::array<int16, 2>, 4> Places{{{static_cast<int16>(X + 11), Y}, {static_cast<int16>(X + 11), static_cast<int16>(Y + 8)},
+				{X, Y}, {X, static_cast<int16>(Y + 8)}}};
+			for (std::size_t Corner = 0; Corner < Corners.size(); ++Corner)
+			{
+				Corners[Corner].X = Places[Corner][0];
+				Corners[Corner].Y = Places[Corner][1];
+				Corners[Corner].V = Corner < 2 ? TopV : BottomV;
+			}
+		}
+		else
+		{
+			// The cursor points right; its first part's second and third corners change places, which turns it to point down.
+			std::swap(First.Corners[1].X, First.Corners[2].X);
+			std::swap(First.Corners[1].Y, First.Corners[2].Y);
+		}
 		ListCursor.Buffer = Buffer;
 		ListCursor.bShown = true;
 	}
@@ -137,13 +158,14 @@ namespace Weltall
 			return;
 		}
 		const std::size_t FirstLinked = Drawing->Primitives.size();
-		const auto LinkLines = [this, &Window, FirstLinked](bool bSecondPage)
+		const int32 Unit = Text.Font != nullptr ? Text.Font->UnitPixels() : 4;
+		const auto LinkLines = [this, &Window, FirstLinked, Unit](bool bSecondPage)
 		{
 			for (int32 Row = 0; Row < Window.Lines(); ++Row)
 			{
 				const FMesWindow::FLine& Line = Window.Row(Row);
-				const int32 Units = bSecondPage ? Line.WidthUnits - PageUnits : Line.WidthUnits;
-				if (Units <= 0)
+				const int32 Pixels = Line.WidthUnits * Unit - (bSecondPage ? PagePixels : 0);
+				if (Pixels <= 0)
 				{
 					continue;
 				}
@@ -154,7 +176,7 @@ namespace Weltall
 				Sprite.Corners[0].U = static_cast<uint8>((TextVramX & 0x3F) * 4);
 				Sprite.Corners[0].V = static_cast<uint8>(TextVramY + Line.Strip / 2 * TextRows);
 				Sprite.Clut = (Line.Strip & 1) != 0 ? OddTextClut : EvenTextClut;
-				Sprite.Width = static_cast<int16>(bSecondPage ? Units * 4 : std::min<int32>(Units * 4, PagePixels));
+				Sprite.Width = static_cast<int16>(bSecondPage ? Pixels : std::min<int32>(Pixels, PagePixels));
 				Sprite.Height = TextRows;
 				Link(Sprite);
 				const std::size_t Linked = Drawing->Primitives.size() - 1;

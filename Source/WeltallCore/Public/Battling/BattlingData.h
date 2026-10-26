@@ -46,6 +46,74 @@ namespace Weltall
 		uint8 Next = 0xFF;
 	};
 
+	/**
+	 * What Battling's labels and menus print: the program's own strings, read where its code and its tables point (a
+	 * translation's words, a mod's), the game's when nothing was read. The formats are the program's printf strings
+	 * (FormatBattlingText).
+	 */
+	struct FBattlingTexts
+	{
+		static constexpr int32 MenuCount = 8;
+		static constexpr int32 PracticeStyleCount = 14;
+
+		/** The winner screen's headings, its score's format (wins, rounds, the opponent's name) and its time's. */
+		std::string Winner = "WINNER";
+		std::string Level = "LEVEL";
+		std::string Matches = "MATCHES";
+		std::string Time = "TIME";
+		std::string ScoreFormat = "%d/%d VS %s";
+		std::string TimeFormat = "%02d'%02d''%02d";
+		/** A round's start and end. */
+		std::string Ready = "READY";
+		std::string Fight = "FIGHT!!";
+		std::string Practice = "PRACTICE";
+		std::string Start = "START";
+		std::string RoundFormat = "ROUND %d";
+		std::string RubberBandBattle = "RUBBER BAND BATTLE";
+		std::string RubberBandMode = "RUBBER BAND MODE";
+		std::string KnockOut = "KNOCK OUT!!";
+		std::string DrawGame = "DRAW GAME";
+		std::string Replay = "REPLAY";
+		/** The set's end, by who won; the defeat's second line names the winner. */
+		std::string YouWereVictorious = "YOU WERE VICTORIOUS";
+		std::string YouWereDefeated = "YOU WERE DEFEATED";
+		std::string ByFormat = "     BY %s";
+		std::string PlayerOneVictory = "1PLAYER VICTORY";
+		std::string PlayerTwoVictory = "2PLAYER VICTORY";
+		std::string ComputerOneVictory = "COM1 VICTORY";
+		std::string ComputerTwoVictory = "COM2 VICTORY";
+		/** Practice's info: the move's name by chain state (none before any), its strength's format and its frames'. */
+		std::array<std::string, BattlingGears::ChainStates> MoveNames{
+			"", "A", "B", "AA", "AB", "BA", "BB", "AAA", "AAB", "ABA", "ABB", "BAA", "BAB", "BBA", "BBB"};
+		std::string StrengthFormat = "STR:%d";
+		std::string FramesFormat = "FRAME:%d-%d";
+		/** The menus' values: the computer's levels, practice's styles and frame rate, the matches' no-limit (the font's infinity), on and off. */
+		std::array<std::string, 3> LevelNames{"EASY", "NORMAL", "HARD"};
+		std::array<std::string, PracticeStyleCount> PracticeStyles{"BYSTANDER", "ON GUARD", "CONTROLLER2", "UP AND AT'EM", "SLOWPOKE",
+			"MAGIC FIRER ", "MAGIC JUMPER", "KANGAROO", "GIVE CHASE", "RUN AWAY", "BACK DASH", "EASY BATTLE", "NORMAL BATTLE", "HARD BATTLE"};
+		std::string FrameRateFormat = "%dFPS";
+		std::string NoLimit = "#";
+		std::string On = "ON";
+		std::string Off = "OFF";
+		std::string VibrationOn = "VIBRATION ON";
+		std::string VibrationOff = "VIBRATION OFF";
+		/** Between the two gears' names as they are chosen. */
+		std::string Versus = "VS";
+		/** Each menu's items' labels, by the menu's number. */
+		std::array<std::vector<std::string>, MenuCount> MenuLabels{{
+			{"CONTINUE BOUT", "GIVE UP"},
+			{"GAME LEVEL", "MOTION SPEED", "FRAME RATE", "GEAR 1", "GEAR 2"},
+			{"YES", "NO"},
+			{"BONUS BATTLING", "", "PRACTICE", "TUTORIAL", "EXIT"},
+			{"PLAYER1 VS COM", "PLAYER1 VS PLAYER2", "COM VS COM", "", "NUM OF MATCHES", "COM LEVEL", "RUBBER BAND"},
+			{"", ""},
+			{"", ""},
+			{"RETURN TO PRACTICE", "AI", "FRAME RATE", "EXIT PRACTICE MODE"},
+		}};
+
+		bool operator==(const FBattlingTexts&) const = default;
+	};
+
 	/** A letter of Battling's label font: its texels' corner in the font's page and its size. */
 	struct FBattlingGlyph
 	{
@@ -120,8 +188,7 @@ namespace Weltall
 		std::array<FBattlingGlyph, GlyphCount> FontGlyphs{};
 		/** Each gear's name as the labels print it, by the gear's number. */
 		std::array<std::string, BattlingGears::Count> GearNames;
-		/** What the labels print as a round is won: the program's own string, which a mod may have changed. */
-		std::string KnockOutLabel;
+		FBattlingTexts Texts;
 
 		WELTALLCORE_API const FBattlingSoundSet& SoundSetOf(int32 Gear) const;
 

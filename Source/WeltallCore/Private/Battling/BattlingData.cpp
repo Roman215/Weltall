@@ -11,6 +11,7 @@
 #include "Text/MessageTableIds.h"
 
 #include <algorithm>
+#include <optional>
 
 #include <string>
 
@@ -44,7 +45,6 @@ namespace Weltall
 			std::size_t FontGlyphs;
 			std::size_t Roster;
 			std::size_t ElFenrirPart;
-			std::size_t KnockOutLabel;
 			uint32 DpadX;
 			uint32 DpadY;
 		};
@@ -55,9 +55,9 @@ namespace Weltall
 		using BattlingFiles::ReadPacked;
 		constexpr std::array<FBattlingTablesLayout, 2> Layouts{{
 			{EDiscRelease::UsaDisc1, 13, 0x21640, 0x21688, 0x21604, 0x223F0, 0x22470, 0x22480, 0x22490, 0x224A0, 0x224B0, 0x21738, 0x22AB4, 0x21448, 0x21600, 0x2156C, 0x21594, 0x215D4,
-				0x21740, 0x21E74, 0x224C0, 0x158, 0x8005020C, 0x8005021C},
+				0x21740, 0x21E74, 0x224C0, 0x8005020C, 0x8005021C},
 			{EDiscRelease::UsaDisc2, 13, 0x21640, 0x21688, 0x21604, 0x223F0, 0x22470, 0x22480, 0x22490, 0x224A0, 0x224B0, 0x21738, 0x22AB4, 0x21448, 0x21600, 0x2156C, 0x21594, 0x215D4,
-				0x21740, 0x21E74, 0x224C0, 0x158, 0x8005020C, 0x8005021C},
+				0x21740, 0x21E74, 0x224C0, 0x8005020C, 0x8005021C},
 		}};
 
 		/** The gears whose sound sets are their own. */
@@ -75,6 +75,176 @@ namespace Weltall
 		constexpr uint32 MessagesEntry = 1;
 		/** Where the program is loaded, which its pointers to its scripts count from. */
 		constexpr uint32 ProgramAddress = 0x8006FAF0;
+
+		/** A label the code prints: where its code builds the string's address (the lui; an addiu or ori follows). */
+		struct FCodeText
+		{
+			std::string FBattlingTexts::*Text;
+			uint32 Lui;
+		};
+		constexpr std::array<FCodeText, 32> CodeTexts{{
+			{&FBattlingTexts::Winner, 0x800729EC},
+			{&FBattlingTexts::Level, 0x80072A18},
+			{&FBattlingTexts::Matches, 0x80072A28},
+			{&FBattlingTexts::Time, 0x80072A38},
+			{&FBattlingTexts::ScoreFormat, 0x80072AF4},
+			{&FBattlingTexts::TimeFormat, 0x80083D98},
+			{&FBattlingTexts::Ready, 0x800755BC},
+			{&FBattlingTexts::Fight, 0x80075524},
+			{&FBattlingTexts::Practice, 0x800755F4},
+			{&FBattlingTexts::Start, 0x80075578},
+			{&FBattlingTexts::RoundFormat, 0x80075640},
+			{&FBattlingTexts::RubberBandBattle, 0x80075680},
+			{&FBattlingTexts::RubberBandMode, 0x800755AC},
+			{&FBattlingTexts::KnockOut, 0x80075324},
+			{&FBattlingTexts::DrawGame, 0x8007530C},
+			{&FBattlingTexts::Replay, 0x8007A450},
+			{&FBattlingTexts::YouWereVictorious, 0x8007AFDC},
+			{&FBattlingTexts::YouWereDefeated, 0x8007B054},
+			{&FBattlingTexts::ByFormat, 0x8007B084},
+			{&FBattlingTexts::PlayerOneVictory, 0x8007AFEC},
+			{&FBattlingTexts::PlayerTwoVictory, 0x8007B09C},
+			{&FBattlingTexts::ComputerOneVictory, 0x8007AFFC},
+			{&FBattlingTexts::ComputerTwoVictory, 0x8007B0AC},
+			{&FBattlingTexts::StrengthFormat, 0x80076738},
+			{&FBattlingTexts::FramesFormat, 0x80076764},
+			{&FBattlingTexts::FrameRateFormat, 0x8007FA6C},
+			{&FBattlingTexts::NoLimit, 0x8007FEDC},
+			{&FBattlingTexts::On, 0x8007FF40},
+			{&FBattlingTexts::Off, 0x8007FF30},
+			{&FBattlingTexts::VibrationOn, 0x8007FCB4},
+			{&FBattlingTexts::VibrationOff, 0x8007FCA0},
+			{&FBattlingTexts::Versus, 0x8007F6D4},
+		}};
+		/** The tables of strings: the moves' names by chain state, the computer's levels, practice's styles. */
+		constexpr uint32 MoveNamesTable = 0x80091198;
+		constexpr uint32 LevelNamesTable = 0x800912F4;
+		constexpr uint32 PracticeStylesTable = 0x8009132C;
+		/** The menus (0x3C bytes each: +4 their items, +8 the count) and their items (0x14 bytes: +4 the label). */
+		constexpr uint32 MenusTable = 0x800915AC;
+		constexpr uint32 MenuSize = 0x3C;
+		constexpr uint32 ItemSize = 0x14;
+		/** How far after its lui the code looks for the instruction that finishes an address. */
+		constexpr uint32 AddressReach = 8;
+
+		/** The program's word at an address, or none past it. */
+		std::optional<uint32> ProgramWord(std::span<const uint8> Program, uint32 Address)
+		{
+			const uint32 Offset = Address - ProgramAddress;
+			if (Address < ProgramAddress || Program.size() < 4 || Offset > Program.size() - 4)
+			{
+				return std::nullopt;
+			}
+			return ReadU32(Program, Offset);
+		}
+
+		/** The address a lui and the first addiu or ori after it on the same register make, or none. */
+		std::optional<uint32> CodeAddress(std::span<const uint8> Program, uint32 Lui)
+		{
+			const std::optional<uint32> High = ProgramWord(Program, Lui);
+			if (!High || *High >> 26 != 0x0F)
+			{
+				return std::nullopt;
+			}
+			const uint32 Register = *High >> 16 & 31;
+			for (uint32 Step = 1; Step <= AddressReach; ++Step)
+			{
+				const std::optional<uint32> Word = ProgramWord(Program, Lui + 4 * Step);
+				if (!Word)
+				{
+					return std::nullopt;
+				}
+				const uint32 Op = *Word >> 26;
+				if ((Op == 0x09 || Op == 0x0D) && (*Word >> 21 & 31) == Register)
+				{
+					const uint32 Low = *Word & 0xFFFF;
+					return (*High << 16) + (Op == 0x09 ? static_cast<uint32>(static_cast<int32>(static_cast<int16>(Low))) : Low);
+				}
+			}
+			return std::nullopt;
+		}
+
+		/** The string at an address of the program; address 0, where a table holds none, the empty string the original finds there. */
+		std::optional<std::string> ProgramString(std::span<const uint8> Program, uint32 Address)
+		{
+			if (Address == 0)
+			{
+				return std::string();
+			}
+			const uint32 Offset = Address - ProgramAddress;
+			if (Address < ProgramAddress || Offset >= Program.size())
+			{
+				return std::nullopt;
+			}
+			const auto First = Program.begin() + static_cast<std::ptrdiff_t>(Offset);
+			const auto End = std::find(First, Program.end(), uint8{0});
+			if (End == Program.end())
+			{
+				return std::nullopt;
+			}
+			return std::string(First, End);
+		}
+
+		/** The strings a table of pointers points at, one each. */
+		bool ReadStringTable(std::span<const uint8> Program, uint32 Table, std::span<std::string> Into)
+		{
+			for (std::size_t Entry = 0; Entry < Into.size(); ++Entry)
+			{
+				const std::optional<uint32> Pointer = ProgramWord(Program, Table + static_cast<uint32>(4 * Entry));
+				std::optional<std::string> Text = Pointer ? ProgramString(Program, *Pointer) : std::nullopt;
+				if (!Text)
+				{
+					return false;
+				}
+				Into[Entry] = std::move(*Text);
+			}
+			return true;
+		}
+
+		/** Every label and menu text the program prints, where its code and tables point. */
+		TResult<FBattlingTexts> ReadTexts(std::span<const uint8> Program)
+		{
+			FBattlingTexts Texts;
+			for (const FCodeText& Code : CodeTexts)
+			{
+				const std::optional<uint32> Address = CodeAddress(Program, Code.Lui);
+				std::optional<std::string> Text = Address ? ProgramString(Program, *Address) : std::nullopt;
+				if (!Text)
+				{
+					return MakeError("a label of the Battling program's code does not point at a string");
+				}
+				Texts.*Code.Text = std::move(*Text);
+			}
+			// The moves' first name (before any move) is an empty string other labels share, into which the French
+			// translation's longer start label runs: it stays empty.
+			if (!ReadStringTable(Program, MoveNamesTable + 4, std::span<std::string>(Texts.MoveNames).subspan(1))
+				|| !ReadStringTable(Program, LevelNamesTable, Texts.LevelNames)
+				|| !ReadStringTable(Program, PracticeStylesTable, Texts.PracticeStyles))
+			{
+				return MakeError("the Battling program's tables of names point past it");
+			}
+			for (uint32 Menu = 0; Menu < FBattlingTexts::MenuCount; ++Menu)
+			{
+				const std::optional<uint32> Items = ProgramWord(Program, MenusTable + MenuSize * Menu + 4);
+				const std::optional<uint32> Count = ProgramWord(Program, MenusTable + MenuSize * Menu + 8);
+				std::vector<std::string>& Labels = Texts.MenuLabels[Menu];
+				if (!Items || !Count || (*Count & 0xFFFF) != Labels.size())
+				{
+					return MakeError("the Battling program's menu " + std::to_string(Menu) + " is not the game's");
+				}
+				for (uint32 Item = 0; Item < Labels.size(); ++Item)
+				{
+					const std::optional<uint32> Label = ProgramWord(Program, *Items + ItemSize * Item + 4);
+					std::optional<std::string> Text = Label ? ProgramString(Program, *Label) : std::nullopt;
+					if (!Text)
+					{
+						return MakeError("the Battling program's menu " + std::to_string(Menu) + " has a label past it");
+					}
+					Labels[Item] = std::move(*Text);
+				}
+			}
+			return Texts;
+		}
 
 		const FBattlingTablesLayout* FindLayout(EDiscRelease Release)
 		{
@@ -358,8 +528,12 @@ namespace Weltall
 			const auto First = Program.begin() + static_cast<std::ptrdiff_t>(Name);
 			Tables.GearNames[Gear].assign(First, std::find(First, Program.end(), uint8{0}));
 		}
-		const auto Label = Program.begin() + static_cast<std::ptrdiff_t>(Layout->KnockOutLabel);
-		Tables.KnockOutLabel.assign(Label, std::find(Label, Program.end(), uint8{0}));
+		TResult<FBattlingTexts> Texts = ReadTexts(Program);
+		if (!Texts)
+		{
+			return Texts.Error();
+		}
+		Tables.Texts = std::move(*Texts);
 		if (!Executable.Contains(Layout->DpadX, 16) || !Executable.Contains(Layout->DpadY, 16))
 		{
 			return MakeError("the executable lacks the kernel's d-pad tables");

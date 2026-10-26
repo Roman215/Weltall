@@ -6,8 +6,17 @@ namespace Weltall
 {
 	namespace
 	{
-		/** A line ended by 01 moves the cursor past any width, so the next step starts a new line. */
+		/**
+		 * A line ended by 01 moves the cursor past any width, so the next step starts a new line; a variable-width font's
+		 * program counts the cursor in pixels, and moves it further.
+		 */
 		constexpr int16 LineEndX = 100;
+		constexpr int16 VariableWidthLineEndX = 0x400;
+
+		bool IsVariableWidth(const FMesContext& Context)
+		{
+			return Context.Font != nullptr && Context.Font->IsVariableWidth();
+		}
 
 		/** Kernel name tables the inserts read. */
 		constexpr int32 ArmorTable = 17;
@@ -411,7 +420,9 @@ namespace Weltall
 
 	void FMesWindow::Step(FMesContext& Context)
 	{
-		if (X > Width)
+		// A variable-width font's cursor counts pixels against the window's width in units of 4.
+		const bool bVariableWidth = IsVariableWidth(Context);
+		if (X > (bVariableWidth ? Width * 4 : Width))
 		{
 			StartNewLine();
 		}
@@ -462,7 +473,7 @@ namespace Weltall
 			}
 			if (Code == 0x01)
 			{
-				X = LineEndX;
+				X = bVariableWidth ? VariableWidthLineEndX : LineEndX;
 				++Position;
 				return;
 			}
@@ -470,22 +481,25 @@ namespace Weltall
 			{
 				const bool bTwoBytes = Context.Font != nullptr && Code >= Context.Font->LeadByte();
 				const FMesCode Glyph = bTwoBytes ? FMesCode{Code, Peek(1)} : FMesCode{0, Code};
-				const int16 GlyphWidth = static_cast<int16>(Context.Font != nullptr ? Context.Font->WidthUnits(Glyph) : 3);
-				if (X + GlyphWidth > Width)
+				const int16 GlyphWidth = bVariableWidth && Context.bFixedAdvance ? static_cast<int16>(bTwoBytes ? 7 : 8)
+					: static_cast<int16>(Context.Font != nullptr ? Context.Font->WidthUnits(Glyph) : 3);
+				if (!bVariableWidth && X + GlyphWidth > Width)
 				{
-					// The glyph goes to the next line, which the next step starts.
+					// The glyph goes to the next line, which the next step starts (a variable-width font's program types it
+					// on: only the text's own line ends break its lines).
 					X = static_cast<int16>(X + GlyphWidth);
 					return;
 				}
 				FLine& Entry = Entries[static_cast<std::size_t>(Line)];
-				Entry.Glyphs.push_back({Glyph, X});
+				const uint8 Left = static_cast<uint8>(std::clamp(Budget, 0, 0xFF));
+				Entry.Glyphs.push_back({Glyph, X, Left});
 				// Lines typed one after the other never share a strip.
 				if (TypedOn.empty() || TypedOn.back().Strip != Entry.Strip)
 				{
 					TypedOn.push_back({static_cast<int32>(Typed.size()), 0, Entry.Strip});
 				}
 				++TypedOn.back().Count;
-				Typed.push_back({Glyph, X});
+				Typed.push_back({Glyph, X, Left});
 				X = static_cast<int16>(X + GlyphWidth);
 				Entry.WidthUnits = X;
 				Position += bTwoBytes ? 2 : 1;

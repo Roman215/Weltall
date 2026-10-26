@@ -8,6 +8,7 @@
 #include "Menu/MenuModule.h"
 #include "Menu/MenuPrimitive.h"
 #include "Menu/MenuControlsPage.h"
+#include "Menu/MenuModFiles.h"
 #include "Menu/MenuSavePages.h"
 #include "Menu/MenuSettingsPages.h"
 #include "Menu/MenuProgram.h"
@@ -235,12 +236,20 @@ namespace Weltall
 		bool OnSavesPages() const;
 		/** The Modding page, the last L1 and R1 turn to, whether or not it has opened the Assets page. */
 		bool OnModdingTurned() const;
-		/** The rows the screen adds under the Modding page's own: the mods' heading, the Assets page's row and each mod's, those the menu has. */
+		/**
+		 * The rows the screen adds under the Modding page's own: the mods' heading, the Assets page's row (External
+		 * assets itself where the device's files go through its picker) and each mod's, those the menu has; then the
+		 * device's rows.
+		 */
 		void AddModdingRows();
-		/** Left or Right on one of those rows: a mod's switched on or off; false on the others. */
+		/** Left or Right on one of those rows: a mod's or External assets switched on or off; false on the others. */
 		bool StepModdingRow();
-		/** Confirm on one of those rows: the Assets page or the mod's page opened from it; false on the heading. */
+		/** Confirm on one of those rows: the Assets page or the mod's page opened from it, External assets switched, a device's row's action; false on a heading. */
 		bool ActivateModdingRow();
+		/** Where the device's rows start on the Modding page. */
+		int32 ModFilesRow() const;
+		/** Follows the device's transfer on the Modding page, the cursor kept on its row as rows above it come and go: true when the rows changed. */
+		bool RefreshModFiles();
 		/** The Assets page, opened from the Modding page. */
 		bool OnAssetsPage() const;
 		void FillAssetRows();
@@ -301,6 +310,12 @@ namespace Weltall
 		TMenuTask<> ShowMessage(uint8 FirstText);
 		/** The buzzer, and under a disc prompt's message (texts FirstText on) the port's line that the disc is not where the game looks. */
 		void SayDiscNotFound(uint8 FirstText);
+		/**
+		 * Where the player's files come in through the device's file picker: the disc missing at a disc prompt is picked
+		 * there and then, the copy's progress told under the message (texts FirstText on) until it ends; true once the
+		 * disc is there.
+		 */
+		TMenuTask<bool> AddDiscThroughPicker(int32 Disc, uint8 FirstText);
 		TMenuTask<> CloseMessage();
 		void DrawDiscChange();
 		/**
@@ -380,6 +395,8 @@ namespace Weltall
 		void BuildTimeAndNumber(std::span<const uint8> Data);
 		void InitDetailsBand();
 		void RenderFileTitle(int32 File);
+		/** The French translation's: the save's chapter title in its own words, rendered with the message font. */
+		void RenderFrenchFileTitle(int32 File);
 		void ClearFileTitle();
 		void DrawFileDetails();
 
@@ -473,6 +490,10 @@ namespace Weltall
 			int32 Top = 0;
 			std::unique_ptr<FMenuSavePages> SavePages;
 			std::unique_ptr<FMenuControlsPage> ControlsPage;
+			/** The Modding page's rows for the device's mods, where its files go through its picker. */
+			std::unique_ptr<FMenuModFiles> ModFiles;
+			/** Where the device's rows started as the Modding page's rows were last filled. */
+			int32 ModFilesShownAt = 0;
 			uint64 AssetRevision = 0;
 			/** The Assets page is open over the Modding page, from the row OpenedFrom. */
 			bool bAssetsOpened = false;
@@ -497,6 +518,7 @@ namespace Weltall
 		bool bGameLoaded = false;
 		/** The save's place name, typed into the image the details show it from. */
 		FVramImage TitleImage;
+		FMesWindow FrenchTitleTyping{0x3C, 1};
 		FVramImage DetailNameImage;
 		/** A list's description, typed alone into a wider strip. */
 		FVramImage HelpImage;

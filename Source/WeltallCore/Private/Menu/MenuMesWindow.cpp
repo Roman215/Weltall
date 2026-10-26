@@ -52,6 +52,7 @@ namespace Weltall
 			Box.Height = static_cast<int16>(Window.DrawnLines() * LineSpacing + BoxExtraHeight);
 		}
 		const std::array<uint8, 3>& Colour = Window.HighlightColor();
+		const int32 Unit = Buttons.Font != nullptr ? Buttons.Font->UnitPixels() : 4;
 		const bool bButtons = Buttons.Finder != nullptr && Buttons.Cells != nullptr;
 		const std::size_t FirstCell = bButtons ? Buttons.Cells->size() : 0;
 		// Each page's rows, linked top down, so drawn from the bottom up.
@@ -59,8 +60,8 @@ namespace Weltall
 			for (int32 Row = Window.DrawnLines() - 1; Row >= 0; --Row)
 			{
 				const FMesWindow::FLine& Line = Window.Row(Row);
-				const int32 Units = Line.WidthUnits - Page * PageUnits;
-				if (Units <= 0)
+				const int32 Pixels = Line.WidthUnits * Unit - Page * PagePixels;
+				if (Pixels <= 0)
 				{
 					continue;
 				}
@@ -72,7 +73,7 @@ namespace Weltall
 				Sprite.Corners[0].V = static_cast<uint8>(Place.VramY + Line.Strip / 2 * TextRows);
 				Sprite.Corners[0].Color = {Colour[0], Colour[1], Colour[2]};
 				Sprite.Clut = (Line.Strip & 1) != 0 ? Place.OddClut : Place.EvenClut;
-				Sprite.Width = static_cast<int16>(std::min(Units * 4, PagePixels));
+				Sprite.Width = static_cast<int16>(std::min(Pixels, PagePixels));
 				Sprite.Height = TextRows;
 				if (!bButtons)
 				{

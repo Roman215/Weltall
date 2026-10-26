@@ -2,6 +2,7 @@
 #include "Media/PsxExecutable.h"
 #include "Menu/MenuPlay.h"
 #include "Menu/MenuAssetPages.h"
+#include "Menu/MenuDeviceFiles.h"
 #include "Support/GameDiscs.h"
 #include "Support/PressedKeys.h"
 
@@ -28,14 +29,18 @@ namespace
 		void Keep() override { Kept.push_back(Current); }
 		FDisplayModes DisplayModes() const override { return Display; }
 		IMenuAssets* Assets() const override { return AssetExport; }
+		IMenuDeviceFiles* DeviceFiles() const override { return Files; }
 		FMenuMods Mods() const override { return Found; }
+		FSoundSources SoundSources() const override { return Sources; }
 
 		FPlayerSettings Current;
 		FDisplayModes Display;
 		int32 Changes = 0;
 		std::vector<FPlayerSettings> Kept;
 		IMenuAssets* AssetExport = nullptr;
+		IMenuDeviceFiles* Files = nullptr;
 		FMenuMods Found;
+		FSoundSources Sources;
 	};
 
 	FPadState Holding(EPadButton Button)
@@ -208,6 +213,105 @@ TEST_CASE("A mod found has a row on the Modding page that switches it and opens 
 	CHECK_FALSE(Settings.Kept.front().PerfectWorks.bScript);
 }
 
+TEST_CASE("On a device, the Modding page has External assets in the Assets row's place, then the device's mods, the cursor kept as rows come above", "[Menu][Content][Mods]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const auto Executable = ReadBootExecutable(*Disc);
+	REQUIRE(Executable);
+	class FNoExports final : public IMenuAssets
+	{
+	public:
+		FMenuAssetProgress Progress() const override { return {}; }
+		bool StartExport(EAssetExportKind) override { return false; }
+		void CancelExport() override {}
+	} Exports;
+	class FDevice final : public IMenuDeviceFiles
+	{
+	public:
+		FTransferStatus Shown;
+		std::vector<EDeviceTransfer> Started;
+		std::vector<std::filesystem::path> Removed;
+		FTransferStatus Status() const override { return Shown; }
+		bool Start(EDeviceTransfer Kind, const std::filesystem::path& = {}) override
+		{
+			Started.push_back(Kind);
+			Shown.Kind = Kind;
+			Shown.State = ETransferState::Picking;
+			++Shown.Revision;
+			return true;
+		}
+		std::vector<FModItem> Mods() const override
+		{
+			FModItem Pack;
+			Pack.Kind = EModItemKind::Textures;
+			Pack.Path = "Assets/textures/HD";
+			Pack.Name = "HD";
+			return {Pack};
+		}
+		EModRemoval RemoveMod(const std::filesystem::path& Path) override
+		{
+			Removed.push_back(Path);
+			return EModRemoval::Removed;
+		}
+	} Device;
+	FRecordedSettings Settings;
+	Settings.AssetExport = &Exports;
+	Settings.Files = &Device;
+	auto Play = FMenuPlay::NewGame(Disc->Image(), *Executable, 1, {EMenuMode::LoadGame, 0, false}, nullptr, &Settings);
+	REQUIRE(Play);
+	FMenuPlay& Menu = **Play;
+	Wait(Menu, 30);
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Cross, 40);
+	// L1 to Modding; past the balance rows and the mods' heading to External assets, which Right and Confirm switch.
+	Press(Menu, EPadButton::L1);
+	for (int32 Row = 0; Row < 3; ++Row)
+	{
+		Press(Menu, EPadButton::Down);
+	}
+	Press(Menu, EPadButton::Right);
+	CHECK(Settings.Current.bExternalAssets);
+	Press(Menu, EPadButton::Cross);
+	CHECK_FALSE(Settings.Current.bExternalAssets);
+	// Down past the device's heading to Add from a zip.
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Cross);
+	CHECK(Device.Started == std::vector<EDeviceTransfer>{EDeviceTransfer::ModZip});
+	// Perfect Works added: its row comes above, the cursor stays on Add from a zip.
+	Device.Shown.State = ETransferState::Done;
+	Device.Shown.Added = FAddedMod{EAddedContent::PerfectWorks, "0.11.4", 4428, false};
+	++Device.Shown.Revision;
+	Settings.Found = {true, "0.11.4", {}};
+	Wait(Menu, 4);
+	Press(Menu, EPadButton::Cross);
+	CHECK(Device.Started == std::vector<EDeviceTransfer>{EDeviceTransfer::ModZip, EDeviceTransfer::ModZip});
+	// Added to be used: Perfect Works switched on (from the next start).
+	CHECK(Settings.Current.PerfectWorks.bEnabled);
+	CHECK_FALSE(Settings.Current.bExternalAssets);
+	// Down to Add a folder, then the pack, removed on a second Confirm.
+	Device.Shown.State = ETransferState::Cancelled;
+	++Device.Shown.Revision;
+	Wait(Menu, 4);
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Cross);
+	CHECK(Device.Started.back() == EDeviceTransfer::ModFolder);
+	// A texture pack added: External assets switched on at once.
+	Device.Shown.State = ETransferState::Done;
+	Device.Shown.Added = FAddedMod{EAddedContent::Textures, "HD", 600, false};
+	++Device.Shown.Revision;
+	Wait(Menu, 4);
+	CHECK(Settings.Current.bExternalAssets);
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Cross);
+	CHECK(Device.Removed.empty());
+	Press(Menu, EPadButton::Cross);
+	CHECK(Device.Removed == std::vector<std::filesystem::path>{"Assets/textures/HD"});
+	Press(Menu, EPadButton::Circle, 40);
+	REQUIRE(Settings.Kept.size() == 1);
+	CHECK(Settings.Kept.front().PerfectWorks.bEnabled);
+	CHECK(Settings.Kept.front().bExternalAssets);
+}
+
 TEST_CASE("The title's first orb opens the options screen, whose changes are made at once and kept as it closes", "[Menu][Content]")
 {
 	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
@@ -265,6 +369,37 @@ TEST_CASE("The title's first orb opens the options screen, whose changes are mad
 		bEnded = !Drawn(Menu.Frame({}));
 	}
 	CHECK(bEnded);
+}
+
+TEST_CASE("Discs that give voices while the options screen is open change the Sound page's choices at once", "[Menu][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const auto Executable = ReadBootExecutable(*Disc);
+	REQUIRE(Executable);
+	FRecordedSettings Settings;
+	Settings.Sources.bEnglish = true;
+	auto Play = FMenuPlay::NewGame(Disc->Image(), *Executable, 1, {EMenuMode::LoadGame, 0, false}, nullptr, &Settings);
+	REQUIRE(Play);
+	FMenuPlay& Menu = **Play;
+	Wait(Menu, 30);
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Cross, 40);
+	// Sound, down from the first volume past the others, the output's rows and the heading to the voices: English
+	// alone, which Right does not change.
+	Press(Menu, EPadButton::R1);
+	for (int32 Row = 0; Row < 7; ++Row)
+	{
+		Press(Menu, EPadButton::Down);
+	}
+	Press(Menu, EPadButton::Right);
+	CHECK(Settings.Current.VoiceLanguage == EVoiceLanguage::Automatic);
+	CHECK(Settings.Changes == 0);
+	// The undub's discs added meanwhile (the host looked for voices again): Japanese is there to pick.
+	Settings.Sources.bUndub = true;
+	Wait(Menu, 4);
+	Press(Menu, EPadButton::Right);
+	CHECK(Settings.Current.VoiceLanguage != EVoiceLanguage::Automatic);
+	CHECK(Settings.Changes == 1);
 }
 
 TEST_CASE("The CRT filter's row opens its parts, each change handed on at once, and Cancel goes back to the row", "[Menu][Content]")

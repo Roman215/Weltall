@@ -108,6 +108,12 @@ namespace Weltall
 		uint16 ButtonRole = 0;
 		/** A button icon's shape. */
 		EMenuIconSlot ButtonSlot = EMenuIconSlot::FaceButton;
+		/**
+		 * In a prompt the game sets out as the controller's four face buttons (the battle's attack modes), the role of the
+		 * button a picture belongs to: the button's own picture and what is drawn beside it, which the display moves
+		 * together to the place the player's button has among the four (FMenuButtonIcons::PlacePrompt); 0 for any other.
+		 */
+		uint16 PromptRole = 0;
 		/** A polyline's points (2 to 4); a single line has 2. */
 		uint8 LinePoints = 0;
 		/** A rectangle's size; its place, texel and colour are its first corner's. */

@@ -1,5 +1,6 @@
 #include "Media/GameFileIndex.h"
 #include "Media/GameLibrary.h"
+#include "Support/AppleDouble.h"
 #include "Support/ChdWriter.h"
 #include "Support/GameDiscs.h"
 
@@ -75,6 +76,11 @@ TEST_CASE("The game library skips files that are not readable discs", "[Media]")
 	std::ofstream(Folder / "notes.txt") << "not a disc";
 	std::ofstream(Folder / "eboot.PBP", std::ios::binary) << std::string(64, 'x');
 	std::ofstream(Folder / "game.chd", std::ios::binary) << std::string(64, 'x');
+	// Hidden files and folders are passed over unnoted: macOS's companions of copied files, a desktop's trash.
+	Testing::WriteAppleDoubleCompanion(Folder / "missing.cue");
+	Testing::WriteAppleDoubleCompanion(Folder / "Nested" / "junk.bin");
+	std::filesystem::create_directories(Folder / ".Trash-1000" / "files", Error);
+	std::ofstream(Folder / ".Trash-1000" / "files" / "old.iso", std::ios::binary) << std::string(4096, 'x');
 
 	const FGameLibrary Library = FGameLibrary::Scan(Folder);
 	CHECK(Library.Releases().empty());
@@ -87,7 +93,7 @@ TEST_CASE("The game library skips files that are not readable discs", "[Media]")
 	};
 	CHECK(Library.Notes().size() == 4);
 	CHECK(NoteOf(Folder / "Nested" / "junk.bin") == "Not a CD's image the game can read.");
-	CHECK(NoteOf(Folder / "missing.cue").starts_with("Cannot be read: "));
+	CHECK(NoteOf(Folder / "missing.cue") == "The file it names, nowhere.bin, is not beside it.");
 	CHECK(NoteOf(Folder / "eboot.PBP").starts_with("A PSP eboot"));
 	CHECK(NoteOf(Folder / "game.chd") == "Not a CD's image the game can read.");
 	CHECK(NoteOf(Folder / "notes.txt").empty());
@@ -238,5 +244,27 @@ TEST_CASE("A patched copy of a disc, a fan translation's, plays in place of the 
 		Sheet(Folder / "b-original.cue", Original);
 		Check(Folder / "a-patched.cue", Folder / "b-original.cue");
 	}
+	std::filesystem::remove_all(Folder, Error);
+}
+
+TEST_CASE("A disc's BIN found without its CUE is the disc, its movies' sound kept", "[Media][Content]")
+{
+	REQUIRE_DISC(Disc1, EDiscRelease::UsaDisc1);
+	const FGameLibrary Games = FGameLibrary::Scan(WELTALL_GAMES_DIR);
+	const std::filesystem::path Bin = std::filesystem::path(Games.FileOf(EDiscRelease::UsaDisc1)).replace_extension(".bin");
+	REQUIRE(std::filesystem::is_regular_file(Bin));
+	// A folder beside Games holding the BIN alone (linked, on the same drive), as a player who picked only it would have.
+	const std::filesystem::path Folder = std::filesystem::path(WELTALL_GAMES_DIR).parent_path() / "out" / "tests" / "bin-without-cue";
+	std::error_code Error;
+	std::filesystem::remove_all(Folder, Error);
+	std::filesystem::create_directories(Folder);
+	std::filesystem::create_hard_link(Bin, Folder / Bin.filename(), Error);
+	REQUIRE_FALSE(Error);
+	const FGameLibrary Alone = FGameLibrary::Scan(Folder);
+	const FIso9660* Found = Alone.Find(EDiscRelease::UsaDisc1);
+	REQUIRE(Found != nullptr);
+	CHECK(Found->Image().IsRaw());
+	CHECK(Alone.PlayableDisc(1) == Found);
+	CHECK(Alone.Notes().empty());
 	std::filesystem::remove_all(Folder, Error);
 }

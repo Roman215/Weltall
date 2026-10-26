@@ -92,16 +92,19 @@ void UGameWindowSubsystem::ShowGameIcon(const Weltall::FIso9660& Disc)
 	{
 		return;
 	}
-	// The 16 x 16 picture scaled whole: large for the taskbar and the switcher, small for the title bar.
+	// The 16 x 16 picture scaled whole: large for the taskbar and the switcher, small for the title bar. The window's
+	// class takes them too: the engine gives the window its class's icon again whenever it returns to windowed mode.
 	const HWND Handle = static_cast<HWND>(Window->GetNativeWindow()->GetOSWindowHandle());
 	constexpr int32 LargeScale = 16;
 	constexpr int32 SmallScale = 2;
 	if (HICON Large = MakeWindowsIcon(*Icon, LargeScale))
 	{
+		SetClassLongPtrW(Handle, GCLP_HICON, reinterpret_cast<LONG_PTR>(Large));
 		SendMessageW(Handle, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(Large));
 	}
 	if (HICON Small = MakeWindowsIcon(*Icon, SmallScale))
 	{
+		SetClassLongPtrW(Handle, GCLP_HICONSM, reinterpret_cast<LONG_PTR>(Small));
 		SendMessageW(Handle, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(Small));
 	}
 #endif
@@ -113,6 +116,13 @@ void UGameWindowSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 	UPlayerSettingsSubsystem* Settings = Collection.InitializeDependency<UPlayerSettingsSubsystem>();
 	SettingsChanged = Settings->OnSettingsChanged.AddUObject(this, &UGameWindowSubsystem::Follow);
 	Follow();
+#if PLATFORM_ANDROID
+	// A phone's screen would go dark in a long scene played without a touch; the engine keeps only a desktop's awake.
+	if (HasOwnWindow())
+	{
+		FPlatformApplicationMisc::ControlScreensaver(FPlatformApplicationMisc::EScreenSaverAction::Disable);
+	}
+#endif
 }
 
 void UGameWindowSubsystem::Deinitialize()
@@ -160,7 +170,7 @@ bool UGameWindowSubsystem::IsHeldInBackground() const
 {
 	// A run nobody attends has no window to be in use.
 	return HasOwnWindow() && !FApp::IsUnattended() && GetGameInstance()->GetSubsystem<UPlayerSettingsSubsystem>()->Settings().Display.bPauseInBackground
-		&& !FPlatformApplicationMisc::IsThisApplicationForeground();
+		&& !FApp::HasFocus();
 }
 
 void UGameWindowSubsystem::Follow()

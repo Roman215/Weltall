@@ -1,6 +1,7 @@
 #include "Text/MessageOverrides.h"
 
 #include "Foundation/FileByteSource.h"
+#include "Foundation/HiddenFiles.h"
 #include "Media/CdImage.h"
 #include "Text/MesText.h"
 #include "Text/MessageBlocks.h"
@@ -252,7 +253,7 @@ namespace Weltall
 			for (auto Entry = std::filesystem::recursive_directory_iterator(Folder, Error); !Error && Entry != std::filesystem::recursive_directory_iterator();
 				Entry.increment(Error))
 			{
-				if (Entry.depth() == 0 && Entry->is_directory(Error) && Entry->path().filename() == OriginalsFolder)
+				if (IsHiddenFile(Entry->path()) || (Entry.depth() == 0 && Entry->is_directory(Error) && Entry->path().filename() == OriginalsFolder))
 				{
 					Entry.disable_recursion_pending();
 					continue;

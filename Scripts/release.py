@@ -1,16 +1,17 @@
 """Builds a release of the game and drafts it on GitHub.
 
-    python Scripts/release.py 0.8.0                      # both Shipping packages, their zips, a draft release
-    python Scripts/release.py 0.8.0 --archives-only      # the zips alone, to look at before drafting
+    python Scripts/release.py 0.8.0                      # the three Shipping packages, their files, a draft release
+    python Scripts/release.py 0.8.0 --archives-only      # the files alone, to look at before drafting
     python Scripts/release.py 0.8.0 --platforms Windows  # one platform
 
 The release is built from HEAD, which must be clean, already pushed to GitHub (the draft points at it) and carry the
 version in Config/DefaultGame.ini's ProjectVersion. Each platform's Shipping package is built, run and archived by
-package.py; its zips are then named by the version in out/releases: Weltall-<version>-<Platform>.zip for players and
-...-symbols.zip, which stays with whoever builds releases (it turns a player's crash report into source lines). The
-notes go beside them as Weltall-<version>-notes.md.
+package.py; its files are then named by the version in out/releases: Weltall-<version>-<Platform>.zip for players
+(Android's is the APK itself, Weltall-<version>-Android.apk, signed with the project's key) and ...-symbols.zip, which
+stays with whoever builds releases (it turns a player's crash report into source lines). The notes go beside them as
+Weltall-<version>-notes.md.
 
-Without --archives-only a draft release is made with the GitHub CLI (gh, logged in), the players' zips attached and
+Without --archives-only a draft release is made with the GitHub CLI (gh, logged in), the players' files attached and
 the notes as its text, and the commit is tagged v<version> here. Nothing is published: the draft waits on the
 release page to be read, edited and published by hand, which creates the tag on GitHub. GitHub attaches the tag's
 source code to the release by itself.
@@ -24,7 +25,9 @@ from pathlib import Path
 
 REPO = Path(__file__).resolve().parent.parent
 RELEASES = REPO / "out" / "releases"
-PLATFORMS = ["Windows", "Linux"]
+PLATFORMS = ["Windows", "Linux", "Android"]
+# What players download for each platform: a zip of the package, but Android's APK, which installs as it is.
+PLAYERS_FILE = {"Android": ".apk"}
 VERSION = re.compile(r"\d+\.\d+\.\d+")
 PROJECT_VERSION = re.compile(r"^ProjectVersion=(.*)$", re.MULTILINE)
 
@@ -34,19 +37,32 @@ You'll need your own copy of the USA release or a supported English undub. No ga
 
 ## What's new
 
-- Added a Button layout option under Options → Controls, for players used to the Japanese release's controls. With
-  Circle confirms, ○ confirms and is the 3-point attack, and × cancels. Japan also swaps □ and △ as the Japanese
-  release does: □ jumps and △ opens the menu. Buttons you rebound yourself stay where you put them.
-- With Perfect Works Build, a portrait texture pack such as the HD Portraits Project only shows while the mod's
-  Portraits option is set to Original, because the mod's portraits are pictures of its own. The option's help now
-  says so.
+- Added an Android version for phones and tablets (64-bit, Android 10 or later). Install the APK below, then add
+  your disc images from inside the game, as Playing below explains. While you play by touch, a PlayStation
+  controller is drawn on the screen, and Bluetooth or USB controllers work too. Under Options → Controls → Touch
+  screen, you can swap its d-pad for an analog stick, make it more see-through, and turn off its vibration.
+- On Android, Options → Saves backs up your saves to a zip file and restores them, so you can move a game from a
+  computer to your phone. Options → Modding adds Perfect Works Build and texture packs from a zip file or a folder,
+  and lists them with their sizes so you can remove them.
+- The French translation by Atelier Traduction (version 1.1) now plays, with English or Japanese voices. Patch your
+  USA discs and put the patched images in `Games`.
+- Added analog movement on the field and the world map: the stick walks in any direction, and slowly when you push
+  it lightly. It's on by default, under Options → Controls → Analog movement.
+- Switch Pro controllers now work on Windows over USB or Bluetooth, and so do controllers that work as one, as many
+  sold for PC, Android, iOS and the Switch do. Their buttons go by where they sit, so B is × and A is ○, and they
+  vibrate in the Battling arena. If your controller isn't recognized, please report it.
+- In battle, the attack buttons are now laid out as they sit on your controller. With Button layout set to Circle
+  confirms or Japan, the 3-point ○ attack is at the right and × to cancel is at the bottom, as in the Japanese
+  release.
+- Weltall now has its own icon, a red pixel W, on Windows and Android. While it runs on Windows, its window shows the
+  X from your discs' save icon.
+- Reworded the options and messages to read more plainly.
 
 ### Fixes
 
-- Fixed battles stopping when Elly uses Thermo Largo, Fei uses Big Bang or Emeralda uses Aqua Dhaum in their Gears.
-- Fixed battles stopping when Citan uses his Tsunami Ice Deathblow.
-- Fixed Weltall's version from the title screen showing on the game over screen.
-- Fixed ó showing as a button icon with the Spanish translation.
+- Fixed Weltall not starting from a copy made on a Mac, or from a drive a Mac has written to. The hidden files macOS
+  leaves beside each file are now skipped.
+- When a `.cue` file's `.bin` file is missing, the game now names the missing file.
 
 ## Playing
 
@@ -55,25 +71,43 @@ You'll need your own copy of the USA release or a supported English undub. No ga
    but the movies will be silent.
 3. Run `Weltall.exe` on Windows 10 or 11 (64-bit, DirectX 12), or `Weltall.sh` on Linux (64-bit, Vulkan).
 
+On Android 10 or later (64-bit, Vulkan), install the APK instead. Copy the disc images from a computer
+by USB into a folder inside the device's Download folder, such as `Download/Xenogears` (Android doesn't
+let apps pick Download itself), then start Weltall, tap **Add folder** and pick that folder. Weltall
+isn't on Google Play or registered with Google, so your
+phone may ask you to allow apps from unverified developers first: the
+[README](https://github.com/Roman215/Weltall#android) explains how.
+
 On Windows, settings and saves are in `%LOCALAPPDATA%\\Weltall`. On Linux, settings are in
-`~/.config/Weltall` and saves are in `~/.local/share/Weltall/Saves`. You can import PlayStation memory-card
-saves from the Saves page in Options. See the [README](https://github.com/Roman215/Weltall#playing) for
-controls and more details.
+`~/.config/Weltall` and saves are in `~/.local/share/Weltall/Saves`. On Android, the Saves page in
+Options backs them up to a file and restores them. You can import PlayStation memory-card saves from the
+Saves page in Options. See the
+[README](https://github.com/Roman215/Weltall#playing) for controls and more details.
 
 ## What to expect
 
 Both discs are playable, and gameplay behavior has been checked against the original game's code.
-My own playthrough is still in progress, with about 24 hours played without a hang. Automated tests
+My own playthrough is still in progress, with about 25 hours played without a hang. Automated tests
 have run every map and story battle, along with long stretches of the story from save to save. You
 should be able to play from start to finish, and I'm fixing reported issues as they come in.
 
 Players have run the Linux build on a Steam Deck and on CachyOS with an AMD graphics card. If you run
 into problems on Linux, please report them.
 
+The Android version is new: I've played it on my own phone, and it's been checked on Android's
+emulator. If you run into problems on Android, please report them with your phone or tablet's model.
+
 If the game stops with an error on screen, attach the log file it names to a
 [bug report](https://github.com/Roman215/Weltall/issues/new?template=bug_report.md) and describe what you
 were doing. If it crashes, zip and attach the newest folder in `%LOCALAPPDATA%\\Weltall\\Saved\\Crashes`
-(Windows) or `~/.config/Epic/Weltall/Saved/Crashes` (Linux). A save from just before the problem helps too.
+(Windows) or `~/.config/Epic/Weltall/Saved/Crashes` (Linux). On Android, tap **Save the log** on the
+error screen, or under **Options → Saves** after a crash, and attach the zip file it saves. A save from
+just before the problem helps too.
+
+## Support
+
+If you'd like to help support Weltall or my future ports, you can do so through
+[GitHub Sponsors](https://github.com/sponsors/Roman215) or [Ko-fi](https://ko-fi.com/roman215).
 """
 
 
@@ -131,15 +165,19 @@ def build(platform, commit):
     revision = (REPO / "out" / "builds" / "Shipping" / platform / "Revision.txt").read_text(encoding="utf-8").strip()
     if revision != git("rev-parse", "--short", commit):
         refuse(f"the {platform} package is of {revision}, not of {commit[:7]}")
-    return RELEASES / f"Weltall-{revision}-{platform}.zip", RELEASES / f"Weltall-{revision}-{platform}-symbols.zip"
+    return RELEASES / f"Weltall-{revision}-{platform}{players_file(platform)}", RELEASES / f"Weltall-{revision}-{platform}-symbols.zip"
+
+
+def players_file(platform):
+    return PLAYERS_FILE.get(platform, ".zip")
 
 
 def main():
     sys.stdout.reconfigure(line_buffering=True)
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     parser.add_argument("version", help="the release's version, as ProjectVersion has it (0.8.0)")
-    parser.add_argument("--platforms", nargs="+", default=PLATFORMS, choices=PLATFORMS, help="the platforms to release (default: both)")
-    parser.add_argument("--archives-only", action="store_true", help="write the zips and the notes, but tag and draft nothing")
+    parser.add_argument("--platforms", nargs="+", default=PLATFORMS, choices=PLATFORMS, help="the platforms to release (default: all three)")
+    parser.add_argument("--archives-only", action="store_true", help="write the players' files and the notes, but tag and draft nothing")
     args = parser.parse_args()
     if not VERSION.fullmatch(args.version):
         parser.error(f"a version is three numbers, as 0.8.0: not {args.version}")
@@ -152,7 +190,7 @@ def main():
     players = []
     for platform in args.platforms:
         archive, symbols = build(platform, commit)
-        named = RELEASES / f"Weltall-{args.version}-{platform}.zip"
+        named = RELEASES / f"Weltall-{args.version}-{platform}{players_file(platform)}"
         archive.replace(named)
         if symbols.is_file():
             symbols.replace(RELEASES / f"Weltall-{args.version}-{platform}-symbols.zip")

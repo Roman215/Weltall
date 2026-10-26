@@ -218,7 +218,7 @@ namespace Weltall
 				Hide(false);
 				Flags[MenuFlag::ArcLabels] = 0;
 				OpenChoiceCursors();
-				DrawTotal(Total, TotalX, TotalY);
+				DrawTotal(Total, TotalX, TotalY - (Resources.IsFrench() ? 1 : 0));
 				bGoesOn = !co_await AskYesNo(PurchaseText);
 				if (bGoesOn)
 				{

@@ -37,13 +37,25 @@ public:
 
 	virtual bool HandleMouseButtonDownEvent(FSlateApplication& Application, const FPointerEvent& Event) override
 	{
+		if (Event.IsTouchEvent())
+		{
+			if (Glyphs != nullptr)
+			{
+				Glyphs->UseTouch();
+			}
+			return false;
+		}
 		Use(Event.GetEffectingButton(), Event.GetInputDeviceId());
 		return false;
 	}
 
 	virtual bool HandleMouseWheelOrGestureEvent(FSlateApplication& Application, const FPointerEvent& Event, const FPointerEvent* Gesture) override
 	{
-		Use(EKeys::MouseWheelAxis, Event.GetInputDeviceId());
+		// A gesture (a finger held, a pinch) is the touch screen's, which its touches have told already.
+		if (Gesture == nullptr && !Event.IsTouchEvent())
+		{
+			Use(EKeys::MouseWheelAxis, Event.GetInputDeviceId());
+		}
 		return false;
 	}
 
@@ -52,7 +64,7 @@ public:
 private:
 	void Use(const FKey& Key, FInputDeviceId Device) const
 	{
-		if (Glyphs == nullptr)
+		if (Glyphs == nullptr || UButtonGlyphSubsystem::IsPhoneButton(Key))
 		{
 			return;
 		}
@@ -89,6 +101,11 @@ void UButtonGlyphSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		FSlateApplication::Get().RegisterInputPreProcessor(Processor);
 	}
 	ConnectionChanged = IPlatformInputDeviceMapper::Get().GetOnInputDeviceConnectionChange().AddUObject(this, &UButtonGlyphSubsystem::DeviceConnectionChanged);
+	// A phone's player has the screen in hand before anything else.
+	if (FPlatformMisc::SupportsTouchInput())
+	{
+		UseTouch();
+	}
 }
 
 void UButtonGlyphSubsystem::Deinitialize()
@@ -115,11 +132,29 @@ Weltall::FButtonGlyph UButtonGlyphSubsystem::Glyph(Weltall::EPadButton Button) c
 	return Weltall::ButtonGlyph(Button, GetGameInstance()->GetSubsystem<UPlayerSettingsSubsystem>()->Settings().Controls, Set);
 }
 
+bool UButtonGlyphSubsystem::IsPhoneButton(const FKey& Key)
+{
+	return Key == EKeys::Android_Volume_Up || Key == EKeys::Android_Volume_Down || Key == EKeys::Android_Back || Key == EKeys::Android_Menu;
+}
+
+void UButtonGlyphSubsystem::UseTouch()
+{
+	bHasController = true;
+	bUsingGamepad = false;
+	bUsingTouch = true;
+	if (Set != Weltall::EButtonIconSet::PlayStation)
+	{
+		Set = Weltall::EButtonIconSet::PlayStation;
+		Changed();
+	}
+}
+
 void UButtonGlyphSubsystem::UseDevice(bool bGamepad, FName HardwareName, FInputDeviceId Device)
 {
 	// Anything pressed, on whatever device, is the player's controller.
 	bHasController = true;
 	bUsingGamepad = bGamepad;
+	bUsingTouch = false;
 	if (bGamepad)
 	{
 		LastGamepad = Device;

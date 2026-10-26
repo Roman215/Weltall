@@ -20,6 +20,8 @@ FString PlayerSettingsFolder()
 	return FPaths::Combine(FPlatformProcess::UserSettingsDir(), TEXT("Weltall"));
 #elif PLATFORM_MAC
 	return FPaths::Combine(FPlatformProcess::UserHomeDir(), TEXT("Library/Application Support/Weltall"));
+#elif PLATFORM_ANDROID
+	return FPaths::Combine(FPlatformMisc::GamePersistentDownloadDir(), TEXT("Settings"));
 #else
 	return FPaths::Combine(XdgFolder(TEXT("XDG_CONFIG_HOME"), TEXT(".config")), TEXT("Weltall"));
 #endif
@@ -29,6 +31,8 @@ FString PlayerSavesFolder()
 {
 #if PLATFORM_WINDOWS || PLATFORM_MAC
 	return FPaths::Combine(PlayerSettingsFolder(), TEXT("Saves"));
+#elif PLATFORM_ANDROID
+	return FPaths::Combine(FPlatformMisc::GamePersistentDownloadDir(), TEXT("Saves"));
 #else
 	return FPaths::Combine(XdgFolder(TEXT("XDG_DATA_HOME"), TEXT(".local/share")), TEXT("Weltall"), TEXT("Saves"));
 #endif

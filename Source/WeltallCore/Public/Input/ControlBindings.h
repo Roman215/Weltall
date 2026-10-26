@@ -50,6 +50,17 @@ namespace Weltall
 		Japan,
 	};
 
+	/** What moves the party on the touch screen's pad: its cross, or a stick that walks any way at its push (as a gamepad's left stick). */
+	enum class ETouchMovement : uint8
+	{
+		Cross,
+		Stick,
+	};
+
+	/** The touch screen's pad drawn from LowestTouchOpacity to HighestTouchOpacity tenths of its full strength. */
+	inline constexpr int32 LowestTouchOpacity = 2;
+	inline constexpr int32 HighestTouchOpacity = 10;
+
 	/** The devices a key belongs to, which draw its glyph from their own icons. */
 	enum class EInputFamily : uint8
 	{
@@ -166,6 +177,8 @@ namespace Weltall
 
 		/** The party runs on the field unless the run button is held, which then walks. Off: it runs while the button is held, as the original. */
 		bool bAlwaysRun = true;
+		/** The stick walks the party in any direction, slowly when pushed lightly. Off: the d-pad's eight directions, as the original. */
+		bool bAnalogMovement = true;
 		/** A door opens when the party walks into it, as it does for the confirm button pressed at it. Off: the button alone, as the original. */
 		bool bWalkIntoDoors = true;
 		/** Keep the original PlayStation button pictures instead of showing the bound keys or controller buttons. */
@@ -175,6 +188,10 @@ namespace Weltall
 		/** How fast the mouse and a stick move the view: levels from LowestSensitivity to HighestSensitivity. */
 		int32 MouseSensitivity = DefaultSensitivity;
 		int32 StickSensitivity = DefaultSensitivity;
+		/** The touch screen's pad: what moves the party, how strongly it is drawn (in tenths), and whether a press vibrates the device. */
+		ETouchMovement TouchMovement = ETouchMovement::Cross;
+		int32 TouchOpacity = HighestTouchOpacity;
+		bool bTouchVibration = true;
 
 		bool operator==(const FControlBindings&) const = default;
 

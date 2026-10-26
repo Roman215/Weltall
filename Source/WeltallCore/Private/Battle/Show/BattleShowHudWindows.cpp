@@ -23,11 +23,10 @@ namespace Weltall
 		constexpr int16 BoxRowX = 0x3C0;
 		constexpr int16 BoxRowUnits = 0x3C;
 		constexpr int16 TextRows = 13;
-		/** Box 0 (the name box) is centred at x 64 near the top; the others at x 154 at the foot. */
+		/** Box 0 (the name box) is centred at x 64 near the top; the others at x 154 at the foot (FBattleHudPlaces). */
 		constexpr int16 NameBoxCentre = 0x40;
 		constexpr int16 NameBoxY = 0x2C;
 		constexpr int16 BoxCentre = 0x9A;
-		constexpr int16 BoxY = 0xCA;
 	}
 
 	void FBattleHud::SetWindowPart(FMenuPrimitive& Part) const
@@ -280,7 +279,7 @@ namespace Weltall
 	{
 		OpenWindow(NameWindow, 8, 0x2A, 0x70, 0x12, false);
 		Windows[NameWindow].bShown = false;
-		OpenWindow(BoxWindow, 0x20, 200, 0xF4, 0x12, false);
+		OpenWindow(BoxWindow, 0x20, Resources.Tables.Places.MessageWindowY, 0xF4, 0x12, false);
 		Windows[BoxWindow].bShown = false;
 		for (int32 Box = 0; Box < MessageBoxCount; ++Box)
 		{
@@ -373,7 +372,7 @@ namespace Weltall
 			}
 			else
 			{
-				SetTextQuad(Quad, static_cast<int16>(BoxCentre - Half), BoxY, 0, static_cast<uint8>(Box / 2 * TextRows), Record.Width);
+				SetTextQuad(Quad, static_cast<int16>(BoxCentre - Half), Resources.Tables.Places.MessageBoxY, 0, static_cast<uint8>(Box / 2 * TextRows), Record.Width);
 			}
 			Link(Quad);
 		}

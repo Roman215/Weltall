@@ -5,56 +5,23 @@
 #include "Presentation/DrawList.h"
 
 #include <array>
+#include <initializer_list>
 #include <span>
+#include <string>
 #include <string_view>
 
 namespace Weltall
 {
-	/** What the bout's labels say, as the program's strings have it. */
 	namespace BattlingLabelTexts
 	{
-		inline constexpr std::string_view Round = "ROUND ";
-		inline constexpr std::string_view Ready = "READY";
-		inline constexpr std::string_view Fight = "FIGHT!!";
-		inline constexpr std::string_view Practice = "PRACTICE";
-		inline constexpr std::string_view Start = "START";
-		inline constexpr std::string_view RubberBandBattle = "RUBBER BAND BATTLE";
-		inline constexpr std::string_view RubberBandMode = "RUBBER BAND MODE";
-		inline constexpr std::string_view DrawGame = "DRAW GAME";
-		inline constexpr std::string_view Replay = "REPLAY";
-		inline constexpr std::string_view YouWereVictorious = "YOU WERE VICTORIOUS";
-		inline constexpr std::string_view YouWereDefeated = "YOU WERE DEFEATED";
-		/** Before the winner's name. */
-		inline constexpr std::string_view By = "     BY ";
-		inline constexpr std::string_view PlayerOneVictory = "1PLAYER VICTORY";
-		inline constexpr std::string_view PlayerTwoVictory = "2PLAYER VICTORY";
-		inline constexpr std::string_view ComputerOneVictory = "COM1 VICTORY";
-		inline constexpr std::string_view ComputerTwoVictory = "COM2 VICTORY";
-		/** Practice's info: the move's strength and its frames. */
-		inline constexpr std::string_view Strength = "STR:";
-		inline constexpr std::string_view Frames = "FRAME:";
-		/** Practice's name of a shot of Ether. */
+		/** Practice's name of a shot of Ether (its code builds the string without a lui of its own). */
 		inline constexpr std::string_view Ether = "ETHER";
-		/** Practice's names of the chain states' moves; before any, the program prints what lies at address 0, nothing. */
-		inline constexpr std::array<std::string_view, BattlingGears::ChainStates> MoveNames{
-			"", "A", "B", "AA", "AB", "BA", "BB", "AAA", "AAB", "ABA", "ABB", "BAA", "BAB", "BBA", "BBB"};
-		/** The winner screen's headings, and what its lines put between their numbers: "wins/round VS opponent", "mm'ss''cc". */
-		inline constexpr std::string_view Winner = "WINNER";
-		inline constexpr std::string_view Level = "LEVEL";
-		inline constexpr std::string_view Matches = "MATCHES";
-		inline constexpr std::string_view Time = "TIME";
-		inline constexpr std::string_view Versus = " VS ";
-		inline constexpr std::string_view Minutes = "'";
-		inline constexpr std::string_view Seconds = "''";
-		/** The computer's levels by the setting. */
-		inline constexpr std::array<std::string_view, 3> LevelNames{"EASY", "NORMAL", "HARD"};
-		/** Practice's computer styles by the setting, as its pause names them. */
-		inline constexpr std::array<std::string_view, 14> PracticeStyles{"BYSTANDER", "ON GUARD", "CONTROLLER2", "UP AND AT'EM", "SLOWPOKE",
-			"MAGIC FIRER ", "MAGIC JUMPER", "KANGAROO", "GIVE CHASE", "RUN AWAY", "BACK DASH", "EASY BATTLE", "NORMAL BATTLE", "HARD BATTLE"};
-		/** Practice's frame rates as its pause names them, by the setting, and what follows the number. */
+		/** Practice's frame rates by the setting. */
 		inline constexpr std::array<uint8, 5> PracticeFrameRates{30, 20, 15, 12, 10};
-		inline constexpr std::string_view FramesPerSecond = "FPS";
 	}
+
+	/** One of the program's printf strings (FBattlingTexts) with its conversions (%d, %02d, %s) replaced by Values in turn, already formatted. */
+	WELTALLCORE_API std::string FormatBattlingText(std::string_view Format, std::initializer_list<std::string_view> Values);
 
 	/** A letter a label printed, as its packet holds it: its corners on the screen, each corner's texel (u | v << 8) and its colour. */
 	struct FBattlingLabelGlyph
@@ -114,6 +81,9 @@ namespace Weltall
 		WELTALLCORE_API int32 Width(std::string_view Text, int32 AtScale) const;
 
 		void Clear() { Count = 0; }
+
+		/** What the program's labels and menus say. */
+		const FBattlingTexts& Texts() const;
 
 		/** The drawing's take: the letters of Buffer's list the count reaches, in the order printed (the GPU draws the last first); the count then 0. */
 		WELTALLCORE_API std::span<const FBattlingLabelGlyph> Take(uint32 Buffer);

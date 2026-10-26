@@ -75,6 +75,15 @@ bool FTextureModLibraryTest::RunTest(const FString&)
 	if (!FFileHelper::SaveArrayToFile(SolidPng(65, 2), *(Folder / (KeyName(TooLarge) + TEXT(".png"))))) return false;
 	const uint64 OriginalOnly = Key + 2;
 	if (!FFileHelper::SaveArrayToFile(SolidPng(4, 2), *(Folder / FTextureModLibrary::OriginalsFolder / TEXT("field") / (KeyName(OriginalOnly) + TEXT(".png"))))) return false;
+	// Hidden files and folders are left out: macOS's companion of a copied file ("._" and its name, an AppleDouble
+	// header and no picture) sorts before the picture it stands beside.
+	TArray<uint8> Companion;
+	Companion.Init(0, 4096);
+	const uint8 AppleDouble[] = {0x00, 0x05, 0x16, 0x07, 0x00, 0x02, 0x00, 0x00};
+	FMemory::Memcpy(Companion.GetData(), AppleDouble, sizeof(AppleDouble));
+	if (!FFileHelper::SaveArrayToFile(Companion, *(Folder / TEXT("village") / (TEXT("._door-") + KeyName(Key) + TEXT(".png"))))) return false;
+	const uint64 Hidden = Key + 3;
+	if (!FFileHelper::SaveArrayToFile(SolidPng(4, 2), *(Folder / TEXT(".backup") / (KeyName(Hidden) + TEXT(".png"))))) return false;
 	FTextureModLibrary::Configure(Folder, true, false);
 	TestTrue(TEXT("A replacement is read in the background"), FTextureModLibrary::Find(Key, 4, 2, 1 << 20).bPending);
 	TestTrue(TEXT("Asked again before it arrives, it is still being read"), FTextureModLibrary::Find(Key, 4, 2, 1 << 20).bPending);
@@ -93,6 +102,7 @@ bool FTextureModLibraryTest::RunTest(const FString&)
 	TestFalse(TEXT("A PNG more than 16 times its region's size either way is refused"), Read(TooLarge, 4, 2).Image.IsValid());
 	TestFalse(TEXT("A refused PNG is not read again"), FTextureModLibrary::Find(TooLarge, 4, 2, 1 << 20).bPending);
 	TestFalse(TEXT("Originals are never read as replacements"), Read(OriginalOnly, 4, 2).Image.IsValid());
+	TestFalse(TEXT("A picture in a hidden folder is not read"), Read(Hidden, 4, 2).Image.IsValid());
 
 	// A sheet: a layout beside a PNG twice its size, its second picture a texel to the right of its first.
 	Weltall::FTextureSheetLayout Layout{9, 4, {{0x5100, 0, 0, 4, 2}, {0x5200, 5, 0, 4, 4}}};

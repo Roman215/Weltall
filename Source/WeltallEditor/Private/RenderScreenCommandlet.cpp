@@ -833,7 +833,7 @@ int32 URenderScreenCommandlet::Main(const FString& Params)
 		Game->SetQuit([]() { UE_LOG(LogRenderScreen, Display, TEXT("The title's Exit closes the game.")); });
 		// The disc the game asks for is found where the player keeps the discs, as in play.
 		Game->SetDiscSought([&Library](Weltall::EDiscRelease Wanted) { return Library.Find(Wanted); });
-		Game->SetMenuMods(Mods);
+		Game->SetMenuMods([Mods]() { return Mods; });
 		if (Found.PerfectWorks)
 		{
 			Game->SetPerfectWorksSubtitles({Found.PerfectWorks->MovieSubtitles(1), Found.PerfectWorks->MovieSubtitles(2)}, Presentation.PerfectWorks.bEnabled);

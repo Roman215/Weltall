@@ -22,18 +22,18 @@
 #include "Media/GameFileIndex.h"
 #include "Media/Iso9660.h"
 #include "Media/PsxExecutable.h"
-#include "Menu/MenuGameMenus.h"
 #include "Menu/MenuAssetPages.h"
-#include "Misc/Paths.h"
+#include "Menu/MenuDeviceFiles.h"
+#include "Menu/MenuGameMenus.h"
 #include "Rendering/DrawListTextures.h"
 #include "Rendering/SharedRenderResource.h"
 #include "Screens/DrawListScreenFrame.h"
 #include "Screens/MovieScreen.h"
+#include "Shell/StoryDocuments.h"
 #include "Story/StoryPacks.h"
 #include "Timing/PsxTiming.h"
 #include "WeltallLog.h"
 
-#include <filesystem>
 #include <algorithm>
 #include <string>
 
@@ -74,8 +74,7 @@ class FBootNoticeView
 public:
 	explicit FBootNoticeView(const Weltall::FBootNotice& Notice)
 	{
-		const Weltall::FDrawTexture Texture = Weltall::FBootNotice::Texture();
-		Textures = ShareRenderResource(new FDrawListTextures(std::span<const Weltall::FVram>(&Notice.Vram(), 1), std::span(&Texture, 1)));
+		Textures = ShareRenderResource(new FDrawListTextures(std::span<const Weltall::FVram>(&Notice.Vram(), 1), Notice.Textures()));
 	}
 
 	void Follow(const Weltall::FBootNotice& Notice)
@@ -158,7 +157,11 @@ std::optional<Weltall::FError> FGameLoopScreen::ReadOtherDisc()
 
 void FGameLoopScreen::SeekDisc(int32 Number)
 {
-	const Weltall::EDiscRelease Wanted = Number == 0 ? Weltall::EDiscRelease::UsaDisc1 : Weltall::EDiscRelease::UsaDisc2;
+	// The other disc of the kind played first (a translation's with Japanese voices after its own), then of the other kind.
+	const bool bUndub = Release == Weltall::EDiscRelease::UndubDisc1 || Release == Weltall::EDiscRelease::UndubDisc2;
+	const Weltall::EDiscRelease Usa = Number == 0 ? Weltall::EDiscRelease::UsaDisc1 : Weltall::EDiscRelease::UsaDisc2;
+	const Weltall::EDiscRelease Undub = Number == 0 ? Weltall::EDiscRelease::UndubDisc1 : Weltall::EDiscRelease::UndubDisc2;
+	const Weltall::EDiscRelease Wanted = bUndub ? Undub : Usa;
 	if (!DiscSought || OtherIndex || !Session || Wanted == Release)
 	{
 		return;
@@ -166,7 +169,7 @@ void FGameLoopScreen::SeekDisc(int32 Number)
 	OtherDisc = DiscSought(Wanted);
 	if (OtherDisc == nullptr)
 	{
-		OtherDisc = DiscSought(Number == 0 ? Weltall::EDiscRelease::UndubDisc1 : Weltall::EDiscRelease::UndubDisc2);
+		OtherDisc = DiscSought(bUndub ? Usa : Undub);
 	}
 	if (OtherDisc == nullptr)
 	{
@@ -294,8 +297,7 @@ std::optional<Weltall::FError> FGameLoopScreen::Start(std::optional<uint16> Fiel
 				return Unread;
 			}
 		}
-		const FString StoryFolder = FPaths::ConvertRelativePathToFull(FPaths::ProjectContentDir() / TEXT("Story"));
-		auto Documents = Weltall::FStoryPacks::Read(std::filesystem::path(*StoryFolder));
+		auto Documents = ReadStoryDocuments();
 		if (!Documents)
 		{
 			return Weltall::MakeError("the port's story cannot be read: " + Documents.Error().Message);
@@ -353,6 +355,7 @@ std::optional<Weltall::FError> FGameLoopScreen::Start(std::optional<uint16> Fiel
 	SecondHeldPerVblank.clear();
 	ProgramRuns = -1;
 	Notice.Reset();
+	Credits.Reset();
 	Follow(true);
 	return std::nullopt;
 }
@@ -374,6 +377,7 @@ void FGameLoopScreen::Update(double DeltaSeconds, Weltall::FPadState Held)
 		return;
 	}
 	Latch.Sample(Held);
+	FollowAddedDiscs();
 	Pace = Weltall::GamePace(*GameLoop, Session->Settings());
 	Session->SetPace(Pace);
 	const int32 Due = Vblanks.Advance(DeltaSeconds, Pace);
@@ -521,6 +525,18 @@ void FGameLoopScreen::Follow(bool bNewProgram)
 	if (const Weltall::FFieldProgram* FieldProgram = GameLoop->Field())
 	{
 		Field->Follow(*FieldProgram, bNewProgram, Shown);
+		if (const Weltall::FBootNotice* FieldCredits = FieldProgram->Credits())
+		{
+			if (!Credits)
+			{
+				Credits = MakeUnique<FBootNoticeView>(*FieldCredits);
+			}
+			Credits->Follow(*FieldCredits);
+		}
+		else
+		{
+			Credits.Reset();
+		}
 	}
 	if (Weltall::FWorldMapProgram* WorldMapProgram = GameLoop->WorldMap())
 	{
@@ -575,6 +591,13 @@ TSharedRef<const IScreenFrame> FGameLoopScreen::CaptureProgramFrame() const
 	}
 	if (const Weltall::FFieldProgram* FieldProgram = GameLoop->Field())
 	{
+		if (Credits && FieldProgram->Credits() != nullptr)
+		{
+			if (const TSharedPtr<const IScreenFrame> Frame = Credits->Capture(Alpha))
+			{
+				return Frame.ToSharedRef();
+			}
+		}
 		// A menu the field runs is drawn over the field's last picture, standing still, the title's mark part of it.
 		if (Menus->Running() != nullptr)
 		{
@@ -676,7 +699,32 @@ void FGameLoopScreen::SetMenuAssets(Weltall::IMenuAssets* InAssets)
 	FollowMenuServices();
 }
 
-void FGameLoopScreen::SetMenuMods(Weltall::FMenuMods InMods)
+void FGameLoopScreen::SetMenuDeviceFiles(Weltall::IMenuDeviceFiles* InFiles)
+{
+	MenuDeviceFiles = InFiles;
+	DeviceFilesRevision = InFiles != nullptr ? InFiles->Status().Revision : 0;
+	FollowMenuServices();
+}
+
+void FGameLoopScreen::FollowAddedDiscs()
+{
+	if (MenuDeviceFiles == nullptr)
+	{
+		return;
+	}
+	const Weltall::FTransferStatus Status = MenuDeviceFiles->Status();
+	if (Status.Revision == DeviceFilesRevision)
+	{
+		return;
+	}
+	DeviceFilesRevision = Status.Revision;
+	if (Weltall::IsDiscTransfer(Status.Kind) && Status.State == Weltall::ETransferState::Done)
+	{
+		RefreshVoiceDiscs();
+	}
+}
+
+void FGameLoopScreen::SetMenuMods(FMenuModsAsked InMods)
 {
 	MenuMods = MoveTemp(InMods);
 	FollowMenuServices();
@@ -711,7 +759,15 @@ void FGameLoopScreen::FollowMenuServices()
 		return;
 	}
 	Menus->SetAssets(MenuAssets);
-	Menus->SetMods(MenuMods);
+	Menus->SetDeviceFiles(MenuDeviceFiles);
+	if (MenuMods)
+	{
+		Menus->SetMods([this]() { return MenuMods(); });
+	}
+	else
+	{
+		Menus->SetMods(nullptr);
+	}
 	Menus->SetKeys(MenuKeys);
 	if (Quit)
 	{

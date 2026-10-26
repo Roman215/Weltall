@@ -41,43 +41,50 @@ namespace Weltall
 
 		constexpr int8 MenuNumber(EMenu Menu) { return static_cast<int8>(Menu); }
 
+		/** An item's label: the program's (FBattlingTexts::MenuLabels), by the menu's number. */
+		std::string_view ItemLabel(const FBattlingLabels& Labels, EMenu Menu, std::size_t Item)
+		{
+			const std::vector<std::string>& MenuLabels = Labels.Texts().MenuLabels[static_cast<std::size_t>(Menu)];
+			return Item < MenuLabels.size() ? std::string_view(MenuLabels[Item]) : std::string_view();
+		}
+
 		constexpr FBattlingMenuItem PauseItems[]{
-			{0, 13, EAction::Resume, -1, "CONTINUE BOUT"},
-			{0, 14, EAction::Open, MenuNumber(EMenu::GiveUp), "GIVE UP"},
+			{0, 13, EAction::Resume, -1},
+			{0, 14, EAction::Open, MenuNumber(EMenu::GiveUp)},
 		};
 		constexpr FBattlingMenuItem GiveUpItems[]{
-			{0, 42, EAction::GiveUp, -1, "YES"},
-			{0, 42, EAction::Open, MenuNumber(EMenu::Pause), "NO"},
+			{0, 42, EAction::GiveUp, -1},
+			{0, 42, EAction::Open, MenuNumber(EMenu::Pause)},
 		};
 		constexpr FBattlingMenuItem TopItems[]{
-			{0, 1, EAction::Open, MenuNumber(EMenu::Bonus), "BONUS BATTLING"},
-			{Separator, 0, EAction::None, -1, ""},
-			{0, 2, EAction::ChooseGears, static_cast<int8>(EBattlingMode::Practice), "PRACTICE"},
-			{0, 3, EAction::StartTutorial, -1, "TUTORIAL"},
-			{0, 5, EAction::Exit, -1, "EXIT"},
+			{0, 1, EAction::Open, MenuNumber(EMenu::Bonus)},
+			{Separator, 0, EAction::None, -1},
+			{0, 2, EAction::ChooseGears, static_cast<int8>(EBattlingMode::Practice)},
+			{0, 3, EAction::StartTutorial, -1},
+			{0, 5, EAction::Exit, -1},
 		};
 		constexpr FBattlingMenuItem BonusItems[]{
-			{0, 7, EAction::ChooseGears, static_cast<int8>(EBattlingMode::VersusComputer), "PLAYER1 VS COM"},
-			{0, 8, EAction::ChooseGears, static_cast<int8>(EBattlingMode::TwoPlayers), "PLAYER1 VS PLAYER2"},
-			{0, 9, EAction::ChooseGears, static_cast<int8>(EBattlingMode::ComputerVersusComputer), "COM VS COM"},
-			{Separator, 0, EAction::None, -1, ""},
-			{EveryPass | Value, 10, EAction::StepMatches, -1, "NUM OF MATCHES"},
-			{EveryPass | Value, 11, EAction::StepLevel, -1, "COM LEVEL"},
-			{EveryPass | Value, 12, EAction::StepRubberBand, -1, "RUBBER BAND"},
+			{0, 7, EAction::ChooseGears, static_cast<int8>(EBattlingMode::VersusComputer)},
+			{0, 8, EAction::ChooseGears, static_cast<int8>(EBattlingMode::TwoPlayers)},
+			{0, 9, EAction::ChooseGears, static_cast<int8>(EBattlingMode::ComputerVersusComputer)},
+			{Separator, 0, EAction::None, -1},
+			{EveryPass | Value, 10, EAction::StepMatches, -1},
+			{EveryPass | Value, 11, EAction::StepLevel, -1},
+			{EveryPass | Value, 12, EAction::StepRubberBand, -1},
 		};
 		constexpr FBattlingMenuItem PlayerOneGearItems[]{
-			{EveryPass, 37, EAction::ChoosePlayerOneGear, -1, ""},
-			{EveryPass, 41, EAction::StepVibrationOne, -1, ""},
+			{EveryPass, 37, EAction::ChoosePlayerOneGear, -1},
+			{EveryPass, 41, EAction::StepVibrationOne, -1},
 		};
 		constexpr FBattlingMenuItem PlayerTwoGearItems[]{
-			{EveryPass, 38, EAction::ChoosePlayerTwoGear, -1, ""},
-			{EveryPass, 41, EAction::StepVibrationTwo, -1, ""},
+			{EveryPass, 38, EAction::ChoosePlayerTwoGear, -1},
+			{EveryPass, 41, EAction::StepVibrationTwo, -1},
 		};
 		constexpr FBattlingMenuItem PracticePauseItems[]{
-			{0, 16, EAction::Resume, -1, "RETURN TO PRACTICE"},
-			{EveryPass, 18, EAction::StepPracticeStyle, -1, "AI"},
-			{EveryPass, 20, EAction::StepFrameRate, -1, "FRAME RATE"},
-			{0, 17, EAction::GiveUp, -1, "EXIT PRACTICE MODE"},
+			{0, 16, EAction::Resume, -1},
+			{EveryPass, 18, EAction::StepPracticeStyle, -1},
+			{EveryPass, 20, EAction::StepFrameRate, -1},
+			{0, 17, EAction::GiveUp, -1},
 		};
 
 		const FBattlingMenuDefinition PauseMenu{PauseItems, EMenu::Pause, 0};
@@ -185,18 +192,18 @@ namespace Weltall
 		/** The style's name and the frame rate ending inside the box, beside their items. */
 		void PrintPracticeValues(FBattlingFight& Fight, const FBattlingMenuPlace& Place, int16 Cursor)
 		{
-			using namespace BattlingLabelTexts;
+			const FBattlingTexts& Texts = Fight.Tables.Texts;
 			const uint32 Buffer = Fight.Pass & 1;
 			FBattlingLabels& Labels = Fight.Labels;
 			Labels.SetPosition(Place.BoxX + Place.BoxWidth - BoxMargin, Place.Y);
 			Labels.SetFlash(false, Fight.VBlank);
 			Labels.PrintRight("", Buffer);
 			Labels.SetFlash(Cursor == 1, Fight.VBlank);
-			Labels.PrintRight(PracticeStyles[std::min<std::size_t>(Fight.Settings.PracticeStyle, PracticeStyles.size() - 1)], Buffer);
+			Labels.PrintRight(Texts.PracticeStyles[std::min<std::size_t>(Fight.Settings.PracticeStyle, Texts.PracticeStyles.size() - 1)], Buffer);
 			Labels.SetFlash(Cursor == 2, Fight.VBlank);
-			Labels.PrintRight(std::to_string(PracticeFrameRates[std::min<std::size_t>(Fight.Settings.FrameSkip, PracticeFrameRates.size() - 1)])
-					+ std::string(FramesPerSecond),
-				Buffer);
+			using BattlingLabelTexts::PracticeFrameRates;
+			const uint8 Rate = PracticeFrameRates[std::min<std::size_t>(Fight.Settings.FrameSkip, PracticeFrameRates.size() - 1)];
+			Labels.PrintRight(FormatBattlingText(Texts.FrameRateFormat, {std::to_string(Rate)}), Buffer);
 			Labels.SetFlash(false, Fight.VBlank);
 		}
 
@@ -219,11 +226,11 @@ namespace Weltall
 				Labels.SetFlash(Cursor == static_cast<int16>(Item), Fight.VBlank);
 				if (Definition.Layout == 0)
 				{
-					Labels.PrintOffset(Definition.Items[Item].Label, Place.HalfWidths[Item], Buffer);
+					Labels.PrintOffset(ItemLabel(Labels, Menu, Item), Place.HalfWidths[Item], Buffer);
 				}
 				else
 				{
-					Labels.Print(Definition.Items[Item].Label, Buffer);
+					Labels.Print(ItemLabel(Labels, Menu, Item), Buffer);
 				}
 			}
 			if (Menu == EMenu::PracticePause)
@@ -270,7 +277,7 @@ namespace Weltall
 		int16 Widest = 0;
 		for (std::size_t Item = 0; Item < Definition.Items.size(); ++Item)
 		{
-			Place.HalfWidths[Item] = static_cast<int16>(Labels.Width(Definition.Items[Item].Label, FBattlingLabels::OwnSize) / 2);
+			Place.HalfWidths[Item] = static_cast<int16>(Labels.Width(ItemLabel(Labels, Menu, Item), FBattlingLabels::OwnSize) / 2);
 			Widest = std::max(Widest, Place.HalfWidths[Item]);
 		}
 		// A value's label stands where the widest does, the values ending at the box's right edge.

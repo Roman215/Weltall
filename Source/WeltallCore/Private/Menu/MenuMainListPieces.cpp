@@ -40,6 +40,10 @@ namespace Weltall
 		AdvanceCursor(Which);
 		// Where the arrow points, by the list: the items' two columns (a page's or all of them), the
 		// abilities' two columns, the Equip screen's rows.
+		// The French translation's program raises it 2 pixels on the item lists and 1 on the others.
+		const bool bFrench = Resources.IsFrench();
+		const int32 ItemsTop = bFrench ? 0x0F : 0x11;
+		const int32 OthersTop = bFrench ? 0x13 : 0x14;
 		bool bShown = true;
 		int32 X = 0;
 		int32 Y = 0;
@@ -47,7 +51,7 @@ namespace Weltall
 		{
 		case 0:
 			X = Row % 2 * 0x88 + 0x1C;
-			Y = Row / 2 * 0x10 + 0x11;
+			Y = Row / 2 * 0x10 + ItemsTop;
 			break;
 		case 1:
 			if (Row < Top * 2 || Top * 2 + 0x10 <= Row)
@@ -57,16 +61,16 @@ namespace Weltall
 			else
 			{
 				X = Row % 2 * 0x88 + 0x18;
-				Y = (Row - Top * 2) / 2 * 0x10 + 0x11;
+				Y = (Row - Top * 2) / 2 * 0x10 + ItemsTop;
 			}
 			break;
 		case 2:
 			X = Row % 2 * 0x88 + 0x18;
-			Y = Row / 2 * 0x10 + 0x14;
+			Y = Row / 2 * 0x10 + OthersTop;
 			break;
 		default:
 			X = 0xA0;
-			Y = Row * 0x0D + 0x14;
+			Y = Row * 0x0D + OthersTop;
 			break;
 		}
 		if (!bShown)

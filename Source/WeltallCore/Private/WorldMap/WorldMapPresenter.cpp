@@ -371,6 +371,7 @@ namespace Weltall
 			Box.UntexturedBlend = EBlendMode::Average;
 		}
 		// Each line's first 256 pixels from the window's page, then whatever lies past them from the next page, the last row first.
+		const int32 Unit = Context.Text != nullptr && Context.Text->Font != nullptr ? Context.Text->Font->UnitPixels() : 4;
 		for (const bool bSecondHalf : {false, true})
 		{
 			const int32 PageX = TextVramX + (bSecondHalf ? HalfUnits : 0);
@@ -378,12 +379,12 @@ namespace Weltall
 			for (int32 Row = Window.Lines() - 1; Row >= 0; --Row)
 			{
 				const FMesWindow::FLine& Line = Window.Row(Row);
-				const int32 Units = bSecondHalf ? Line.WidthUnits - HalfUnits : Line.WidthUnits;
-				if (Units <= 0)
+				const int32 Rest = Line.WidthUnits * Unit - (bSecondHalf ? HalfPixels : 0);
+				if (Rest <= 0)
 				{
 					continue;
 				}
-				const int32 Pixels = bSecondHalf ? Units * 4 : std::min(Units * 4, HalfPixels);
+				const int32 Pixels = bSecondHalf ? Rest : std::min(Rest, HalfPixels);
 				const FClutPosition Clut = FClutPosition::FromAttribute((Line.Strip & 1) != 0 ? OddTextClut : EvenTextClut);
 				const uint8 U = static_cast<uint8>((TextVramX & 0x3F) * 4);
 				const uint8 V = static_cast<uint8>(Text.VramY + Line.Strip / 2 * TextRows);

@@ -10,6 +10,7 @@ namespace Weltall
 	namespace
 	{
 		constexpr uint16 SonyVendor = 0x054C;
+		constexpr uint16 NintendoVendor = 0x057E;
 		constexpr uint8 ShortReport = 0x01;
 		constexpr uint8 DualShock4BluetoothReport = 0x11;
 		constexpr uint8 DualSenseBluetoothReport = 0x31;
@@ -43,13 +44,6 @@ namespace Weltall
 			return Offset / (Value < 128 ? 128.0f : 127.0f);
 		}
 
-		/** The d-pad a hat holds: 0 up to 7 clockwise, anything else at rest. */
-		uint32 HatButtons(int32 Hat)
-		{
-			static constexpr std::array<uint32, 8> Directions = {Up, Up | Right, Right, Down | Right, Down, Down | Left, Left, Up | Left};
-			return Hat >= 0 && Hat < static_cast<int32>(Directions.size()) ? Directions[static_cast<std::size_t>(Hat)] : 0;
-		}
-
 		/** The d-pad two axes lean towards. */
 		uint32 AxisButtons(std::optional<float> X, std::optional<float> Y)
 		{
@@ -66,7 +60,7 @@ namespace Weltall
 		 */
 		uint32 SonyButtons(uint8 Faces, uint8 Middle, uint8 Last)
 		{
-			uint32 Buttons = HatButtons(Faces & 0x0F);
+			uint32 Buttons = GamepadHatButtons(Faces & 0x0F);
 			const auto Add = [&Buttons](uint8 Byte, uint8 Mask, EGamepadControl Control) { Buttons |= (Byte & Mask) != 0 ? Bit(Control) : 0; };
 			Add(Faces, 0x10, EGamepadControl::FaceLeft);
 			Add(Faces, 0x20, EGamepadControl::FaceBottom);
@@ -135,8 +129,21 @@ namespace Weltall
 		return Held;
 	}
 
+	uint32 GamepadHatButtons(int32 Hat)
+	{
+		static constexpr std::array<uint32, 8> Directions = {Up, Up | Right, Right, Down | Right, Down, Down | Left, Left, Up | Left};
+		return Hat >= 0 && Hat < static_cast<int32>(Directions.size()) ? Directions[static_cast<std::size_t>(Hat)] : 0;
+	}
+
 	EHidGamepadModel HidGamepadModelOf(uint16 VendorId, uint16 ProductId)
 	{
+		// The Pro Controller (and every gamepad that passes for it to the Switch), HORI's wireless pad and PDP's wireless line.
+		const bool bSwitchPro = (VendorId == NintendoVendor && ProductId == 0x2009) || (VendorId == 0x0F0D && ProductId == 0x00F6)
+			|| (VendorId == 0x0E6F && ProductId == 0x0186);
+		if (bSwitchPro)
+		{
+			return EHidGamepadModel::SwitchPro;
+		}
 		if (VendorId != SonyVendor)
 		{
 			return EHidGamepadModel::Other;
@@ -167,6 +174,8 @@ namespace Weltall
 			return "DualSense";
 		case EHidGamepadModel::PlayStationClassic:
 			return "PlayStation Classic Controller";
+		case EHidGamepadModel::SwitchPro:
+			return "Nintendo Switch Pro Controller";
 		case EHidGamepadModel::Other:
 			break;
 		}
@@ -257,7 +266,7 @@ namespace Weltall
 			Reading.Buttons |= AxisButtons(Controls.X, Controls.Y);
 			return Reading;
 		}
-		Reading.Buttons |= Controls.Hat ? HatButtons(*Controls.Hat) : 0;
+		Reading.Buttons |= Controls.Hat ? GamepadHatButtons(*Controls.Hat) : 0;
 		Reading.LeftX = Controls.X.value_or(0.0f);
 		Reading.LeftY = -Controls.Y.value_or(0.0f);
 		// The right stick on Z and Rz, as most such gamepads put it, or else on the rotations about X and Y.

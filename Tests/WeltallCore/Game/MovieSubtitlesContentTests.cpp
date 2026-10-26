@@ -2,6 +2,7 @@
 #include "Media/GameMovies.h"
 #include "Media/MoviePlayer.h"
 #include "Mods/PerfectWorks.h"
+#include "Support/AppleDouble.h"
 #include "Support/GameDiscs.h"
 #include "Support/GameLoopSession.h"
 
@@ -255,6 +256,9 @@ TEST_CASE("A release whose subtitles lack a file of pictures gives none for that
 	std::filesystem::copy_file(From / "fmv1" / "4157.str", Copy / "fmv1" / "4157.str");
 	CHECK(FPerfectWorksSubtitles::Find(Copy, 1).has_value());
 	CHECK_FALSE(FPerfectWorksSubtitles::Find(Copy, 2).has_value());
+	// macOS's companion of the subtitles' program, which a folder may list before it, is passed over.
+	Testing::WriteAppleDoubleCompanion(Copy / "sub_executable" / "disc1" / "SLUS_006.64");
+	CHECK(FPerfectWorksSubtitles::Find(Copy, 1).has_value());
 	std::filesystem::remove_all(Copy);
 }
 

@@ -55,6 +55,7 @@ namespace Weltall
 		Result.SecondPageNarrowCount = LittleEndian::ReadU16(Font, 10);
 		Result.FirstCode = LittleEndian::ReadU16(Font, 12);
 		Result.Glyphs.assign(Font.begin() + GlyphsOffset, Font.end());
+		Result.Header.assign(Font.begin(), Font.begin() + GlyphsOffset);
 		std::copy_n(BoxGlyph.begin(), GlyphBytes, Result.Box.begin());
 		for (std::size_t Index = 0; Index < FaceButtonGlyphs.size(); ++Index)
 		{
@@ -84,6 +85,18 @@ namespace Weltall
 		OwnWidths[static_cast<uint16>(Code.Lead << 8 | Code.Code)] = Units;
 	}
 
+	void FMesFont::SetVariableWidths(const std::array<uint8, 256>& Pixels)
+	{
+		SetVariableWidths(Pixels, Pixels);
+	}
+
+	void FMesFont::SetVariableWidths(const std::array<uint8, 256>& Pixels, const std::array<uint8, 256>& DrawnPixels)
+	{
+		VariableWidths = Pixels;
+		VariableDrawWidths = DrawnPixels;
+		bVariableWidth = true;
+	}
+
 	int32 FMesFont::WidthUnits(FMesCode Code) const
 	{
 		if (!OwnWidths.empty())
@@ -92,6 +105,10 @@ namespace Weltall
 			{
 				return Own->second;
 			}
+		}
+		if (bVariableWidth)
+		{
+			return VariableWidths[Code.Code];
 		}
 		// As the kernel compares them: a one-byte code before the first glyph counts as narrow too.
 		bool bNarrow = false;
@@ -141,6 +158,36 @@ namespace Weltall
 			Rows[Row] = static_cast<uint16>((*Glyph)[Row * 2] << 8 | (*Glyph)[Row * 2 + 1]);
 		}
 		return Rows;
+	}
+
+	FMesFont::FGlyphRows FMesFont::VariableWidthRows(uint8 Code) const
+	{
+		if (Code >= FirstCode)
+		{
+			return Rows({0, Code}).value_or(FGlyphRows{});
+		}
+		// Counted from the file's start: the glyph's first byte lies this far before the glyphs.
+		const std::ptrdiff_t Start = static_cast<std::ptrdiff_t>(Header.size()) - static_cast<std::ptrdiff_t>((FirstCode - Code) * GlyphBytes);
+		const auto Byte = [&](std::ptrdiff_t At) -> uint32 {
+			At += Start;
+			if (At < 0)
+			{
+				return 0;
+			}
+			if (At < static_cast<std::ptrdiff_t>(Header.size()))
+			{
+				return Header[static_cast<std::size_t>(At)];
+			}
+			At -= static_cast<std::ptrdiff_t>(Header.size());
+			return At < static_cast<std::ptrdiff_t>(Glyphs.size()) ? Glyphs[static_cast<std::size_t>(At)] : 0;
+		};
+		FGlyphRows Result{};
+		for (std::size_t Row = 0; Row < Result.size(); ++Row)
+		{
+			const std::ptrdiff_t At = static_cast<std::ptrdiff_t>(Row * 2);
+			Result[Row] = static_cast<uint16>(Byte(At) << 8 | Byte(At + 1));
+		}
+		return Result;
 	}
 
 	bool FMesFont::SetRows(FMesCode Code, const FGlyphRows& Rows)

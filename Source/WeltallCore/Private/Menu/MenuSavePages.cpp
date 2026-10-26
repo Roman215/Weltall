@@ -4,6 +4,7 @@
 #include "Menu/MenuSaveCards.h"
 #include "Menu/OptionsText.h"
 
+#include <algorithm>
 #include <cstdio>
 #include <cstdlib>
 #include <fstream>
@@ -18,7 +19,26 @@ namespace Weltall
 
 		namespace SavesRow
 		{
-			enum : int32 { Import, Export };
+			enum : int32 { Import, Export, DeviceHeading, AddDiscs, AddDiscFolder, BackUp, Restore, SaveLog };
+		}
+
+		/** The Saves page's row of a transfer; none for the Modding page's. */
+		std::optional<int32> TransferRow(EDeviceTransfer Kind)
+		{
+			switch (Kind)
+			{
+			case EDeviceTransfer::Discs: return SavesRow::AddDiscs;
+			case EDeviceTransfer::DiscFolder: return SavesRow::AddDiscFolder;
+			case EDeviceTransfer::BackUp: return SavesRow::BackUp;
+			case EDeviceTransfer::Restore: return SavesRow::Restore;
+			case EDeviceTransfer::Log: return SavesRow::SaveLog;
+			case EDeviceTransfer::ImportFile: return SavesRow::Import;
+			case EDeviceTransfer::CardImage: return SavesRow::Export;
+			case EDeviceTransfer::ModZip:
+			case EDeviceTransfer::ModFolder:
+				return std::nullopt;
+			}
+			return std::nullopt;
 		}
 
 		namespace ImportRow
@@ -83,6 +103,58 @@ namespace Weltall
 			return Count == 1 ? std::string(Text::OneSave) : OptionsText::Fill(Text::ManySaves, {std::to_string(Count)});
 		}
 
+		std::string FileCount(int32 Count)
+		{
+			return Count == 1 ? std::string(Text::OneFile) : OptionsText::Fill(Text::ManyFiles, {std::to_string(Count)});
+		}
+
+		/** What a transfer's row tells while it runs, and at its end; nothing once cancelled. */
+		std::optional<std::array<std::string, 3>> TransferLines(const FTransferStatus& Status)
+		{
+			const std::string Name = Shortened(FFileBrowser::DisplayName(Status.Name), LineLetters);
+			switch (Status.State)
+			{
+			case ETransferState::Picking:
+				return OptionsText::Fill(Text::Picking);
+			case ETransferState::Copying:
+				if (Status.Kind == EDeviceTransfer::DiscFolder && Status.Files == 0)
+				{
+					// The folder's disc images are counted before any is copied.
+					return OptionsText::Fill(Text::ScanningDiscs, {Name, std::to_string(Status.File)});
+				}
+				return OptionsText::Fill(Text::Copying, {std::to_string(std::max(Status.File, 1)), std::to_string(std::max(Status.Files, 1)), Name, std::to_string(Status.Percent())});
+			case ETransferState::Done:
+				switch (Status.Kind)
+				{
+				case EDeviceTransfer::Discs:
+				case EDeviceTransfer::DiscFolder:
+					return OptionsText::Fill(Text::DiscsCopied, {FileCount(Status.Files)});
+				case EDeviceTransfer::BackUp: return OptionsText::Fill(Text::BackedUp, {FileCount(Status.Files)});
+				case EDeviceTransfer::Restore: return OptionsText::Fill(Text::Restored, {FileCount(Status.Files)});
+				case EDeviceTransfer::Log: return OptionsText::Fill(Text::LogSaved);
+				case EDeviceTransfer::CardImage: return OptionsText::Fill(Text::CardSaved, {Name});
+				case EDeviceTransfer::ImportFile:
+				case EDeviceTransfer::ModZip:
+				case EDeviceTransfer::ModFolder:
+					return std::nullopt;
+				}
+				return std::nullopt;
+			case ETransferState::Failed:
+			{
+				const std::size_t Failure = static_cast<std::size_t>(Status.Failure);
+				if (Failure == 0 || Failure > Text::Failures.size() || Text::Failures[Failure - 1][0].empty())
+				{
+					return std::nullopt;
+				}
+				return OptionsText::Fill(Text::Failures[Failure - 1], {Name});
+			}
+			case ETransferState::Idle:
+			case ETransferState::Cancelled:
+				return std::nullopt;
+			}
+			return std::nullopt;
+		}
+
 		/** The user's home: where browsing starts the first time. */
 		std::filesystem::path Home()
 		{
@@ -116,7 +188,8 @@ namespace Weltall
 		}
 	}
 
-	FMenuSavePages::FMenuSavePages(FSaveStore& InSaves, const FMenuResources& InResources) : Saves(InSaves), Resources(InResources)
+	FMenuSavePages::FMenuSavePages(FSaveStore& InSaves, const FMenuResources& InResources, IMenuDeviceFiles* InFiles)
+		: Saves(InSaves), Resources(InResources), Files(InFiles)
 	{
 	}
 
@@ -142,6 +215,25 @@ namespace Weltall
 		case ESavesPage::Saves:
 			Rows.push_back(RowOfWords(Text::Import));
 			Rows.push_back(RowOfWords(Text::Export, CardName(ExportStore)));
+			if (Files != nullptr)
+			{
+				Rows[SavesRow::Import].Help = OptionsText::Fill(Text::ImportPickedHelp);
+				Rows[SavesRow::Export].Help = OptionsText::Fill(Text::ExportPickedHelp);
+				FSettingsRow Heading;
+				Heading.Label = std::string(Text::DeviceHeading);
+				Heading.bHeading = true;
+				Rows.push_back(std::move(Heading));
+				Rows.push_back(RowOfWords(Text::AddDiscs));
+				Rows.push_back(RowOfWords(Text::AddDiscFolder));
+				Rows.push_back(RowOfWords(Text::BackUp));
+				Rows.push_back(RowOfWords(Text::Restore));
+				Rows.push_back(RowOfWords(Text::SaveLog));
+				if (bRestoreAsked)
+				{
+					Rows[SavesRow::Restore].Help = OptionsText::Fill(Text::RestoreAsked);
+				}
+				TellTransfer(Rows);
+			}
 			break;
 		case ESavesPage::Browse:
 			for (const FBrowserEntry& Entry : Browser->Entries())
@@ -222,13 +314,36 @@ namespace Weltall
 		switch (Shown)
 		{
 		case ESavesPage::Saves:
-			if (Row == SavesRow::Import)
+			switch (Row)
 			{
+			case SavesRow::Import:
+				if (Files != nullptr)
+				{
+					return StartTransfer(EDeviceTransfer::ImportFile);
+				}
 				Browse();
 				return true;
+			case SavesRow::Export:
+				return Export();
+			case SavesRow::AddDiscs:
+				return StartTransfer(EDeviceTransfer::Discs);
+			case SavesRow::AddDiscFolder:
+				return StartTransfer(EDeviceTransfer::DiscFolder);
+			case SavesRow::BackUp:
+				return StartTransfer(EDeviceTransfer::BackUp);
+			case SavesRow::Restore:
+				if (Files != nullptr && !bRestoreAsked)
+				{
+					bRestoreAsked = true;
+					return true;
+				}
+				bRestoreAsked = false;
+				return StartTransfer(EDeviceTransfer::Restore);
+			case SavesRow::SaveLog:
+				return StartTransfer(EDeviceTransfer::Log);
+			default:
+				return false;
 			}
-			Export();
-			return true;
 		case ESavesPage::Browse:
 			if (Row < 0 || Row >= static_cast<int32>(Browser->Entries().size()))
 			{
@@ -236,7 +351,10 @@ namespace Weltall
 			}
 			if (const std::optional<std::filesystem::path> File = Browser->Open(Row))
 			{
-				Pick(*File);
+				if (Pick(*File, Row))
+				{
+					Saves.KeepImportFolder(Browser->Folder());
+				}
 			}
 			else
 			{
@@ -263,6 +381,7 @@ namespace Weltall
 	{
 		ToldRow = -1;
 		bReplaceAsked = false;
+		bRestoreAsked = false;
 		switch (Shown)
 		{
 		case ESavesPage::Saves:
@@ -272,7 +391,8 @@ namespace Weltall
 			++Views;
 			return true;
 		case ESavesPage::Import:
-			Shown = ESavesPage::Browse;
+			// The file picked through the device's picker was never browsed to.
+			Shown = Browser ? ESavesPage::Browse : ESavesPage::Saves;
 			++Views;
 			return true;
 		}
@@ -283,6 +403,59 @@ namespace Weltall
 	{
 		ToldRow = -1;
 		bReplaceAsked = false;
+		bRestoreAsked = false;
+	}
+
+	bool FMenuSavePages::Refresh()
+	{
+		if (Files == nullptr)
+		{
+			return false;
+		}
+		const FTransferStatus Status = Files->Status();
+		if (Status.Revision == SeenRevision)
+		{
+			return false;
+		}
+		SeenRevision = Status.Revision;
+		if (Status.Running())
+		{
+			Followed = Status.Kind;
+		}
+		else if (Followed == EDeviceTransfer::ImportFile && Status.Kind == EDeviceTransfer::ImportFile && Status.State == ETransferState::Done)
+		{
+			Followed.reset();
+			if (Shown == ESavesPage::Saves)
+			{
+				Pick(Status.Picked, SavesRow::Import);
+			}
+		}
+		return true;
+	}
+
+	bool FMenuSavePages::StartTransfer(EDeviceTransfer Kind, const std::filesystem::path& File)
+	{
+		if (Files == nullptr || !Files->Start(Kind, File))
+		{
+			return false;
+		}
+		Followed = Kind;
+		ToldRow = -1;
+		return true;
+	}
+
+	void FMenuSavePages::TellTransfer(std::vector<FSettingsRow>& Rows) const
+	{
+		const FTransferStatus Status = Files->Status();
+		const std::optional<int32> Row = TransferRow(Status.Kind);
+		if (!Row || (!Status.Running() && Followed != Status.Kind))
+		{
+			return;
+		}
+		if (std::optional<std::array<std::string, 3>> Lines = TransferLines(Status))
+		{
+			Rows[static_cast<std::size_t>(*Row)].Help = std::move(*Lines);
+		}
 	}
 
 	void FMenuSavePages::Browse()
@@ -293,38 +466,25 @@ namespace Weltall
 		ToldRow = -1;
 	}
 
-	void FMenuSavePages::Pick(const std::filesystem::path& File)
+	bool FMenuSavePages::Pick(const std::filesystem::path& File, int32 Row)
 	{
-		const int32 Row = [&]
-		{
-			const std::vector<FBrowserEntry>& Entries = Browser->Entries();
-			for (std::size_t Entry = 0; Entry < Entries.size(); ++Entry)
-			{
-				if (Entries[Entry].Path == File)
-				{
-					return static_cast<int32>(Entry);
-				}
-			}
-			return -1;
-		}();
 		const std::optional<std::vector<uint8>> Bytes = ReadFile(File);
 		if (!Bytes)
 		{
 			Tell(Row, OptionsText::Fill(Text::Unreadable));
-			return;
+			return false;
 		}
 		TResult<std::vector<FOriginalSave>> Read = ReadCardImageSaves(*Bytes);
 		if (!Read)
 		{
 			Tell(Row, OptionsText::Fill(Text::NotACard));
-			return;
+			return false;
 		}
 		if (Read->empty())
 		{
 			Tell(Row, OptionsText::Fill(Text::NoSaves));
-			return;
+			return false;
 		}
-		Saves.KeepImportFolder(Browser->Folder());
 		Picked = std::move(*Read);
 		// The first card with room for every save at its number, else the first.
 		IntoStore = 0;
@@ -340,6 +500,7 @@ namespace Weltall
 		ToldRow = -1;
 		Shown = ESavesPage::Import;
 		++Views;
+		return true;
 	}
 
 	void FMenuSavePages::Import()
@@ -356,20 +517,27 @@ namespace Weltall
 		Tell(ImportRow::Copy, OptionsText::Fill(Text::Copied, {SaveCount(static_cast<int32>(Picked.size())), CardName(IntoStore)}));
 	}
 
-	void FMenuSavePages::Export()
+	bool FMenuSavePages::Export()
 	{
 		TResult<std::vector<uint8>> Image = ExportStoreCard(Saves, ExportStore, Resources);
 		if (!Image)
 		{
 			Tell(SavesRow::Export, OptionsText::Fill(Text::DamagedCard));
-			return;
+			return true;
 		}
-		if (!Saves.WriteCardImage(ExportStore, *Image))
+		const TResult<std::filesystem::path> Written = Saves.WriteCardImage(ExportStore, *Image);
+		if (!Written)
 		{
 			Tell(SavesRow::Export, OptionsText::Fill(Text::WriteFailed));
-			return;
+			return true;
+		}
+		if (Files != nullptr)
+		{
+			// Saved where the player chooses, the Cards folder being out of their reach.
+			return StartTransfer(EDeviceTransfer::CardImage, *Written);
 		}
 		Tell(SavesRow::Export, OptionsText::Fill(Text::Exported, {CardName(ExportStore)}));
+		return true;
 	}
 
 	bool FMenuSavePages::HoldsSave(int32 Store, const FOriginalSave& Save) const

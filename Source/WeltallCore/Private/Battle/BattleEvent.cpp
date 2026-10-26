@@ -5,11 +5,13 @@
 #include "Formats/Lzss.h"
 #include "Foundation/LittleEndian.h"
 #include "Foundation/ProcessorDivide.h"
+#include "Foundation/Sha1.h"
 #include "Media/CdImage.h"
 #include "Media/GameFileIndex.h"
 #include "Text/MessageTableIds.h"
 
 #include <algorithm>
+#include <string_view>
 
 namespace Weltall
 {
@@ -19,6 +21,22 @@ namespace Weltall
 	{
 		constexpr int32 ArchiveDirectory = 32;
 		constexpr int32 ArchiveFile = 2;
+		/** The battle events' program beside the archive, and the French translation's version of it (its SHA-1). */
+		constexpr int32 ProgramFile = 1;
+		constexpr std::string_view FrenchProgram = "4965dd0b4a2e8af202cd764f09c97afadec886c3";
+
+		/** Whether the disc's battle events' program is the French translation's. */
+		bool HasFrenchProgram(const FCdImage& Image, const FGameFileIndex& Index)
+		{
+			const FIndexRecord* Record = Index.Find(ArchiveDirectory, ProgramFile);
+			if (Record == nullptr)
+			{
+				return false;
+			}
+			const TResult<std::vector<uint8>> Sectors = ReadFileSectors(Image, *Record);
+			return Sectors && Sectors->size() >= static_cast<std::size_t>(Record->Size)
+				&& FSha1::ToHex(FSha1::Hash(std::span<const uint8>(*Sectors).first(static_cast<std::size_t>(Record->Size)))) == FrenchProgram;
+		}
 		constexpr uint16 NoPc = 0xFFFF;
 		constexpr uint8 IdleScript = 1;
 		constexpr uint8 IdlePriority = 7;
@@ -715,6 +733,10 @@ namespace Weltall
 		if (Image.ModChanges().bPerfectWorksBattleMessages)
 		{
 			Archive->MessageLayout = EBattleMessageLayout::PerfectWorks;
+		}
+		else if (HasFrenchProgram(Image, Index))
+		{
+			Archive->MessageLayout = EBattleMessageLayout::French;
 		}
 		Archive->ReplacedMessages.resize(Archive->MessageTables.size());
 		for (std::size_t Event = 0; Event < Archive->MessageTables.size(); ++Event)

@@ -225,6 +225,7 @@ namespace Weltall
 			PendingView = {};
 			Presenter->SetPlayerView(bPlayerView ? Offsets : FWorldMapCameraOffsets{});
 			MapRuntime->Context().ViewTurn = bPlayerView ? WorldMapViewTurn(Offsets) : int16{0};
+			MapRuntime->Context().bAnalogMovement = Session.Settings().Controls.bAnalogMovement;
 			if (auto Error = Presenter->Tick(*MapRuntime, HeldPerVblank, Culling, Frames[static_cast<std::size_t>(Next)]))
 			{
 				return Error;

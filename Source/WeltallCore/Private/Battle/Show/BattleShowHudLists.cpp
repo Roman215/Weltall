@@ -35,11 +35,8 @@ namespace Weltall
 		constexpr int32 ScrollEndFrame = 0x64;
 		constexpr int32 CursorFrames = 0xE0;
 
-		/** Each list's windows, as its routine opens them: x, y, width, height. */
+		/** Each list's windows, as its routine opens them: x, y, width, height (the Ether's and Specials' FBattleHudPlaces). */
 		constexpr std::array<std::array<int16, 4>, 2> ItemWindows{{{0x20, 0x58, 0x118, 0x78}, {0x10, 0x2C, 0x128, 0x28}}};
-		constexpr std::array<std::array<int16, 4>, 4> EtherWindows{{{0x1C, 0xA0, 0xAC, 0x38}, {0x20, 0x2C, 0x118, 0x70},
-			{0xD0, 0xA4, 0x50, 0x18}, {0xE6, 0xC0, 0x4C, 0x18}}};
-		constexpr std::array<std::array<int16, 4>, 3> SpecialWindows{{{0x74, 0xA0, 0xAC, 0x38}, {0x84, 0x4C, 0x9C, 0x50}, {0x1C, 0xA0, 0x50, 0x18}}};
 		/** The Combo list's two windows grow to their sizes; Billy's ammunition has one. */
 		constexpr std::array<std::array<int16, 4>, 2> ComboWindows{{{0x16, 0x5C, 0x122, 0x4C}, {0x10, 0x2C, 0xE8, 0x2C}}};
 		constexpr std::array<std::array<int16, 4>, 1> AmmunitionWindows{{{0x98, 0xA8, 0x8C, 0x28}}};
@@ -56,27 +53,27 @@ namespace Weltall
 		/** An item's target labels by its target kind. */
 		constexpr std::array<int32, 3> TargetLabels{OneTargetLabel, AllTargetsLabel, PartyTargetLabel};
 
-		std::span<const std::array<int16, 4>> ListWindows(EBattleMenuList List)
+		std::span<const std::array<int16, 4>> ListWindows(EBattleMenuList List, const FBattleHudPlaces& Code)
 		{
 			switch (List)
 			{
 			case EBattleMenuList::Items:
 				return ItemWindows;
 			case EBattleMenuList::Ether:
-				return EtherWindows;
+				return Code.EtherWindows;
 			case EBattleMenuList::Combo:
 				return ComboWindows;
 			case EBattleMenuList::Ammunition:
 				return AmmunitionWindows;
 			default:
-				return SpecialWindows;
+				return Code.SpecialWindows;
 			}
 		}
 	}
 
 	void FBattleHud::OpenListWindow(EBattleMenuList List, int32 Window)
 	{
-		const std::span<const std::array<int16, 4>> Places = ListWindows(List);
+		const std::span<const std::array<int16, 4>> Places = ListWindows(List, Resources.Tables.Places);
 		if (Window < 0 || Window >= static_cast<int32>(Places.size()))
 		{
 			FaultState = EBattleHudFault::IndexOutsideHud;
@@ -246,7 +243,7 @@ namespace Weltall
 			ListLoop.DrawnScroll = Party.ListScroll;
 		}
 		const int32 Odd = Cell & 1;
-		DrawListCursor(static_cast<int16>(Odd << 7 | (Odd * 2 + 0x2A)), static_cast<int16>((Cell >> 1) * ItemRow + 99));
+		DrawListCursor(static_cast<int16>(Odd << 7 | (Odd * 2 + 0x2A)), static_cast<int16>((Cell >> 1) * ItemRow + Resources.Tables.Places.ItemCursorY));
 	}
 
 	void FBattleHud::DrawItemInfo(uint8 Cell, uint8 Row)
@@ -331,7 +328,7 @@ namespace Weltall
 		}
 		const int32 Kind = (Targeting & 0x4000) != 0 ? GearKindLabel : (Targeting & 0x1000) != 0 ? AllKindLabel : OneKindLabel;
 		SetLabelQuad(ListWork->Quads[FBattleHudListWork::Labels][Buffer], 0xA8, 0x33, Kind);
-		SetLabelQuad(ListWork->Quads[FBattleHudListWork::Labels + 1][Buffer], 0xD0, 0x33, TargetLabels[Targeting & 0xF]);
+		SetLabelQuad(ListWork->Quads[FBattleHudListWork::Labels + 1][Buffer], Resources.Tables.Places.ItemTargetsX, 0x33, TargetLabels[Targeting & 0xF]);
 	}
 
 	void FBattleHud::DrawItemThumb(int32 Offset)
@@ -364,9 +361,9 @@ namespace Weltall
 		Quads[0][Buffer].Clut = Clut;
 		Quads[1][Buffer].Clut = Clut;
 		const uint8 V = static_cast<uint8>(Scroll);
-		SetQuad(Quads[0][Buffer], 0x30, 0x60, 0, V, 0x60, 0x68);
+		SetQuad(Quads[0][Buffer], Resources.Tables.Places.ItemCellsX, 0x60, 0, V, 0x60, 0x68);
 		SetQuad(Quads[1][Buffer], 0xB4, 0x60, 0x78, V, 0x60, 0x68);
-		SetQuad(Quads[2][Buffer], 0x98, 0x60, Beyond, V, 0x10, 0x68);
+		SetQuad(Quads[2][Buffer], Resources.Tables.Places.ItemCellsBeyondX, 0x60, Beyond, V, 0x10, 0x68);
 		SetQuad(Quads[3][Buffer], 0x11C, 0x60, static_cast<uint8>(Beyond | 0x40), V, 0x10, 0x68);
 		ListWork->CellsBuffer = Buffer;
 	}
@@ -391,7 +388,7 @@ namespace Weltall
 		ListThumb.bShown = false;
 		ScrollBar.bShown = false;
 		ListCursor.bShown = false;
-		for (std::size_t Window = 0; Window < ListWindows(List).size(); ++Window)
+		for (std::size_t Window = 0; Window < ListWindows(List, Resources.Tables.Places).size(); ++Window)
 		{
 			Windows[Window].bShown = false;
 		}
@@ -402,7 +399,7 @@ namespace Weltall
 		ListThumb.bShown = true;
 		ScrollBar.bShown = true;
 		ListCursor.bShown = true;
-		for (std::size_t Window = 0; Window < ListWindows(List).size(); ++Window)
+		for (std::size_t Window = 0; Window < ListWindows(List, Resources.Tables.Places).size(); ++Window)
 		{
 			Windows[Window].bShown = true;
 		}

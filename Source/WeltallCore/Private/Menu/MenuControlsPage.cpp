@@ -20,11 +20,15 @@ namespace Weltall
 			Heading,
 			Action,
 			AlwaysRun,
+			AnalogMovement,
 			WalkIntoDoors,
 			OriginalButtonIcons,
 			ButtonLayout,
 			MouseSensitivity,
 			StickSensitivity,
+			TouchMovement,
+			TouchOpacity,
+			TouchVibration,
 			Reset,
 		};
 
@@ -47,7 +51,7 @@ namespace Weltall
 			return {Kind, Words.Label, &Words};
 		}
 
-		constexpr std::array<FControlsRow, 28> PageRows{{
+		constexpr std::array<FControlsRow, 33> PageRows{{
 			{ERowKind::Device, Text::Device},
 			{ERowKind::Heading, Text::ButtonsHeading},
 			KeysOf(Text::Up, EControlAction::Up),
@@ -65,6 +69,7 @@ namespace Weltall
 			KeysOf(Text::Pause, EControlAction::Start),
 			KeysOf(Text::Map, EControlAction::Select),
 			Setting(ERowKind::AlwaysRun, Text::AlwaysRun),
+			Setting(ERowKind::AnalogMovement, Text::AnalogMovement),
 			Setting(ERowKind::WalkIntoDoors, Text::WalkIntoDoors),
 			Setting(ERowKind::OriginalButtonIcons, Text::OriginalButtonIcons),
 			Setting(ERowKind::ButtonLayout, Text::ButtonLayout),
@@ -75,6 +80,10 @@ namespace Weltall
 			KeysOf(Text::ResetCamera, EControlAction::ViewReset),
 			Setting(ERowKind::MouseSensitivity, Text::MouseSensitivity),
 			Setting(ERowKind::StickSensitivity, Text::StickSensitivity),
+			{ERowKind::Heading, Text::TouchHeading},
+			Setting(ERowKind::TouchMovement, Text::TouchMovement),
+			Setting(ERowKind::TouchOpacity, Text::TouchOpacity),
+			Setting(ERowKind::TouchVibration, Text::TouchVibration),
 			{ERowKind::Reset},
 		}};
 
@@ -203,6 +212,9 @@ namespace Weltall
 			case ERowKind::AlwaysRun:
 				Made.Value = std::string(Bindings.bAlwaysRun ? OptionsText::On : OptionsText::Off);
 				break;
+			case ERowKind::AnalogMovement:
+				Made.Value = std::string(Bindings.bAnalogMovement ? OptionsText::On : OptionsText::Off);
+				break;
 			case ERowKind::WalkIntoDoors:
 				Made.Value = std::string(Bindings.bWalkIntoDoors ? OptionsText::On : OptionsText::Off);
 				break;
@@ -215,6 +227,15 @@ namespace Weltall
 			case ERowKind::MouseSensitivity:
 			case ERowKind::StickSensitivity:
 				Made.Value = std::to_string(*SensitivityOf(Kind.Kind, Bindings));
+				break;
+			case ERowKind::TouchMovement:
+				Made.Value = SettingsRows::ChoiceName(Bindings.TouchMovement, Text::TouchMovementValues);
+				break;
+			case ERowKind::TouchOpacity:
+				Made.Value = std::to_string(Bindings.TouchOpacity * 10) + "%";
+				break;
+			case ERowKind::TouchVibration:
+				Made.Value = std::string(Bindings.bTouchVibration ? OptionsText::On : OptionsText::Off);
 				break;
 			case ERowKind::Reset:
 				Made.Label = std::string(bKeyboard ? Text::ResetKeys : Text::ResetButtons);
@@ -262,10 +283,14 @@ namespace Weltall
 		case ERowKind::WalkIntoDoors:
 			Lines = OptionsText::Fill(At->Words->Help, {LabelOf(EControlAction::Cross)});
 			break;
+		case ERowKind::AnalogMovement:
 		case ERowKind::OriginalButtonIcons:
 		case ERowKind::ButtonLayout:
 		case ERowKind::MouseSensitivity:
 		case ERowKind::StickSensitivity:
+		case ERowKind::TouchMovement:
+		case ERowKind::TouchOpacity:
+		case ERowKind::TouchVibration:
 			Lines = OptionsText::Fill(At->Words->Help);
 			break;
 		case ERowKind::Reset:
@@ -304,6 +329,9 @@ namespace Weltall
 		case ERowKind::AlwaysRun:
 			Bindings.bAlwaysRun = !Bindings.bAlwaysRun;
 			return true;
+		case ERowKind::AnalogMovement:
+			Bindings.bAnalogMovement = !Bindings.bAnalogMovement;
+			return true;
 		case ERowKind::WalkIntoDoors:
 			Bindings.bWalkIntoDoors = !Bindings.bWalkIntoDoors;
 			return true;
@@ -325,6 +353,22 @@ namespace Weltall
 			Level = Next;
 			return true;
 		}
+		case ERowKind::TouchMovement:
+			Bindings.TouchMovement = Bindings.TouchMovement == ETouchMovement::Cross ? ETouchMovement::Stick : ETouchMovement::Cross;
+			return true;
+		case ERowKind::TouchOpacity:
+		{
+			const int32 Next = std::clamp(Bindings.TouchOpacity + Direction, LowestTouchOpacity, HighestTouchOpacity);
+			if (Next == Bindings.TouchOpacity)
+			{
+				return false;
+			}
+			Bindings.TouchOpacity = Next;
+			return true;
+		}
+		case ERowKind::TouchVibration:
+			Bindings.bTouchVibration = !Bindings.bTouchVibration;
+			return true;
 		case ERowKind::Action:
 		{
 			const int32 Next = std::clamp(Slot + Direction, 0, ControlSlots - 1);
@@ -357,7 +401,14 @@ namespace Weltall
 		case ERowKind::Heading:
 		case ERowKind::MouseSensitivity:
 		case ERowKind::StickSensitivity:
+		case ERowKind::TouchOpacity:
 			return false;
+		case ERowKind::TouchMovement:
+			Bindings.TouchMovement = Bindings.TouchMovement == ETouchMovement::Cross ? ETouchMovement::Stick : ETouchMovement::Cross;
+			return true;
+		case ERowKind::TouchVibration:
+			Bindings.bTouchVibration = !Bindings.bTouchVibration;
+			return true;
 		case ERowKind::Action:
 			bListening = true;
 			ListenRow = Row;
@@ -367,6 +418,9 @@ namespace Weltall
 			return true;
 		case ERowKind::AlwaysRun:
 			Bindings.bAlwaysRun = !Bindings.bAlwaysRun;
+			return true;
+		case ERowKind::AnalogMovement:
+			Bindings.bAnalogMovement = !Bindings.bAnalogMovement;
 			return true;
 		case ERowKind::WalkIntoDoors:
 			Bindings.bWalkIntoDoors = !Bindings.bWalkIntoDoors;
@@ -432,7 +486,7 @@ namespace Weltall
 		const bool bFree = Bindings.KeyAt(At->Action, Shown, Slot).empty();
 		if (Was && Was->Action != At->Action && bFree && IsButton(Was->Action) && Bindings.Count(Was->Action, Shown) == 1)
 		{
-			Tell(Row, OptionsText::Fill(Text::OnlyKey, {LabelOf(Was->Action), KeyNoun()}));
+			Tell(Row, OptionsText::Fill(Text::OnlyKey, {LabelOf(Was->Action)}));
 			return EControlsHeard::Refused;
 		}
 		if (bInverted)

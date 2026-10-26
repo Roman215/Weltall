@@ -2,6 +2,9 @@
 
 #include "Field/EventContext.h"
 #include "Field/FieldWalkmesh.h"
+#include "Graphics/Sprite.h"
+
+#include <algorithm>
 
 namespace Weltall
 {
@@ -9,8 +12,11 @@ namespace Weltall
 	{
 		constexpr uint16 NoDirection = 0x8000;
 		constexpr uint16 AngleMask = 0xFFF;
+		constexpr uint16 HalfTurn = 0x800;
 		constexpr uint16 JumpButton = 0x80;
 		constexpr uint32 DpadShift = 12;
+		constexpr uint16 DpadBits = 0xF000;
+		constexpr uint32 LargestTimeScale = 0xFFF;
 		constexpr uint32 Jumping = 0x800;
 		constexpr int16 StuckJumpTicks = 0x20;
 		constexpr uint16 AnimationChosenByMove = 0xFF;
@@ -89,6 +95,65 @@ namespace Weltall
 			}
 			return true;
 		}
+
+		/**
+		 * Analog movement's reading of the stick: its heading and push when it alone holds a direction the tick's masks
+		 * let through (a direction the scripts or the walkmesh keep out keeps the stick out).
+		 */
+		std::optional<FAnalogStick> ReadStick(const FFieldPadWords& Words, uint16 Mask)
+		{
+			if ((Mask & DpadBits) != DpadBits)
+			{
+				return std::nullopt;
+			}
+			return ReadAnalogStick(Words.Held, Words.StickHeld, Words.StickX, Words.StickY);
+		}
+	}
+
+	bool StickWalks(const FEventContext& Context, const FEventActorState& Actor)
+	{
+		return Context.Controls.Stick.has_value() && (Actor.Flags0 & EventActorFlags0::PadControlled) != 0;
+	}
+
+	bool RunsUnheld(const FEventContext& Context, const FEventActorState& Actor)
+	{
+		return Context.bAlwaysRun && (!StickWalks(Context, Actor) || Context.Controls.Stick->Tilt >= FAnalogStick::RunTilt);
+	}
+
+	void SlowActorSprite(FEventContext& Context, int32 Actor, FSprite& Sprite, uint16 Slow)
+	{
+		if (Slow == FieldUnslowed)
+		{
+			return;
+		}
+		for (FFieldControls::FSlowedSprite& Slowed : Context.Controls.Slowed)
+		{
+			if (Slowed.Actor < 0 || Slowed.Actor == Actor)
+			{
+				if (Slowed.Actor < 0)
+				{
+					Slowed = {Actor, Sprite.TimeScale()};
+				}
+				Sprite.SetTimeScale(static_cast<int32>(std::min<uint32>(Slowed.TimeScale * Slow >> 8, LargestTimeScale)));
+				return;
+			}
+		}
+	}
+
+	void RestoreSlowedSprites(FEventContext& Context)
+	{
+		for (FFieldControls::FSlowedSprite& Slowed : Context.Controls.Slowed)
+		{
+			if (Slowed.Actor >= 0 && Context.Models != nullptr)
+			{
+				if (FSprite* Sprite = Context.Models->ActorSprite(Slowed.Actor))
+				{
+					Sprite->SetTimeScale(static_cast<int32>(Slowed.TimeScale));
+				}
+			}
+			Slowed = {};
+		}
+		Context.Controls.LeaderSlow = FieldUnslowed;
 	}
 
 	void FFieldControls::ResetForMap()
@@ -105,6 +170,9 @@ namespace Weltall
 		AnsweredDoor = -1;
 		AnsweredDirection = 0;
 		bReversed = false;
+		Stick.reset();
+		LeaderSlow = FieldUnslowed;
+		Slowed = {};
 		bPartyPlaced = false;
 		bFollowClose = false;
 		bLeaderApart = false;
@@ -124,6 +192,7 @@ namespace Weltall
 			Controls.Repeated = 0;
 		}
 		Controls.bRunLetThrough = Context.SettleTicks == 0 && (Mask & FieldRunButton) != 0;
+		Controls.Stick = Context.bAnalogMovement && Context.SettleTicks == 0 ? ReadStick(Words, Mask) : std::nullopt;
 		if (Context.bBattleRequested)
 		{
 			Controls.Pressed &= static_cast<uint16>(~JumpButton);
@@ -132,7 +201,9 @@ namespace Weltall
 
 	uint16 ScriptHeldButtons(const FEventContext& Context)
 	{
-		const bool bRunsUnheld = Context.bAlwaysRun && Context.Controls.bRunLetThrough && (Context.bPlayerControlled || Context.bPlayerHadControl);
+		const FEventActorState* Leader = Context.StateOf(Context.LeaderActor);
+		const bool bRunsUnheld = (Leader != nullptr ? RunsUnheld(Context, *Leader) : Context.bAlwaysRun) && Context.Controls.bRunLetThrough
+			&& (Context.bPlayerControlled || Context.bPlayerHadControl);
 		return bRunsUnheld ? static_cast<uint16>(Context.PadHeld ^ FieldRunButton) : Context.PadHeld;
 	}
 
@@ -168,6 +239,10 @@ namespace Weltall
 		Jumps(Context, Actor);
 		const uint32 Released = (Context.PadHeld >> DpadShift) ^ 0xF;
 		uint16 Direction = (Controls.bReversed ? ReversedDirections : Directions)[Released];
+		if ((Direction & NoDirection) == 0 && StickWalks(Context, Actor))
+		{
+			Direction = static_cast<uint16>((Controls.Stick->Heading + (Controls.bReversed ? HalfTurn : 0)) & AngleMask);
+		}
 		if ((Direction & NoDirection) == 0)
 		{
 			Direction = static_cast<uint16>((Direction - (Context.Camera.GoalViewYaw + Context.ViewTurn)) & AngleMask);

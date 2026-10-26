@@ -4,8 +4,10 @@
 #include <charconv>
 #include <cmath>
 #include <initializer_list>
+#include <locale>
 #include <map>
 #include <optional>
+#include <sstream>
 #include <system_error>
 #include <vector>
 
@@ -137,14 +139,18 @@ namespace Weltall
 			void Number(std::string_view Key, float& Value, float Min, float Max)
 			{
 				const std::string* Text = Find(Key);
-				float Read = 0.0f;
-				if (Text != nullptr)
+				if (Text == nullptr || Text->empty() || Text->front() == '+' || Text->find_first_not_of("0123456789.eE+-") != std::string::npos)
 				{
-					const std::from_chars_result Parsed = std::from_chars(Text->data(), Text->data() + Text->size(), Read);
-					if (Parsed.ec == std::errc() && Parsed.ptr == Text->data() + Text->size() && std::isfinite(Read))
-					{
-						Value = std::clamp(Read, Min, Max);
-					}
+					return;
+				}
+				// Read in the C locale, as std::to_chars wrote it: Android's C++ library has no floating-point from_chars.
+				std::istringstream Stream(*Text);
+				Stream.imbue(std::locale::classic());
+				float Read = 0.0f;
+				Stream >> std::noskipws >> Read;
+				if (!Stream.fail() && Stream.peek() == std::char_traits<char>::eof() && std::isfinite(Read))
+				{
+					Value = std::clamp(Read, Min, Max);
 				}
 			}
 
@@ -351,11 +357,15 @@ namespace Weltall
 			Visitor.Number("camera.world_map_turn", WorldMapCamera.Turn, -180.0f, 180.0f);
 
 			Visitor.Flag("controls.always_run", Settings.Controls.bAlwaysRun);
+			Visitor.Flag("controls.analog_movement", Settings.Controls.bAnalogMovement);
 			Visitor.Flag("controls.walk_into_doors", Settings.Controls.bWalkIntoDoors);
 			Visitor.Flag("controls.original_button_icons", Settings.Controls.bOriginalButtonIcons);
 			Visitor.Choice("controls.button_layout", Settings.Controls.ButtonLayout, {"usa", "circle_confirms", "japan"});
 			Visitor.Level("controls.mouse_sensitivity", Settings.Controls.MouseSensitivity, LowestSensitivity, HighestSensitivity);
 			Visitor.Level("controls.stick_sensitivity", Settings.Controls.StickSensitivity, LowestSensitivity, HighestSensitivity);
+			Visitor.Choice("controls.touch_movement", Settings.Controls.TouchMovement, {"cross", "stick"});
+			Visitor.Level("controls.touch_opacity", Settings.Controls.TouchOpacity, LowestTouchOpacity, HighestTouchOpacity);
+			Visitor.Flag("controls.touch_vibration", Settings.Controls.bTouchVibration);
 			constexpr std::array<std::string_view, ControlActionCount> ActionKeys{"controls.up", "controls.down", "controls.left", "controls.right",
 				"controls.cross", "controls.circle", "controls.square", "controls.triangle", "controls.l1", "controls.r1", "controls.l2", "controls.r2",
 				"controls.start", "controls.select", "controls.view_turn", "controls.view_tilt", "controls.view_zoom", "controls.view_reset"};

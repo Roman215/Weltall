@@ -1,6 +1,7 @@
 
 #include "Battle/BattleAiMemory.h"
 #include "Battle/BattleAiSteps.h"
+#include "Battle/BattleProgram.h"
 #include "Battle/BattleRules.h"
 #include "Battle/BattleSteps.h"
 #include "Battle/BattleWaits.h"
@@ -125,7 +126,7 @@ namespace Weltall
 				{
 				case 0x01:
 					SetQueueByte(Context, Entry + Word.A, Word.B);
-					if (Context.RuleOptions.bDeusKeepsCamera || Context.bPerfectWorksRebalance)
+					if (Context.RuleOptions.bDeusKeepsCamera || Context.bPerfectWorksRebalance || (Context.Program != nullptr && Context.Program->bQueueKeepsCamera))
 					{
 						Context.KeepCamera = Word.C;
 					}

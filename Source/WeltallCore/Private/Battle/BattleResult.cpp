@@ -214,7 +214,7 @@ namespace Weltall
 			const std::size_t High = Level > 99 ? 1 : 0;
 			const uint8 Cap = High != 0 ? 200 : 100;
 			S.SetWord(R + Record::MaxHp, GrowHp(S, Id, S.Word(R + Record::MaxHp), Level));
-			for (const auto [Field, Target] : {std::pair{Record::Attack, 0}, std::pair{Record::Defense, 1}, std::pair{Record::Hit, 2}, std::pair{Record::Evade, 3}})
+			for (const auto& [Field, Target] : {std::pair{Record::Attack, 0}, std::pair{Record::Defense, 1}, std::pair{Record::Hit, 2}, std::pair{Record::Evade, 3}})
 			{
 				S.Byte(R + Field) = GrowStat(S, S.Byte(R + Field), S.GrowthByte(Id, Growth::StatTargets + 2 * static_cast<std::size_t>(Target) + High), Cap, Level);
 			}
@@ -229,7 +229,7 @@ namespace Weltall
 			const std::size_t High = Level > 99 ? 1 : 0;
 			const uint8 Cap = High != 0 ? 200 : 100;
 			S.SetWord(R + Record::MaxEp, GrowEp(S, Id, static_cast<uint8>(S.Word(R + Record::MaxEp)), Level));
-			for (const auto [Field, Target] : {std::pair{Record::Ether, 4}, std::pair{Record::EtherDefense, 5}})
+			for (const auto& [Field, Target] : {std::pair{Record::Ether, 4}, std::pair{Record::EtherDefense, 5}})
 			{
 				S.Byte(R + Field) = GrowStat(S, S.Byte(R + Field), S.GrowthByte(Id, Growth::StatTargets + 2 * static_cast<std::size_t>(Target) + High), Cap, Level);
 			}
@@ -562,7 +562,7 @@ namespace Weltall
 				const uint8 Id = S.Context.Combatants[Slot].Character;
 				const uint8 Level = S.Byte(FResultState::Character(Id) + Record::Level);
 				const std::size_t At = FResultState::Skills(Id, GameStateLayout::Skills::GearDeathblows);
-				for (const auto [Above, Bit] : {std::pair{49, 8}, std::pair{59, 4}, std::pair{69, 2}})
+				for (const auto& [Above, Bit] : {std::pair{49, 8}, std::pair{59, 4}, std::pair{69, 2}})
 				{
 					if (Level > Above)
 					{

@@ -1,5 +1,7 @@
 #include "Story/StoryPacks.h"
 
+#include "Foundation/HiddenFiles.h"
+
 #include <algorithm>
 #include <array>
 #include <fstream>
@@ -53,7 +55,7 @@ namespace Weltall
 			return std::string(Name.begin(), Name.end());
 		}
 
-		/** The entries of a folder that pass Wanted, in the order of their names. */
+		/** The entries of a folder that pass Wanted, in the order of their names, but the hidden ones. */
 		template <typename TWanted>
 		std::vector<std::filesystem::path> EntriesOf(const std::filesystem::path& Folder, TWanted Wanted)
 		{
@@ -61,7 +63,7 @@ namespace Weltall
 			std::error_code Error;
 			for (auto Entry = std::filesystem::directory_iterator(Folder, Error); !Error && Entry != std::filesystem::directory_iterator(); Entry.increment(Error))
 			{
-				if (Wanted(*Entry))
+				if (!IsHiddenFile(Entry->path()) && Wanted(*Entry))
 				{
 					Entries.push_back(Entry->path());
 				}

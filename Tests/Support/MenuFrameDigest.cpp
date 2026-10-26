@@ -125,7 +125,7 @@ namespace Weltall::Testing
 		return Bytes;
 	}
 
-	std::string MenuFrameDigest(const FMenuFrame& Frame, std::span<const uint8> Sounds, std::span<const FVramImage> Uploads, std::span<const uint8> Gear)
+	std::vector<uint8> MenuFrameBytes(const FMenuFrame& Frame, std::span<const uint8> Sounds, std::span<const FVramImage> Uploads, std::span<const uint8> Gear)
 	{
 		std::vector<uint8> Bytes = CanonicalMenuPackets(Frame);
 		for (const char Letter : std::string("sounds"))
@@ -152,8 +152,13 @@ namespace Weltall::Testing
 			}
 		}
 		Bytes.insert(Bytes.end(), Gear.begin(), Gear.end());
+		return Bytes;
+	}
+
+	std::string MenuFrameDigest(const FMenuFrame& Frame, std::span<const uint8> Sounds, std::span<const FVramImage> Uploads, std::span<const uint8> Gear)
+	{
 		FSha1 Hash;
-		Hash.Update(Bytes);
+		Hash.Update(MenuFrameBytes(Frame, Sounds, Uploads, Gear));
 		return FSha1::ToHex(Hash.Finish()).substr(0, 8);
 	}
 }

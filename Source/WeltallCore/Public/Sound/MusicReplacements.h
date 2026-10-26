@@ -26,7 +26,7 @@ namespace Weltall
 		/** The folder below a music folder that holds exported originals, which are never read as replacements. */
 		static constexpr std::string_view OriginalsFolder = "original";
 
-		/** Finds every recording below Folder; a key named twice takes the first file by path. None for a missing folder. */
+		/** Finds every recording below Folder but hidden ones (IsHiddenFile); a key named twice takes the first file by path. None for a missing folder. */
 		WELTALLCORE_API static TResult<std::shared_ptr<const FMusicReplacements>> Find(const std::filesystem::path& Folder);
 
 		/** The recording's bytes, or none when no recording stands for the key. */

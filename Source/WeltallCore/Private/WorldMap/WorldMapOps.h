@@ -44,6 +44,8 @@ namespace Weltall::WorldMapOps
 
 	/** The sprites' calls, on a slot's sprite. */
 	FSprite* SlotSprite(FWorldMapContext& Context, const FWorldMapTask& Task);
+	/** The party's sprites given their own time scales back once their walk is no longer slowed (analog movement). */
+	void RestorePartyPace(FWorldMapContext& Context);
 	int32 SpriteAnimation(FWorldMapContext& Context, const FWorldMapTask& Task);
 	void SetSpriteAnimation(FWorldMapContext& Context, const FWorldMapTask& Task, int32 Animation);
 	/** A sprite made for a slot, with the program's scale and its draw flag cleared. */

@@ -27,11 +27,8 @@ namespace Weltall
 		/** The labels: the walking set, then the riding set six on ("Get off" for "Get on"). */
 		constexpr std::size_t WalkingLabels = 0x20;
 		constexpr std::size_t RidingLabels = 0x26;
-		constexpr int32 FirstHeading = 4;
+		constexpr std::size_t FirstHeading = 4;
 		constexpr int32 LabelRows = 13;
-		/** Where the headings lie, as the sheet's first two. */
-		constexpr std::array<int32, 2> HeadingX = {152, 112};
-		constexpr std::array<int32, 2> HeadingY = {118, 146};
 		constexpr int32 ArcLabelX = 0x16;
 		constexpr int32 ArcLabelY = -0x22;
 		/** A gear's fields the sheet's stats come from. */
@@ -106,13 +103,15 @@ namespace Weltall
 				co_await DrawStatusSheet(Slot, true);
 				bRiding = Services.Game->PartySlotInGear(GameSlot(Slot)) != 0;
 				SetGearLabels(bRiding);
-				for (int32 Heading = 0; Heading < 2; ++Heading)
+				// The headings lie where the status sheet's first two do.
+				const FMenuMainTables& Tables = Resources.Main();
+				for (std::size_t Heading = 0; Heading < 2; ++Heading)
 				{
-					FMenuLabel& Placed = GearLabels[static_cast<std::size_t>(FirstHeading + Heading)];
-					SetLayerQuad(Placed.Quad.Points, HeadingX[static_cast<std::size_t>(Heading)], HeadingY[static_cast<std::size_t>(Heading)], Placed.Width, LabelRows);
+					FMenuLabel& Placed = GearLabels[FirstHeading + Heading];
+					SetLayerQuad(Placed.Quad.Points, Tables.SheetHeadingX[Heading], Tables.SheetHeadingY[Heading], Placed.Width, LabelRows);
 					RecordLabel(Placed);
-					Flags[static_cast<std::size_t>(MenuFlag::GearLabels + FirstHeading + Heading)] = 1;
-					GearLabelOnLayer[static_cast<std::size_t>(FirstHeading + Heading)] = true;
+					Flags[MenuFlag::GearLabels + FirstHeading + Heading] = 1;
+					GearLabelOnLayer[FirstHeading + Heading] = true;
 				}
 				DrawnSlot = Slot;
 				if (bFirst)

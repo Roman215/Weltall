@@ -90,6 +90,7 @@ namespace Weltall
 		Services.EncounterRate = Session.Settings().Balance.Encounters;
 		Services.Story = Session.Story();
 		Services.Unreached = &Session.Unreached();
+		Services.TranslationCreditsCue = FBootNotice::TranslationCreditsCue(Session.Index());
 		Program->FieldRuntime = std::make_unique<FFieldRuntime>(Services);
 		Program->FollowSettings();
 		if (auto Error = Program->EnterFirstMap())
@@ -104,6 +105,7 @@ namespace Weltall
 		const FPlayerSettings& Settings = Session.Settings();
 		FieldRuntime->SetOptions(Settings.Fixes.Field);
 		FieldRuntime->SetAlwaysRun(Settings.Controls.bAlwaysRun);
+		FieldRuntime->SetAnalogMovement(Settings.Controls.bAnalogMovement);
 		FieldRuntime->SetWalkIntoDoors(Settings.Controls.bWalkIntoDoors);
 		FieldRuntime->SetTextSpeed(Settings.TextSpeed);
 		FieldRuntime->SetEncounterRate(Settings.Balance.Encounters);
@@ -156,6 +158,10 @@ namespace Weltall
 
 	int32 FFieldProgram::VblanksPerFrame() const
 	{
+		if (TranslationCredits)
+		{
+			return 1;
+		}
 		if (Menu)
 		{
 			return Menu->VblanksPerFrame();
@@ -172,6 +178,10 @@ namespace Weltall
 		if (Session.SettingsRevision() != SettingsSeen)
 		{
 			FollowSettings();
+		}
+		if (TranslationCredits)
+		{
+			return AdvanceCredits(HeldPerVblank[0]);
 		}
 		if (Menu)
 		{
@@ -212,6 +222,38 @@ namespace Weltall
 		{
 			return Error;
 		}
+		if (FieldRuntime->TakeTranslationCredits())
+		{
+			return StartCredits();
+		}
+		return TakeRequest();
+	}
+
+	std::optional<FError> FFieldProgram::StartCredits()
+	{
+		TResult<FBootNotice> Loaded = FBootNotice::LoadTranslationCredits(Session.Image(), Session.Index());
+		if (!Loaded)
+		{
+			return Loaded.Error();
+		}
+		// The kernel waits for the song's load before the screen fades in, which the port's load does at once.
+		if (const TResult<bool> Started = Session.Sound().FieldMusic().PlayAnew(FBootNotice::TranslationCreditsSong); !Started)
+		{
+			return Started.Error();
+		}
+		TranslationCredits.emplace(std::move(*Loaded));
+		return std::nullopt;
+	}
+
+	std::optional<FError> FFieldProgram::AdvanceCredits(FPadState Held)
+	{
+		Session.Vblank(Held);
+		TranslationCredits->Tick(Session.Pad().Held());
+		if (!TranslationCredits->IsOver())
+		{
+			return std::nullopt;
+		}
+		TranslationCredits.reset();
 		return TakeRequest();
 	}
 
@@ -283,7 +325,7 @@ namespace Weltall
 
 	void FFieldProgram::AddViewInput(const FFieldViewInput& Input)
 	{
-		if (!Menu && !FieldMovie)
+		if (!Menu && !FieldMovie && !TranslationCredits)
 		{
 			PlayerCamera.AddInput(Input);
 		}

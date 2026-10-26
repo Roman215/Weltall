@@ -40,6 +40,7 @@ namespace Weltall
 	class IButtonGlyphs;
 	class IMenuKeys;
 	class IMenuAssets;
+	class IMenuDeviceFiles;
 	class FSaveStore;
 	class FStoryPacks;
 }
@@ -69,6 +70,7 @@ public:
 	/** Told of the player's settings as the Menu's options screen closes, to keep them. */
 	using FSettingsKept = TFunction<void(const Weltall::FPlayerSettings&)>;
 	using FDisplayModesAsked = TFunction<Weltall::FDisplayModes()>;
+	using FMenuModsAsked = TFunction<Weltall::FMenuMods()>;
 
 	/** Closes the game. */
 	using FQuit = TFunction<void()>;
@@ -132,8 +134,10 @@ public:
 	/** The player's keys, which the options screen's Controls page rebinds; it must outlive the screen. None: no Controls page. */
 	void SetMenuKeys(Weltall::IMenuKeys* InKeys);
 	void SetMenuAssets(Weltall::IMenuAssets* InAssets);
-	/** The mods the game found, which the options screen's Modding page lists. */
-	void SetMenuMods(Weltall::FMenuMods InMods);
+	/** The device's file picker, which the options screen's Saves page goes through; it must outlive the screen. None: the computer's folders. */
+	void SetMenuDeviceFiles(Weltall::IMenuDeviceFiles* InFiles);
+	/** The mods the game has found, asked as the options screen's Modding page lists them (one added during play among them). */
+	void SetMenuMods(FMenuModsAsked InMods);
 	/**
 	 * Perfect Works Build's movie subtitles, which every session of the screen is given (null: none); bInUse: the game
 	 * plays with the mod. They must outlive the screen.
@@ -204,6 +208,8 @@ private:
 	/** The session asks for disc Number, which it was not given: the other disc looked for, and given it when found. */
 	void SeekDisc(int32 Number);
 	void RefreshVoiceDiscs();
+	/** Discs the player added through the device's picker during play give their voices and subtitles at once. */
+	void FollowAddedDiscs();
 	friend class FGameLoopDiscDrive;
 
 	const Weltall::FIso9660& Disc;
@@ -232,7 +238,10 @@ private:
 	FSettingsKept SettingsFollowed;
 	Weltall::IMenuKeys* MenuKeys = nullptr;
 	Weltall::IMenuAssets* MenuAssets = nullptr;
-	Weltall::FMenuMods MenuMods;
+	Weltall::IMenuDeviceFiles* MenuDeviceFiles = nullptr;
+	/** The picker's status the screen last followed. */
+	uint64 DeviceFilesRevision = 0;
+	FMenuModsAsked MenuMods;
 	std::array<const Weltall::FPerfectWorksSubtitles*, 2> PerfectWorksSubtitles{};
 	bool bPerfectWorksInUse = false;
 	FDisplayModesAsked DisplayModes;
@@ -258,6 +267,8 @@ private:
 	/** The loop's count of programs run the views last followed. */
 	int32 ProgramRuns = -1;
 	TUniquePtr<FBootNoticeView> Notice;
+	/** The French translation's credits, which the field's file reading shows. */
+	TUniquePtr<FBootNoticeView> Credits;
 	FMoviePictureView Movie;
 	TUniquePtr<FFieldView> Field;
 	TUniquePtr<FMenuView> Menu;

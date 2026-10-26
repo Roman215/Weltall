@@ -100,7 +100,7 @@ namespace Weltall
 		}
 	}
 
-	FFieldRuntime::FFieldRuntime(const FFieldServices& InServices) : Services(InServices), DiscFiles(InServices.Image, InServices.Index)
+	FFieldRuntime::FFieldRuntime(const FFieldServices& InServices) : Services(InServices), DiscFiles(InServices.Image, InServices.Index, InServices.TranslationCreditsCue)
 	{
 	}
 
@@ -297,6 +297,7 @@ namespace Weltall
 		Context.Unreached = Services.Unreached;
 		Context.ViewTurn = ViewTurn;
 		Context.bAlwaysRun = bAlwaysRun;
+		Context.bAnalogMovement = bAnalogMovement;
 		Context.bWalkIntoDoors = bWalkIntoDoors;
 		Context.Disc = Services.Disc;
 		Context.SettleTicks = FEventContext::MapStartSettleTicks;

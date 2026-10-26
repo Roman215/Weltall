@@ -4,6 +4,8 @@
 #include "Media/CdImage.h"
 #include "Menu/MenuResources.h"
 
+#include <algorithm>
+
 namespace Weltall
 {
 	namespace
@@ -83,11 +85,16 @@ namespace Weltall
 		InitParty();
 		InitFileStores();
 		Buffer = 0;
-		// The message font's colours for the labels, the help labels, and a white for the menu's own text.
+		// The message font's colours for the labels, the help labels, and a white for the menu's own text (the French
+		// translation's program gives that text the message font's colours too, its shadow with them).
 		Upload({{TextClutX, TextClutY, 32, 1}, {Resources.TextClut().begin(), Resources.TextClut().end()}});
 		RenderLabels(HelpLabels, Resources.Main().HelpLabels, 0);
 		FVramImage WhiteClut{{0, WhiteClutY, 16, 1}, std::vector<uint16>(16, 0)};
 		WhiteClut.Units[1] = White;
+		if (Resources.IsFrench())
+		{
+			std::copy_n(Resources.TextClut().begin(), WhiteClut.Units.size(), WhiteClut.Units.begin());
+		}
 		Upload(WhiteClut);
 		InitBackground();
 	}

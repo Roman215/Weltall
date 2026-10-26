@@ -32,75 +32,35 @@ namespace
 		std::unique_ptr<FGameFileIndex> Index;
 	};
 
-	/** The labels' texts are the program's strings: each where the program keeps it, with what its format adds after it. */
-	void CheckLabelTexts(const FIso9660& Disc, const FGameFileIndex& Index)
+	/** Battling's program unpacked, as the kernel loads it. */
+	std::vector<uint8> BattlingProgram(const FIso9660& Disc, const FGameFileIndex& Index)
 	{
 		const FIndexRecord* Record = Index.Find(1, 13);
 		REQUIRE(Record != nullptr);
 		const auto Sectors = ReadFileSectors(Disc.Image(), *Record);
 		REQUIRE(Sectors);
-		const auto Program = UnpackLzss(*Sectors);
+		auto Program = UnpackLzss(*Sectors);
 		REQUIRE(Program);
-		const auto StringAt = [&](std::size_t Offset) {
-			REQUIRE(Offset < Program->size());
-			const auto First = Program->begin() + static_cast<std::ptrdiff_t>(Offset);
-			return std::string(First, std::find(First, Program->end(), uint8{0}));
-		};
-		using namespace BattlingLabelTexts;
-		struct FText
+		return std::move(*Program);
+	}
+
+	/** The C string at an offset of the program. */
+	std::string StringAt(std::span<const uint8> Program, std::size_t Offset)
+	{
+		REQUIRE(Offset < Program.size());
+		const auto First = Program.begin() + static_cast<std::ptrdiff_t>(Offset);
+		return std::string(First, std::find(First, Program.end(), uint8{0}));
+	}
+
+	/** The texts the program's code and tables point at are the game's (FBattlingTexts' own), and what the port keeps of its own too. */
+	void CheckLabelTexts(const FIso9660& Disc, const FGameFileIndex& Index, const FBattlingProgramTables& Tables)
+	{
+		const std::vector<uint8> Program = BattlingProgram(Disc, Index);
+		CHECK(Tables.Texts == FBattlingTexts{});
+		CHECK(StringAt(Program, 0x120) == BattlingLabelTexts::Ether);
+		for (std::size_t Rate = 0; Rate < BattlingLabelTexts::PracticeFrameRates.size(); ++Rate)
 		{
-			std::string_view Text;
-			std::size_t Offset;
-			std::string_view Format;
-		};
-		const std::array<FText, 23> Texts{{
-			{Ether, 0x120, ""}, {DrawGame, 0x14C, ""}, {Fight, 0x174, ""}, {Start, 0x17C, ""},
-			{RubberBandMode, 0x188, ""}, {Ready, 0x19C, ""}, {RubberBandBattle, 0x1A4, ""}, {Practice, 0x1B8, ""},
-			{Round, 0x1C4, "%d"}, {Strength, 0x218, "%d"}, {Frames, 0x220, "%d-%d"}, {Replay, 0x25C, ""},
-			{YouWereVictorious, 0x284, ""}, {PlayerOneVictory, 0x298, ""}, {ComputerOneVictory, 0x2A8, ""},
-			{YouWereDefeated, 0x2B8, ""}, {By, 0x2CC, "%s"}, {PlayerTwoVictory, 0x2D8, ""}, {ComputerTwoVictory, 0x2E8, ""},
-			{Winner, 0xD8, ""}, {Level, 0xE0, ""}, {Matches, 0xE8, ""}, {Time, 0xF0, ""},
-		}};
-		for (const FText& Text : Texts)
-		{
-			CHECK(StringAt(Text.Offset) == std::string(Text.Text) + std::string(Text.Format));
-		}
-		CHECK(StringAt(0xFC) == "%d/%d" + std::string(Versus) + "%s");
-		CHECK(StringAt(0x6C0) == "%02d" + std::string(Minutes) + "%02d" + std::string(Seconds) + "%02d");
-		// The moves' and the levels' names, through the program's tables of pointers to them.
-		constexpr uint32 ProgramAddress = 0x8006FAF0;
-		const auto CheckNames = [&](std::size_t Table, std::span<const std::string_view> Names) {
-			for (std::size_t Name = 0; Name < Names.size(); ++Name)
-			{
-				const std::size_t At = Table + 4 * Name;
-				const uint32 Pointer = static_cast<uint32>((*Program)[At] | (*Program)[At + 1] << 8 | (*Program)[At + 2] << 16 | (*Program)[At + 3] << 24);
-				CHECK(StringAt(Pointer - ProgramAddress) == Names[Name]);
-			}
-		};
-		CheckNames(0x216A8, MoveNames);
-		CheckNames(0x21804, LevelNames);
-		CheckNames(0x2183C, PracticeStyles);
-		for (std::size_t Rate = 0; Rate < PracticeFrameRates.size(); ++Rate)
-		{
-			CHECK((*Program)[0x21810 + Rate] == PracticeFrameRates[Rate]);
-		}
-		CHECK(StringAt(0x470) == "%d" + std::string(FramesPerSecond));
-		// The pause's menus' labels, through the program's menus (3Ch bytes each, their items at +4) and items (14h bytes, the
-		// label at +4).
-		const auto Word = [&](std::size_t At) {
-			return static_cast<uint32>((*Program)[At] | (*Program)[At + 1] << 8 | (*Program)[At + 2] << 16 | (*Program)[At + 3] << 24);
-		};
-		constexpr std::size_t Menus = 0x800915AC - ProgramAddress;
-		for (const EBattlingMenu Menu : {EBattlingMenu::Pause, EBattlingMenu::GiveUp, EBattlingMenu::PracticePause})
-		{
-			const FBattlingMenuDefinition& Definition = BattlingMenuDefinition(Menu);
-			const std::size_t MenuAt = Menus + 0x3C * static_cast<std::size_t>(Menu);
-			CHECK((*Program)[MenuAt] == Definition.Layout);
-			for (std::size_t Item = 0; Item < Definition.Items.size(); ++Item)
-			{
-				const uint32 Label = Word(Word(MenuAt + 4) - ProgramAddress + 0x14 * Item + 4);
-				CHECK(StringAt(Label - ProgramAddress) == Definition.Items[Item].Label);
-			}
+			CHECK(Program[0x21810 + Rate] == BattlingLabelTexts::PracticeFrameRates[Rate]);
 		}
 	}
 
@@ -211,7 +171,6 @@ TEST_CASE("Battling's gear files hold what the fight reads on both discs", "[Con
 		CHECK(Tables->GearNames[0] == "WELTALL");
 		CHECK(Tables->GearNames[17] == "GANADOR");
 		CHECK(Tables->GearNames[28] == "TIN ROBO");
-		CHECK(Tables->KnockOutLabel == "KNOCK OUT!!");
 		CHECK(Tables->FontGlyphs[0].U == 60);
 		CHECK(Tables->FontGlyphs[10].Height == 18);
 		CHECK(Tables->FontGlyphs[41].Width == 8);
@@ -220,7 +179,7 @@ TEST_CASE("Battling's gear files hold what the fight reads on both discs", "[Con
 		REQUIRE(Tables->ElFenrirPart.Primitives.size() == 70);
 		CHECK(Tables->ElFenrirPart.Primitives[0].Type == EMdlPrimitiveType::TexturedTriangle);
 		CHECK(Tables->ElFenrirPart.Primitives[0].Texture({}) == FMdlTextureState{0x1E, 0x6F7F});
-		CheckLabelTexts(*Disc, *Opened.Index);
+		CheckLabelTexts(*Disc, *Opened.Index, *Tables);
 
 		auto GearTable = FBattlingGearTable::Read(Disc->Image(), *Opened.Index);
 		REQUIRE(GearTable);
@@ -357,6 +316,39 @@ TEST_CASE("Battling's scripts and their messages read on both discs", "[Content]
 			CHECK(Messages->Table().String(Message).front() != 0);
 		}
 	}
+}
+
+TEST_CASE("Battling's labels on the French translation are its program's own, read where its code and tables point", "[Content][Battling]")
+{
+	REQUIRE_PATCHED_DISC(Disc, EDiscRelease::UsaDisc1);
+	const FOpened Opened = Open(*Disc);
+	const auto Tables = FBattlingProgramTables::Read(Disc->Image(), *Opened.Index, *Opened.Executable, EDiscRelease::UsaDisc1);
+	REQUIRE(Tables);
+	const std::vector<uint8> Program = BattlingProgram(*Disc, *Opened.Index);
+	const FBattlingTexts English;
+	const FBattlingTexts& Texts = Tables->Texts;
+	// Its words where the game's stand, but the bout's start: one byte longer, it starts a byte earlier, the code's
+	// reference moved with it.
+	CHECK(Texts.Winner == StringAt(Program, 0xD8));
+	CHECK(Texts.Winner != English.Winner);
+	CHECK(Texts.KnockOut == StringAt(Program, 0x158));
+	CHECK(Texts.Fight == StringAt(Program, 0x173));
+	CHECK(Texts.Fight.size() == English.Fight.size() + 1);
+	CHECK(Texts.RoundFormat.ends_with("%d"));
+	CHECK(Texts.MenuLabels[3][0] != English.MenuLabels[3][0]);
+	CHECK(Texts.MenuLabels[3][1].empty());
+	CHECK(Texts.MoveNames[0].empty());
+	CHECK(Texts.MoveNames[1] != English.MoveNames[1]);
+	CHECK(Texts.PracticeStyles[0] != English.PracticeStyles[0]);
+}
+
+TEST_CASE("Battling's printf strings take their values in turn", "[Battling]")
+{
+	CHECK(FormatBattlingText("ROUND %d", {"3"}) == "ROUND 3");
+	CHECK(FormatBattlingText("%d/%d VS %s", {"2", "3", "WELTALL"}) == "2/3 VS WELTALL");
+	CHECK(FormatBattlingText("%02d'%02d''%02d", {"01", "02", "03"}) == "01'02''03");
+	CHECK(FormatBattlingText("100%% %d", {"5"}) == "100% 5");
+	CHECK(FormatBattlingText("%d-%d", {"7"}) == "7-");
 }
 
 TEST_CASE("Each side's trails read their own gear's colour from the palette made of both", "[Content][Battling]")

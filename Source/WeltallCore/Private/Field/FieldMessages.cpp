@@ -17,9 +17,13 @@ namespace Weltall
 		constexpr int32 SmallestFrame = 16;
 		constexpr int32 PortraitSize = 0x40;
 		constexpr int32 LineHeight = 14;
-		/** Where the choice cursor sits from the frame's left edge, with a portrait on the left and without. */
+		/**
+		 * Where the choice cursor sits from the frame's left edge, with a portrait on the left and without; 12 pixels further
+		 * left in the French translation's program, whose choices are indented by narrower spaces.
+		 */
 		constexpr int16 ChoiceCursorBesidePortrait = 0x5A;
 		constexpr int16 ChoiceCursorAlone = 0x16;
+		constexpr int16 VariableWidthChoiceCursorShift = 12;
 
 		int32 Wrap(uint32 Value)
 		{
@@ -117,7 +121,8 @@ namespace Weltall
 				{
 					const FMesWindow& Text = *Window.Text;
 					Frame.bMoreCursor = true;
-					Frame.MoreCursorX = static_cast<int16>(Window.TextX + Text.CursorXUnits() * 4);
+					const FMesFont* Font = Messages.Text.Font;
+					Frame.MoreCursorX = static_cast<int16>(Window.TextX + (Font != nullptr ? Font->CursorPixels(Text.CursorXUnits()) : Text.CursorXUnits() * 4));
 					Frame.MoreCursorY = static_cast<int16>(Window.TextY + Text.CursorRow() * LineHeight + 4);
 				}
 				else
@@ -142,7 +147,9 @@ namespace Weltall
 			Frame.bChoiceCursor = Window.bChoice && Window.Age == 0 && Window.OpenTicks == 0;
 			if (Frame.bChoiceCursor)
 			{
-				Frame.ChoiceCursorX = static_cast<int16>(Rect.X + (Window.bPortrait && !bRight ? ChoiceCursorBesidePortrait : ChoiceCursorAlone));
+				const bool bVariableWidth = Messages.Text.Font != nullptr && Messages.Text.Font->IsVariableWidth();
+				Frame.ChoiceCursorX = static_cast<int16>(Rect.X + (Window.bPortrait && !bRight ? ChoiceCursorBesidePortrait : ChoiceCursorAlone)
+					- (bVariableWidth ? VariableWidthChoiceCursorShift : 0));
 				Frame.ChoiceCursorY = static_cast<int16>((Window.ChoiceCursor + Window.ChoiceFirst) * LineHeight + Rect.Y + 8);
 			}
 		}

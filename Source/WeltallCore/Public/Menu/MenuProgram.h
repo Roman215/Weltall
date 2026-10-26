@@ -33,6 +33,7 @@ namespace Weltall
 	class FSaveStore;
 	class FStoryWayBack;
 	class IMenuAssets;
+	class IMenuDeviceFiles;
 	class FVram;
 	class IVramUploads;
 	struct FPlayClock;
@@ -102,6 +103,8 @@ namespace Weltall
 		/** What the display offers the Display page; none where the game has no window. */
 		virtual FDisplayModes DisplayModes() const { return {}; }
 		virtual IMenuAssets* Assets() const { return nullptr; }
+		/** The device's file picker, which the Saves page's transfers go through; none where the game browses the computer's folders itself. */
+		virtual IMenuDeviceFiles* DeviceFiles() const { return nullptr; }
 		/** The mods found; none where the game looked for none. */
 		virtual FMenuMods Mods() const { return {}; }
 		/** The voices and movie subtitles the game was given, which the Sound page offers; none where it says nothing of them. */

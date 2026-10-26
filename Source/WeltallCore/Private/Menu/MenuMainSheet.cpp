@@ -230,10 +230,19 @@ namespace Weltall
 
 		if (!bGear)
 		{
-			const uint32 Pounds =
-				((static_cast<uint32>(Record[Character::Weight]) + Record[Character::WeightGain]) * 10 + Record[WeightTenths]) * PoundsPerTenKilograms & 0xFFFF;
-			DrawDigits(StatusSheet.Weight, Pounds / 100, 6, 3, Place(Number::Weight)[0], Place(Number::Weight)[1], false);
-			Sprites.Draw(static_cast<int32>(Pounds % 100 / 10), Place(Number::Weight)[0] + TenthsX, Place(Number::Weight)[1], FullScale, StatusSheet.Weight);
+			const uint32 Kilograms = static_cast<uint32>(Record[Character::Weight]) + Record[Character::WeightGain];
+			const uint32 Pounds = (Kilograms * 10 + Record[WeightTenths]) * PoundsPerTenKilograms & 0xFFFF;
+			uint32 Whole = Pounds / 100;
+			uint32 Tenths = Pounds % 100 / 10;
+			if (Resources.IsFrench())
+			{
+				// The French translation's program shows the kilograms, its tenths' division left out: 0 unless the pounds' 16
+				// bits wrapped below the kilograms' hundreds.
+				Whole = Kilograms;
+				Tenths = static_cast<int32>(Pounds) - static_cast<int32>(Kilograms * 100) < 0 ? 1 : 0;
+			}
+			DrawDigits(StatusSheet.Weight, Whole, 6, 3, Place(Number::Weight)[0], Place(Number::Weight)[1], false);
+			Sprites.Draw(static_cast<int32>(Tenths), Place(Number::Weight)[0] + TenthsX, Place(Number::Weight)[1], FullScale, StatusSheet.Weight);
 			SetLayerSprites(StatusSheet.Weight);
 		}
 		else

@@ -3,7 +3,10 @@
 #include "Foundation/LittleEndian.h"
 #include "Foundation/Sha1.h"
 
+#include <algorithm>
+#include <array>
 #include <string>
+#include <string_view>
 
 namespace Weltall
 {
@@ -18,11 +21,14 @@ namespace Weltall
 		constexpr uint32 EndOfIndex = 0xFFFFFF;
 		constexpr uint16 NoDirectory = 0xFFFF;
 
-		bool HasUndubCodeInUnusedSlots(const FPsxExecutable& Executable)
-		{
-			const std::string Hash = FSha1::ToHex(FSha1::Hash(Executable.Body()));
-			return Hash == "79c94ee8f3a9586998ec9dded3301a061ba3d1d9" || Hash == "a4fe3ac2b18a28691d8107ad6e0d3272f617876a";
-		}
+		/** The executables, by their body's SHA-1, of the supported undub's two discs, then of the French translation's four (built on it). */
+		constexpr std::array<std::string_view, 6> UndubCodeInUnusedSlots{
+			"79c94ee8f3a9586998ec9dded3301a061ba3d1d9", "a4fe3ac2b18a28691d8107ad6e0d3272f617876a",
+			"6b53c290220eaf8233b8c23d8f351b53ba82d001", "4027bb51741186cc9d35d234b5f76c23880d8dbf",
+			"bfa0477ff3a9738d9aee0d96312927001b955b1e", "f27a3959bc276ba7c69edd8e158c2b584887985c"};
+		constexpr std::size_t FirstFrenchExecutable = 2;
+		/** The undub's base for the records it appends, which the French translation's kernel counts its own pictures from too. */
+		constexpr uint32 AppendedFilesBaseAddress = 0x80010A74;
 	}
 
 	TResult<FGameFileIndex> FGameFileIndex::Read(const FPsxExecutable& Executable)
@@ -47,13 +53,19 @@ namespace Weltall
 		{
 			Result.DirectoryStarts[static_cast<std::size_t>(Directory)] = LittleEndian::ReadU16(Directories, static_cast<std::size_t>(Directory) * 2);
 		}
-		// These supported undubs reuse unused index slots for their program's code and state, and keep their movie
-		// subtitles past the records.
-		if (HasUndubCodeInUnusedSlots(Executable) && Result.AllRecords.size() > 381)
+		// The supported undub (and the French translation, built on it) reuse unused index slots for their program's code and
+		// state, and keep their movie subtitles past the records.
+		const std::string Hash = FSha1::ToHex(FSha1::Hash(Executable.Body()));
+		const auto Known = std::find(UndubCodeInUnusedSlots.begin(), UndubCodeInUnusedSlots.end(), Hash);
+		if (Known != UndubCodeInUnusedSlots.end() && Result.AllRecords.size() > 381)
 		{
 			for (std::size_t Record = 280; Record <= 376; ++Record) Result.AllRecords[Record] = {};
 			Result.AllRecords[381] = {};
 			Result.Subtitles = FMovieSubtitleTable::Read(Executable);
+			if (static_cast<std::size_t>(Known - UndubCodeInUnusedSlots.begin()) >= FirstFrenchExecutable)
+			{
+				Result.TranslationStart = LittleEndian::ReadU32(Executable.Read(AppendedFilesBaseAddress, 4), 0);
+			}
 		}
 		return Result;
 	}

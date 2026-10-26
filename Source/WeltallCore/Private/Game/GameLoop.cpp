@@ -40,7 +40,7 @@ namespace Weltall
 
 	TResult<std::unique_ptr<FGameLoop>> FGameLoop::PowerOn(FGameSession& Session, const FPsxExecutable& Executable)
 	{
-		TResult<FBootNotice> Notice = FBootNotice::Load(Executable);
+		TResult<FBootNotice> Notice = FBootNotice::Load(Executable, Session.Image(), Session.Index());
 		if (!Notice)
 		{
 			return Notice.Error();
@@ -120,7 +120,7 @@ namespace Weltall
 			bResetButtonsReleased = Session.Pad().Held() != SoftResetButtons;
 			return std::nullopt;
 		}
-		BootNotice->Tick();
+		BootNotice->Tick(Session.Pad().Held());
 		if (!BootNotice->IsOver())
 		{
 			return std::nullopt;

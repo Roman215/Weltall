@@ -2,10 +2,12 @@
 
 #include "Formats/Lzss.h"
 #include "Foundation/LittleEndian.h"
+#include "Foundation/Sha1.h"
 #include "Media/GameFileIndex.h"
 
 #include <algorithm>
 #include <optional>
+#include <string_view>
 #include <vector>
 
 namespace Weltall
@@ -26,6 +28,8 @@ namespace Weltall
 		constexpr uint32 EffectCastLimitsAddress = 0x800C3648;
 		constexpr uint32 VoiceSetsAddress = 0x800C35DC;
 		constexpr uint32 TrailCurveAddress = 0x800C37E8;
+		/** The French translation's program (unpacked), by its SHA-1. */
+		constexpr std::string_view FrenchProgram = "ff6e9fc59534f6867e183db0faf3981cb28695e7";
 
 		/** The program's bytes at a memory address, or none past the program. */
 		std::optional<std::span<const uint8>> At(std::span<const uint8> Program, uint32 Address, std::size_t Count)
@@ -115,6 +119,7 @@ namespace Weltall
 		{
 			Tables.CommandBits[Command] = LittleEndian::ReadU16(*Bits, 2 * Command);
 		}
+		Tables.bQueueKeepsCamera = FSha1::ToHex(FSha1::Hash(Program)) == FrenchProgram;
 		return Tables;
 	}
 

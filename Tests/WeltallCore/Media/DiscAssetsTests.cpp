@@ -1,6 +1,7 @@
 #include "Media/AssetFiles.h"
 #include "Media/DiscAssets.h"
 #include "Sound/MusicReplacements.h"
+#include "Support/AppleDouble.h"
 #include "Support/ByteWriter.h"
 
 #include <catch_amalgamated.hpp>
@@ -126,6 +127,9 @@ TEST_CASE("External assets can be disabled and missing files fall back to disc",
 	const auto MusicFolder = Folder.Path / "music";
 	Write(MusicFolder / "theme-0123456789abcdef.wav", {1, 2, 3});
 	Write(MusicFolder / "original" / "song-00-0000000000000042.wav", {4});
+	// macOS's companion of the recording names its key too, and sorts before it.
+	Testing::WriteAppleDoubleCompanion(MusicFolder / "theme-0123456789abcdef.wav");
+	Write(MusicFolder / ".backup" / "song-01-0000000000000043.wav", {5});
 	const auto Music = FMusicReplacements::Find(MusicFolder);
 	REQUIRE(Music);
 	CHECK((*Music)->Count() == 1);

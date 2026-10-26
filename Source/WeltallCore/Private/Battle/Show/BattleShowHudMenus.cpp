@@ -1,14 +1,17 @@
 #include "Battle/BattleContext.h"
 #include "Battle/BattleGameState.h"
 #include "Battle/BattleProgram.h"
+#include "Battle/Show/BattleHudButtons.h"
 #include "Battle/Show/BattleHudGpu.h"
 #include "Battle/Show/BattleShowHud.h"
 #include "Text/MesRender.h"
 
 #include <algorithm>
+#include <span>
 
 namespace Weltall
 {
+	using namespace BattleHudButtons;
 	using namespace BattleHudGpu;
 
 	namespace
@@ -69,6 +72,29 @@ namespace Weltall
 			Image.Units.assign(static_cast<std::size_t>(HintTextUnits) * HintTextRows, 0);
 			return Image;
 		}
+
+		/** The command an element's word names, -1 for none. */
+		int32 ElementCommand(const FBattleHudIconElement& Element)
+		{
+			return Element.Flags >= CommandFlags ? Element.Flags & 0xF : -1;
+		}
+
+		/**
+		 * The button an element of a prompt goes with: the group's face button that names the same command (the
+		 * attack modes' words and costs beside the attack buttons) or none (cancel's); 0 in a group of no face buttons.
+		 */
+		uint16 PromptRole(std::span<const FBattleHudIconElement> Group, const FBattleHudIconElement& Element)
+		{
+			for (const FBattleHudIconElement& Other : Group)
+			{
+				const FHudButton Button = HudButton(Other.Frame);
+				if (Button.Role != 0 && Button.Slot == EMenuIconSlot::FaceButton && ElementCommand(Other) == ElementCommand(Element))
+				{
+					return Button.Role;
+				}
+			}
+			return 0;
+		}
 	}
 
 	void FBattleHud::InitCommandIcons()
@@ -119,9 +145,10 @@ namespace Weltall
 				FaultState = EBattleHudFault::IndexOutsideHud;
 				return;
 			}
-			for (const FBattleHudIconElement& Element : Tables.IconGroups[Group])
+			const std::vector<FBattleHudIconElement>& Elements = Tables.IconGroups[Group];
+			for (const FBattleHudIconElement& Element : Elements)
 			{
-				DrawIconElement(Slot, Layer, Element);
+				DrawIconElement(Slot, Layer, Element, PromptRole(Elements, Element));
 				if (FaultState != EBattleHudFault::None)
 				{
 					return;
@@ -131,7 +158,7 @@ namespace Weltall
 		Ring.Buffer = Buffer;
 	}
 
-	void FBattleHud::DrawIconElement(uint8 Slot, int32 Layer, const FBattleHudIconElement& Element)
+	void FBattleHud::DrawIconElement(uint8 Slot, int32 Layer, const FBattleHudIconElement& Element, uint16 PromptRole)
 	{
 		int32 Frame = Element.Frame;
 		if (Frame >= SlotPicture)
@@ -160,6 +187,7 @@ namespace Weltall
 		for (int32 Part = First; Part < First + Drawn && Part < static_cast<int32>(Ring.Parts.size()); ++Part)
 		{
 			FMenuPrimitive& Quad = Ring.Parts[static_cast<std::size_t>(Part)][Buffer];
+			Quad.PromptRole = PromptRole;
 			if (Level == 0)
 			{
 				SetColor(Quad, 0, FullLevel, FullLevel, FullLevel);

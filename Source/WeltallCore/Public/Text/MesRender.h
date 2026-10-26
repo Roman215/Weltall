@@ -18,9 +18,11 @@ namespace Weltall
 
 	/**
 	 * The kernel's glyph drawing: a glyph's three units cleared in Plane on each of the cell's
-	 * rows of an image Pitch units a row, XUnits from its left, and the cell ORed in.
+	 * rows of an image Pitch units a row, X units from its left, and the cell ORed in. A variable-width font's glyph is
+	 * drawn as the French translation's program draws it, X pixels from the left, with a drop shadow; StepBudget is the
+	 * glyphs its step had left (FMesPlacedGlyph), which that program's drawing reads.
 	 */
-	WELTALLCORE_API void DrawMesGlyph(const FMesFont* Font, FMesCode Code, std::span<uint16> Units, int32 Pitch, int32 XUnits, int32 Plane);
+	WELTALLCORE_API void DrawMesGlyph(const FMesFont* Font, FMesCode Code, std::span<uint16> Units, int32 Pitch, int32 X, int32 Plane, uint8 StepBudget = 0);
 
 	/**
 	 * What a window's latest step typed, drawn into the image its strips share (Units, Pitch units a row), and each
@@ -39,7 +41,7 @@ namespace Weltall
 		{
 			for (const FMesPlacedGlyph& Glyph : Glyphs.subspan(static_cast<std::size_t>(Line.First), static_cast<std::size_t>(Line.Count)))
 			{
-				DrawMesGlyph(Font, Glyph.Code, Units, Pitch, Glyph.XUnits, Line.Strip & 1);
+				DrawMesGlyph(Font, Glyph.Code, Units, Pitch, Glyph.XUnits, Line.Strip & 1, Glyph.StepBudget);
 			}
 			if (Line.Strip != Current)
 			{

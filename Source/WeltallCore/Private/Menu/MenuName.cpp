@@ -216,11 +216,25 @@ namespace Weltall
 
 	TMenuTask<> FMenuName::EnterName()
 	{
-		Glyphs.fill(Glyph::Untyped);
-		Glyphs[PeopleLength] = Glyph::End;
+		const bool bFrench = Resources.IsFrench();
 		const std::span<const uint8> Old = Services.Game->Block().subspan(static_cast<std::size_t>(Request.Param) * NameBytes, NameBytes);
 		Text.fill(0);
-		std::copy(Old.begin(), Old.end(), Text.begin());
+		if (bFrench)
+		{
+			// The French translation's program edits the old name: its glyphs are the old name's, each the glyph map's first
+			// of its code (a byte a glyph), with no end.
+			std::copy_n(Old.begin(), Glyphs.size(), Text.begin());
+			for (std::size_t At = 0; At < Glyphs.size(); ++At)
+			{
+				Glyphs[At] = GlyphOfCode(Text[At]);
+			}
+		}
+		else
+		{
+			Glyphs.fill(Glyph::Untyped);
+			Glyphs[PeopleLength] = Glyph::End;
+			std::copy(Old.begin(), Old.end(), Text.begin());
+		}
 		co_await BuildScreen();
 		RenderName();
 		OpenLayer();
@@ -307,11 +321,16 @@ namespace Weltall
 				{
 					bGoesOn = Glyphs[0] == Glyph::Deleted;
 				}
-				else if (Position < MaxLength)
+				// The French translation's inserts at the cursor while the name's tenth byte is free.
+				else if (bFrench ? Text[Glyphs.size() - 1] == 0 : Position < MaxLength)
 				{
 					if (IsBlank(Typed))
 					{
 						Typed = GridCell::Space;
+					}
+					if (bFrench && Position < static_cast<int32>(Glyphs.size()))
+					{
+						std::copy_backward(Glyphs.begin() + Position, Glyphs.end() - 1, Glyphs.end());
 					}
 					Glyphs[static_cast<std::size_t>(Position)] = Typed;
 					TypeText();
@@ -326,17 +345,30 @@ namespace Weltall
 				break;
 			}
 			case EMenuCode::Cancel:
-				// Back one, and the glyph there deleted (the first one too when already there).
-				if (Position > 0)
+				if (bFrench)
 				{
-					--Position;
+					// The French translation's deletes the glyph after the cursor, the rest moving up.
+					if (Position < static_cast<int32>(Glyphs.size()))
+					{
+						std::copy(Glyphs.begin() + Position + 1, Glyphs.end(), Glyphs.begin() + Position);
+						Glyphs.back() = Glyph::Deleted;
+					}
 				}
-				Glyphs[static_cast<std::size_t>(Position)] = Glyph::Deleted;
+				else
+				{
+					// Back one, and the glyph there deleted (the first one too when already there).
+					if (Position > 0)
+					{
+						--Position;
+					}
+					Glyphs[static_cast<std::size_t>(Position)] = Glyph::Deleted;
+				}
 				bRenders = true;
 				TypeText();
 				break;
 			case EMenuCode::R1:
-				Position = std::min(Position + 1, MaxLength);
+				// The French translation's moves on only over a typed byte.
+				Position = std::min(Position + (bFrench && Text[static_cast<std::size_t>(Position)] == 0 ? 0 : 1), MaxLength);
 				break;
 			case EMenuCode::L1:
 				Position = std::max(Position - 1, 0);
@@ -365,6 +397,23 @@ namespace Weltall
 		bScreenShown = false;
 		co_await HidePrompt();
 		CloseWindow(PromptWindow);
+	}
+
+	uint16 FMenuName::GlyphOfCode(uint8 Byte) const
+	{
+		for (int32 Index = 0; Services.Text.Tables != nullptr; ++Index)
+		{
+			const std::span<const uint8> Entry = Services.Text.Tables->GlyphMapEntry(Index);
+			if (Entry.size() != 2)
+			{
+				break;
+			}
+			if (Entry[1] == Byte)
+			{
+				return static_cast<uint16>(Index);
+			}
+		}
+		return Glyph::Untyped;
 	}
 
 	void FMenuName::WriteNames()

@@ -30,6 +30,8 @@ namespace Weltall
 			/** Every character's name, ten glyph indices of 16 bits each. */
 			constexpr std::size_t Names = 0x24;
 			constexpr std::size_t NameBytes = 0x14;
+			/** The story's progress, event variable 0. */
+			constexpr std::size_t StoryProgress = 0x1134;
 		}
 		constexpr std::size_t DataInHead = 0x100;
 
@@ -79,6 +81,13 @@ namespace Weltall
 		constexpr uint16 Ink = 1;
 		/** A glyph of the message font sits two rows into its 16-row cell. */
 		constexpr int32 GlyphTop = 2;
+		/**
+		 * The French translation's program renders the save's chapter title with the message font as one line in the title
+		 * image's second, 60 units wide, and shows it whole: its 16 cells 16 pixels wide, from a texel row higher.
+		 */
+		constexpr int16 FrenchTitleY = 0xF0;
+		constexpr int16 FrenchTitleRows = 13;
+		constexpr int32 FrenchCellTop = 0xEF;
 		/** The band behind the details: purple to blue, darker at its foot. */
 		constexpr int16 BandTop = 0x4A;
 		constexpr int16 BandBottom = 0x8A;
@@ -129,6 +138,9 @@ namespace Weltall
 			RenderMemberName(Slot, Character, File);
 		}
 		BuildTimeAndNumber(Data);
+		const bool bFrench = Resources.IsFrench();
+		const int32 Width = bFrench ? GlyphCell : GlyphWidth;
+		const uint8 CellTop = static_cast<uint8>(bFrench ? FrenchCellTop : 0xF0);
 		for (int32 Cell = 0; Cell < PlaceCells; ++Cell)
 		{
 			FMenuPrimitive& Glyph = Details.Place[static_cast<std::size_t>(Cell)];
@@ -136,13 +148,13 @@ namespace Weltall
 			Glyph.Code = MenuGpu::TexturedQuad;
 			Glyph.Page = MenuGpu::TexturePage(0, 0, TitlePageX, TitlePageY);
 			Glyph.Clut = MenuGpu::Clut(0, WhiteClutY);
-			const int16 Left = static_cast<int16>(Tables.PlaceCell[0] + Cell * GlyphWidth);
+			const int16 Left = static_cast<int16>(Tables.PlaceCell[0] + Cell * Width);
 			const int16 Top = static_cast<int16>(Tables.PlaceCell[1]);
 			const uint8 U = static_cast<uint8>(Cell * GlyphCell);
-			Glyph.Corners[0] = {Left, Top, U, 0xF0, {0x80, 0x80, 0x80}};
-			Glyph.Corners[1] = {static_cast<int16>(Left + GlyphWidth), Top, static_cast<uint8>(U + GlyphWidth), 0xF0, {}};
+			Glyph.Corners[0] = {Left, Top, U, CellTop, {0x80, 0x80, 0x80}};
+			Glyph.Corners[1] = {static_cast<int16>(Left + Width), Top, static_cast<uint8>(U + Width), CellTop, {}};
 			Glyph.Corners[2] = {Left, static_cast<int16>(Top + GlyphCell), U, 0xFF, {}};
-			Glyph.Corners[3] = {static_cast<int16>(Left + GlyphWidth), static_cast<int16>(Top + GlyphCell), static_cast<uint8>(U + GlyphWidth), 0xFF, {}};
+			Glyph.Corners[3] = {static_cast<int16>(Left + Width), static_cast<int16>(Top + GlyphCell), static_cast<uint8>(U + Width), 0xFF, {}};
 		}
 	}
 
@@ -264,6 +276,11 @@ namespace Weltall
 
 	void FMenuMain::RenderFileTitle(int32 File)
 	{
+		if (Resources.IsFrench())
+		{
+			RenderFrenchFileTitle(File);
+			return;
+		}
 		// The card title in the game's own font (the console draws it from the BIOS's font, which the port has
 		// not), a glyph in each 16-pixel cell, 16 to a line.
 		const std::span<const uint8> Head(Files.Files[static_cast<std::size_t>(File)].Head);
@@ -332,5 +349,18 @@ namespace Weltall
 			Table.Add(PiecesEntry, Glyph);
 		}
 		Table.Add(PiecesEntry, Details.Band);
+	}
+
+	void FMenuMain::RenderFrenchFileTitle(int32 File)
+	{
+		const std::vector<uint8>& Data = Files.Files[static_cast<std::size_t>(File)].Data;
+		const uint16 Progress = Data.size() >= Summary::StoryProgress + 2 ? LittleEndian::ReadU16(Data, Summary::StoryProgress) : uint16{0};
+		const std::span<const uint8> Title = Resources.FrenchChapterTitle(Progress);
+		FVramImage Line{{TitleX, FrenchTitleY, TitleUnits, FrenchTitleRows}, std::vector<uint16>(static_cast<std::size_t>(TitleUnits * FrenchTitleRows), 0)};
+		if (!Title.empty())
+		{
+			RenderString(FrenchTitleTyping, Line, Title, 0);
+		}
+		Upload(Line);
 	}
 }

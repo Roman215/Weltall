@@ -1,8 +1,9 @@
-"""Builds standalone packages of the game for Windows or Linux, one folder per configuration.
+"""Builds standalone packages of the game for Windows, Linux or Android, one folder per configuration.
 
     python Scripts/package.py                         # Development, for Windows
     python Scripts/package.py DebugGame Shipping      # several configurations
     python Scripts/package.py --platform Linux        # for Linux
+    python Scripts/package.py --platform Android      # for Android (Scripts/android.py)
     python Scripts/package.py --revision my-branch    # another commit than HEAD
     python Scripts/package.py --check-only Shipping   # start an existing package and read its log
     python Scripts/package.py --archive Shipping      # also write the package as a zip archive for a release
@@ -27,7 +28,9 @@ releases: it turns a player's crash report into source lines. The zips are Defla
 unzip reads; a Linux package's launcher and executable keep their execute bits in them.
 
 UE_ROOT names an Unreal Engine source build, from the environment or local.env; a Linux package also needs
-LINUX_MULTIARCH_ROOT (the engine's cross-compile toolchain), and its check runs it in WSL_DISTRO.
+LINUX_MULTIARCH_ROOT (the engine's cross-compile toolchain), and its check runs it in WSL_DISTRO. An Android package
+needs ANDROID_HOME (the SDK), NDKROOT and ANDROID_JAVA_HOME (the JDK its Gradle runs on), lands in
+out/builds/<Configuration>/Android as APKs, and is checked on the SDK's emulator; its zip is the released APK itself.
 """
 
 import argparse
@@ -43,10 +46,12 @@ import zipfile
 from dataclasses import dataclass
 from pathlib import Path
 
+import android
+
 REPO = Path(__file__).resolve().parent.parent
 STORY = "Content/Story"
 EXPANSION = STORY + "/disc2"
-PROJECT_PATHS = ["Weltall.uproject", "Config", "Content/Story", "Shaders", "Source", "Docs"]
+PROJECT_PATHS = ["Weltall.uproject", "Config", "Content/Story", "Shaders", "Source", "Docs", "Build/Windows/Application.ico", "Build/Android/res"]
 PROJECT = REPO / "out" / "package" / "Weltall"
 BUILDS = REPO / "out" / "builds"
 RELEASES = REPO / "out" / "releases"
@@ -65,7 +70,7 @@ MSDOS_DIRECTORY = 0x10
 
 # What a package's log must show after its first seconds (and that it read every story document), and what it must never show.
 STARTED = ["Now running"]
-FAILED = ["The game cannot start", "The game stopped", "Fatal error", "LogWindows: Error", "LogLinux: Error"]
+FAILED = ["The game cannot start", "The game stopped", "Fatal error", "LogWindows: Error", "LogLinux: Error", "LogAndroid: Error"]
 
 
 @dataclass(frozen=True)
@@ -81,6 +86,7 @@ class Platform:
 PLATFORMS = {
     "Windows": Platform("Windows", "Win64", "Weltall/Binaries/Win64", "Weltall.exe", "", (".pdb",)),
     "Linux": Platform("Linux", "Linux", "Weltall/Binaries/Linux", "Weltall.sh", "-Linux", (".debug", ".sym")),
+    "Android": Platform("Android", "Android", ".", "", "-Android", ()),
 }
 
 
@@ -98,10 +104,21 @@ def setting(key, required=True):
     return None
 
 
+def project_version():
+    """The exported project's ProjectVersion (Config/DefaultGame.ini)."""
+    found = re.search(r"^ProjectVersion=(.*)$", (PROJECT / "Config" / "DefaultGame.ini").read_text(encoding="utf-8"), re.MULTILINE)
+    if found is None:
+        sys.exit("package: Config/DefaultGame.ini names no ProjectVersion")
+    return found.group(1).strip()
+
+
 def export_revision(revision, expansion):
     """Writes the project's files at revision into PROJECT, touching only those whose bytes changed; the expanded
     second disc's documents only with expansion."""
-    archive = subprocess.run(["git", "-C", str(REPO), "archive", "--format=tar", revision, *PROJECT_PATHS],
+    # An older revision may lack a path (the icons came later): git archive refuses one it does not have.
+    present = [path for path in PROJECT_PATHS
+               if subprocess.run(["git", "-C", str(REPO), "cat-file", "-e", f"{revision}:{path}"], capture_output=True).returncode == 0]
+    archive = subprocess.run(["git", "-C", str(REPO), "archive", "--format=tar", revision, *present],
                              capture_output=True, check=True).stdout
     wanted = set()
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
@@ -115,7 +132,8 @@ def export_revision(revision, expansion):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_bytes(data)
     for root in PROJECT_PATHS:
-        for path in sorted((PROJECT / root).rglob("*"), reverse=True):
+        base = PROJECT / root
+        for path in [base] if base.is_file() else sorted(base.rglob("*"), reverse=True):
             if path.is_file() and path not in wanted:
                 path.unlink()
             elif path.is_dir() and not any(path.iterdir()):
@@ -123,8 +141,9 @@ def export_revision(revision, expansion):
 
 
 # The cook's editor asks UnrealBuildTool for the platforms' SDKs without waiting on its mutex: while another build
-# holds it, Linux's SDK is not found and the cook refuses the platform. That run is tried again a few times.
-SDK_UNSEEN = "Invalid target platform specified"
+# holds it, the platform's SDK is not found and the cook refuses the platform, or only the mutex's refusal is logged.
+# That run is tried again a few times.
+SDK_UNSEEN = ("Invalid target platform specified", "A conflicting instance of Global\\UnrealBuildTool_Mutex")
 SDK_TRIES = 5
 SDK_WAIT_SECONDS = 120
 
@@ -140,7 +159,7 @@ def run_logged(commands, log_path):
                 sdk_unseen = False
                 for line in process.stdout:
                     log.write(line)
-                    sdk_unseen = sdk_unseen or SDK_UNSEEN in line
+                    sdk_unseen = sdk_unseen or any(mark in line for mark in SDK_UNSEEN)
                     if "BUILD SUCCESSFUL" in line or "ERROR:" in line or "Error:" in line:
                         print("  " + line.rstrip())
                 status = process.wait()
@@ -160,18 +179,20 @@ def build(configuration, platform, ue_root):
     # UBT is called directly to wait on its mutex: another project's build on the same engine may hold it,
     # and the builds BuildCookRun starts itself would fail rather than wait.
     ubt = str(engine / "Binaries" / "DotNET" / "UnrealBuildTool" / "UnrealBuildTool.exe")
+    uat = str(engine / "Build" / "BatchFiles" / "RunUAT.bat")
     staging = BUILDS / f"{configuration}{platform.log_suffix}.new"
     shutil.rmtree(staging, ignore_errors=True)
-    commands = [
-        [ubt, "WeltallEditor", "Win64", "Development", f"-Project={project}", "-WaitMutex"],
-        [ubt, "Weltall", platform.target, configuration, f"-Project={project}", "-WaitMutex"],
-    ]
-    if platform.name == "Windows":
-        commands.append([ubt, "BootstrapPackagedGame", "Win64", "Shipping", "-WaitMutex"])
-    commands.append([str(engine / "Build" / "BatchFiles" / "RunUAT.bat"), "-WaitForUATMutex", "BuildCookRun",
-                     f"-project={project}", f"-platform={platform.target}", f"-clientconfig={configuration}", "-skipbuild",
-                     "-cook", "-stage", "-pak", "-package", "-archive", f"-archivedirectory={staging}", "-nodebuginfo", "-SkipCookingEditorContent",
-                     "-noP4", "-unattended", "-utf8output"])
+    commands = [[ubt, "WeltallEditor", "Win64", "Development", f"-Project={project}", "-WaitMutex"]]
+    if platform.name == "Android":
+        # Android's archive is the folder given, where the desktops' is a folder named after the platform inside it.
+        commands += android.commands(ubt, uat, project, configuration, staging / platform.name)
+    else:
+        commands.append([ubt, "Weltall", platform.target, configuration, f"-Project={project}", "-WaitMutex"])
+        if platform.name == "Windows":
+            commands.append([ubt, "BootstrapPackagedGame", "Win64", "Shipping", "-WaitMutex"])
+        commands.append([uat, "-WaitForUATMutex", "BuildCookRun", f"-project={project}", f"-platform={platform.target}",
+                         f"-clientconfig={configuration}", "-skipbuild", "-cook", "-stage", "-pak", "-package", "-archive",
+                         f"-archivedirectory={staging}", "-nodebuginfo", "-SkipCookingEditorContent", "-noP4", "-unattended", "-utf8output"])
     log_path = BUILDS / f"{configuration}{platform.log_suffix}.log"
     print(f"{configuration}: building for {platform.name} (log: {log_path.relative_to(REPO)})")
     started = time.monotonic()
@@ -200,10 +221,12 @@ def build(configuration, platform, ue_root):
     move_into_place(staging / platform.name, package)
     if not retain_player_folders(previous, package):
         return False
-    shutil.copytree(PROJECT / "Docs", package / "Docs", dirs_exist_ok=True)
+    if platform.name != "Android":
+        shutil.copytree(PROJECT / "Docs", package / "Docs", dirs_exist_ok=True)
     shutil.rmtree(previous, ignore_errors=True)
     shutil.rmtree(staging, ignore_errors=True)
-    print(f"{configuration}: built in {minutes:.0f} min: {(package / platform.launcher).relative_to(REPO)}")
+    launcher = android.apk(package, configuration, android.RELEASED) if platform.name == "Android" else package / platform.launcher
+    print(f"{configuration}: built in {minutes:.0f} min: {launcher.relative_to(REPO)}")
     return True
 
 
@@ -257,14 +280,49 @@ def wsl_path(path):
 
 
 def check(configuration, platform, seconds):
-    """Starts the package without a window or sound for some seconds (a Linux one in WSL), then reads its log."""
-    binaries = BUILDS / configuration / platform.name / platform.binaries
-    executable = next((path for path in binaries.glob("Weltall*") if path.suffix in ("", ".exe")), None) if binaries.is_dir() else None
-    if executable is None:
-        print(f"{configuration}: no {platform.name} package to check")
-        return False
+    """Starts the package for some seconds, then reads its log: a desktop one without a window or sound (a Linux one in
+    WSL), an Android one on the emulator."""
+    package = BUILDS / configuration / platform.name
     log_path = BUILDS / f"{configuration}{platform.log_suffix}-check.log"
     log_path.unlink(missing_ok=True)
+    try:
+        ended = run_on_emulator(package, configuration, seconds, log_path) if platform.name == "Android" else run_desktop(package, platform, seconds, log_path)
+    except RuntimeError as error:
+        print(f"{configuration}: FAILED: {error}")
+        return False
+    text = log_path.read_text(encoding="utf-8", errors="replace") if log_path.is_file() else ""
+    documents = len(list((PROJECT / STORY).glob("*/*.txt")))
+    missing = [line for line in [*STARTED, f"Story documents read: {documents}"] if line not in text]
+    if not re.search(r"Found [1-9][0-9]* of the game's discs", text):
+        missing.append("a recognized game disc")
+    failures = [line for line in text.splitlines() if any(mark in line for mark in FAILED)]
+    for line in failures[:10]:
+        print("  " + line)
+    passed = ended is None and not missing and not failures
+    if passed:
+        print(f"{configuration}: ran for {seconds} s (log: {log_path.relative_to(REPO)})")
+    else:
+        print(f"{configuration}: FAILED: {ended or 'ran on'}, its log lacks {missing} (log: {log_path.relative_to(REPO)})")
+    return passed
+
+
+def run_on_emulator(package, configuration, seconds, log_path):
+    """Runs an Android package's emulator APK for some seconds, its log in log_path: None if it still ran, else how it
+    ended."""
+    if not android.apk(package, configuration, android.CHECKED).is_file():
+        raise RuntimeError(f"no Android package to check in {package.relative_to(REPO)}")
+    running = android.check(package, configuration, PROJECT, setting("ANDROID_HOME"), setting("ANDROID_AVD", required=False),
+                            setting("ANDROID_CHECK_DISC"), seconds, log_path)
+    return None if running else "stopped on the emulator"
+
+
+def run_desktop(package, platform, seconds, log_path):
+    """Runs a desktop package without a window or sound for some seconds, its log in log_path: None if it still ran,
+    else how it ended."""
+    binaries = package / platform.binaries
+    executable = next((path for path in binaries.glob("Weltall*") if path.suffix in ("", ".exe")), None) if binaries.is_dir() else None
+    if executable is None:
+        raise RuntimeError(f"no {platform.name} package to check in {package.relative_to(REPO)}")
     arguments = ["-nullrhi", "-nosound", "-unattended"]
     if platform.name == "Linux":
         # Killed by timeout inside WSL (which then exits with 124): ending the wsl process alone would leave the game running.
@@ -277,27 +335,11 @@ def check(configuration, platform, seconds):
     process = subprocess.Popen(command, creationflags=CREATE_NO_WINDOW)
     try:
         exited = process.wait(timeout=limit)
-        if platform.name == "Linux" and exited == 124:
-            exited = None
     except subprocess.TimeoutExpired:
         process.kill()
         process.wait()
-        exited = None
-    text = log_path.read_text(encoding="utf-8", errors="replace") if log_path.is_file() else ""
-    documents = len(list((PROJECT / STORY).glob("*/*.txt")))
-    missing = [line for line in [*STARTED, f"Story documents read: {documents}"] if line not in text]
-    if not re.search(r"Found [1-9][0-9]* of the game's discs", text):
-        missing.append("a recognized game disc")
-    failures = [line for line in text.splitlines() if any(mark in line for mark in FAILED)]
-    for line in failures[:10]:
-        print("  " + line)
-    passed = exited is None and not missing and not failures
-    if passed:
-        print(f"{configuration}: ran for {seconds} s (log: {log_path.relative_to(REPO)})")
-    else:
-        ended = "ran on" if exited is None else f"exited with status {exited}"
-        print(f"{configuration}: FAILED: {ended}, its log lacks {missing} (log: {log_path.relative_to(REPO)})")
-    return passed
+        return None
+    return None if platform.name == "Linux" and exited == 124 else f"exited with status {exited}"
 
 
 def write_zip(release, root, files, folders=(), programs=None):
@@ -322,6 +364,8 @@ def write_zip(release, root, files, folders=(), programs=None):
 def archive(configuration, platform):
     """Writes the package, its discs left out, and its symbols as zip archives in RELEASES; false if it cannot."""
     package = BUILDS / configuration / platform.name
+    if platform.name == "Android":
+        return archive_android(configuration, package)
     revision_file = package / "Revision.txt"
     binaries = package / platform.binaries
     executable = next((path for path in binaries.glob("Weltall*") if path.suffix in ("", ".exe")), None) if binaries.is_dir() else None
@@ -353,6 +397,30 @@ def archive(configuration, platform):
     return True
 
 
+def archive_android(configuration, package):
+    """Copies the package's released APK into RELEASES as it is (players install the APK itself) and zips its symbols
+    beside it."""
+    revision_file = package / "Revision.txt"
+    apk, folder, symbols = android.release_files(package, configuration)
+    if not revision_file.is_file() or not apk.is_file():
+        print(f"{configuration}: no Android package to archive")
+        return False
+    name = f"Weltall-{revision_file.read_text(encoding='utf-8').strip()}-Android" + ("" if configuration == "Shipping" else f"-{configuration}")
+    # The story documents are inside the APK: whether they hold the expanded second disc is the export's to say.
+    if (PROJECT / EXPANSION).is_dir():
+        name += "-Expansion"
+    RELEASES.mkdir(parents=True, exist_ok=True)
+    release = RELEASES / f"{name}.apk"
+    shutil.copyfile(apk, release)
+    symbols_archive = RELEASES / f"{name}-symbols.zip"
+    symbols_archive.unlink(missing_ok=True)
+    if symbols:
+        write_zip(symbols_archive, folder, symbols)
+    print(f"{configuration}: {release.relative_to(REPO)}: {release.stat().st_size / 2**20:.1f} MiB; "
+          + (f"symbols {symbols_archive.stat().st_size / 2**20:.1f} MiB" if symbols else "no symbols in the package"))
+    return True
+
+
 def main():
     sys.stdout.reconfigure(line_buffering=True)
     parser = argparse.ArgumentParser(description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -374,17 +442,24 @@ def main():
         ue_root = setting("UE_ROOT")
         if platform.name == "Linux":
             os.environ["LINUX_MULTIARCH_ROOT"] = setting("LINUX_MULTIARCH_ROOT")
+        keystore = None
+        if platform.name == "Android":
+            os.environ.update(ANDROID_HOME=setting("ANDROID_HOME"), NDKROOT=setting("NDKROOT"), JAVA_HOME=setting("ANDROID_JAVA_HOME"))
+            keystore = setting("ANDROID_KEYSTORE", required="Shipping" in args.configurations)
         revision = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short", args.revision],
                                   capture_output=True, text=True, check=True).stdout.strip()
         print(f"Exporting {revision} into {PROJECT.relative_to(REPO)}" + (" with the expanded second disc" if args.expansion else ""))
         export_revision(args.revision, args.expansion)
+        if platform.name == "Android":
+            android.prepare(PROJECT, project_version(), keystore, setting("ANDROID_KEYSTORE_PASSWORD") if keystore else None)
         BUILDS.mkdir(parents=True, exist_ok=True)
         for configuration in args.configurations:
             built = build(configuration, platform, ue_root)
             ok &= built
             if built:
                 (BUILDS / configuration / platform.name / "Revision.txt").write_text(revision + "\n", encoding="utf-8")
-                link_games(configuration, platform)
+                if platform.name != "Android":
+                    link_games(configuration, platform)
     for configuration in args.configurations:
         checked = check(configuration, platform, args.check_seconds)
         ok &= checked

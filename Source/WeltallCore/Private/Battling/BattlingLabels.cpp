@@ -46,6 +46,41 @@ namespace Weltall
 		}
 	}
 
+	std::string FormatBattlingText(std::string_view Format, std::initializer_list<std::string_view> Values)
+	{
+		std::string Text;
+		auto Value = Values.begin();
+		for (std::size_t At = 0; At < Format.size(); ++At)
+		{
+			if (Format[At] != '%' || At + 1 == Format.size())
+			{
+				Text += Format[At];
+				continue;
+			}
+			// A conversion: its width's digits, then its letter.
+			std::size_t Letter = At + 1;
+			while (Letter + 1 < Format.size() && Format[Letter] >= '0' && Format[Letter] <= '9')
+			{
+				++Letter;
+			}
+			if (Format[Letter] == '%')
+			{
+				Text += '%';
+			}
+			else if (Value != Values.end())
+			{
+				Text += *Value++;
+			}
+			At = Letter;
+		}
+		return Text;
+	}
+
+	const FBattlingTexts& FBattlingLabels::Texts() const
+	{
+		return Tables.Texts;
+	}
+
 	void FBattlingLabels::SetFlash(bool bOn, uint32 VBlank)
 	{
 		Colour = bOn ? FDrawColor{static_cast<uint8>(VBlank * FlashStep), 0xFF, 0} : FDrawColor{0xFF, 0xFF, 0xFF};

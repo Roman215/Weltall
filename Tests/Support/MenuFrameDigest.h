@@ -37,7 +37,11 @@ namespace Weltall::Testing
 	 */
 	std::vector<uint8> GearShopFrameBytes(const FMenuFrame& Frame, const FGearShopModel& Model);
 
-	/** A frame's digest as the oracle prints it (8 hex digits): its packets, its sounds, its uploads, the gear shop's part. */
+	/** The bytes a frame's digest is made of: its packets, its sounds, its uploads, the gear shop's part. */
+	std::vector<uint8> MenuFrameBytes(const FMenuFrame& Frame, std::span<const uint8> Sounds, std::span<const FVramImage> Uploads,
+		std::span<const uint8> Gear = {});
+
+	/** A frame's digest as the oracle prints it (8 hex digits): the SHA-1 of MenuFrameBytes. */
 	std::string MenuFrameDigest(const FMenuFrame& Frame, std::span<const uint8> Sounds, std::span<const FVramImage> Uploads,
 		std::span<const uint8> Gear = {});
 }

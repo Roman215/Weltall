@@ -11,6 +11,7 @@ namespace Weltall
 	class FMenuProgram;
 	class IMenuKeys;
 	class IMenuAssets;
+	class IMenuDeviceFiles;
 	struct FPlayerSettings;
 	class FPsxExecutable;
 
@@ -44,8 +45,10 @@ namespace Weltall
 		/** The player's keys, which the options screen's Controls page rebinds; none (or no settings kept): no Controls page. It must outlive the menus. */
 		void SetKeys(IMenuKeys* InKeys) { Keys = InKeys; }
 		void SetAssets(IMenuAssets* InAssets) { Assets = InAssets; }
-		/** The mods the game found, which the options screen's Modding page lists. */
-		void SetMods(FMenuMods InMods) { Mods = std::move(InMods); }
+		/** The device's file picker, for the Saves page; none where the game browses the computer's folders itself. It must outlive the menus. */
+		void SetDeviceFiles(IMenuDeviceFiles* InFiles) { DeviceFiles = InFiles; }
+		/** The mods the game has found, asked as the options screen's Modding page lists them; none: none found. */
+		void SetMods(std::function<FMenuMods()> InMods) { Mods = std::move(InMods); }
 
 		/** What the display offers, asked as the options screen opens; none: the screen offers no window sizes. */
 		void SetDisplayModes(std::function<FDisplayModes()> InModes) { DisplayModes = std::move(InModes); }
@@ -63,7 +66,8 @@ namespace Weltall
 		std::function<void(const FPlayerSettings&)> SettingsFollowed;
 		IMenuKeys* Keys = nullptr;
 		IMenuAssets* Assets = nullptr;
-		FMenuMods Mods;
+		IMenuDeviceFiles* DeviceFiles = nullptr;
+		std::function<FMenuMods()> Mods;
 		std::function<FDisplayModes()> DisplayModes;
 		std::function<void()> Quit;
 	};

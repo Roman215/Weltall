@@ -54,6 +54,9 @@ namespace Weltall
 		constexpr int32 BoxTopY = 0x2E;
 		constexpr int32 BoxBottomY = 0x3A;
 		constexpr int16 UnderlineY = 0xC6;
+		/** The French translation's: a bar at the insertion place, from the name's line's top, a pixel left of its next glyph. */
+		constexpr int16 BarTop = 0xB6;
+		constexpr int16 BarBottom = 0xC1;
 		constexpr FDrawColor BoxGreen{0, 0xFF, 0};
 		constexpr FDrawColor UnderlineGreen{0, 0x80, 0};
 		/** The underline blinks: shown 30 of every 61 frames. */
@@ -144,13 +147,17 @@ namespace Weltall
 			}
 			GlyphText(Cells, GlyphScratch);
 			std::fill(LabelImage.Units.begin(), LabelImage.Units.end(), uint16{0});
+			// The French translation's program types the grid 8 pixels a letter, its cells' own width.
+			Services.Text.bFixedAdvance = Resources.IsFrench();
 			RenderString(LabelTyping, LabelImage, GlyphScratch, 0);
+			Services.Text.bFixedAdvance = false;
 			LabelImage.Rect = {static_cast<int16>(StripX + Strip % 2 * StripColumn), static_cast<int16>(Strip / 2 * RowHeight), StripWidth, RowHeight};
 			Upload(LabelImage);
 			FMenuPrimitive& Quad = Strips[static_cast<std::size_t>(Strip)];
 			MakeStrip(Quad);
 			SetTexelRect(Quad, Strip % 2 * 0x80, Strip / 2 * RowHeight, StripTexels, RowHeight);
-			SetCorners(Quad, Strip / StripRows * BlockX + GridX, Strip % StripRows * CellHeight + GridY, StripTexels, RowHeight);
+			// A pixel further right in the French translation's program.
+			SetCorners(Quad, Strip / StripRows * BlockX + GridX + (Resources.IsFrench() ? 1 : 0), Strip % StripRows * CellHeight + GridY, StripTexels, RowHeight);
 		}
 		MakeStrip(NameQuad);
 		SetTexelRect(NameQuad, 0, NameStripY, MaxLength * GlyphWidth, RowHeight);
@@ -237,11 +244,28 @@ namespace Weltall
 		Blink = Blink + 1 > BlinkCycle ? uint8{0} : static_cast<uint8>(Blink + 1);
 		if (Blink < BlinkShown)
 		{
-			const int16 Left = static_cast<int16>(Position * GlyphWidth + NameX);
-			Underline.Corners[0].X = Left;
-			Underline.Corners[0].Y = UnderlineY;
-			Underline.Corners[1].X = static_cast<int16>(Left + GlyphWidth);
-			Underline.Corners[1].Y = UnderlineY;
+			if (Resources.IsFrench())
+			{
+				// The name's bytes before the cursor, each its font's width (the program reads its table from code 10h).
+				int32 Before = 0;
+				for (int32 At = 0; At < Position; ++At)
+				{
+					Before += Services.Text.Font != nullptr ? Services.Text.Font->WidthUnits({0, Text[static_cast<std::size_t>(At)]}) : 0;
+				}
+				const int16 Left = static_cast<int16>(NameX - 1 + Before);
+				Underline.Corners[0].X = Left;
+				Underline.Corners[0].Y = BarTop;
+				Underline.Corners[1].X = Left;
+				Underline.Corners[1].Y = BarBottom;
+			}
+			else
+			{
+				const int16 Left = static_cast<int16>(Position * GlyphWidth + NameX);
+				Underline.Corners[0].X = Left;
+				Underline.Corners[0].Y = UnderlineY;
+				Underline.Corners[1].X = static_cast<int16>(Left + GlyphWidth);
+				Underline.Corners[1].Y = UnderlineY;
+			}
 			Table.Add(PiecesEntry, Underline);
 		}
 		for (const FMenuPrimitive& Strip : Strips)

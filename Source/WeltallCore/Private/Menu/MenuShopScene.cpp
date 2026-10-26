@@ -189,7 +189,8 @@ namespace Weltall
 	void FMenuShopModule::DrawCartMark(int32 Row, int32 Mark, uint8 Quantity)
 	{
 		FMenuShopRow& Shown = Scene.Rows[static_cast<std::size_t>(Row)];
-		const int32 Y = Row * RowHeight + MarkY;
+		// A pixel higher in the French translation's program.
+		const int32 Y = Row * RowHeight + MarkY - (Resources.IsFrench() ? 1 : 0);
 		Resources.Sheet().Draw(Mark, MarkX, Y, FullScale, Shown.Cart);
 		if (Quantity / 10 != 0)
 		{

@@ -13,6 +13,7 @@
 #include "Field/FieldParticles.h"
 #include "Field/FieldRenderState.h"
 #include "Field/FieldRequests.h"
+#include "Field/FieldZone.h"
 #include "Formats/Tim.h"
 #include "Foundation/Types.h"
 #include "Foundation/UnreachedCases.h"
@@ -33,7 +34,6 @@ namespace Weltall
 	class FSprite;
 	class FSpriteSystem;
 	struct FFieldWalkmesh;
-	struct FFieldZone;
 	struct FGteArctangents;
 
 	/** Where an actor's sprite comes from: one of the map's sprite files, or a party member's. */
@@ -575,6 +575,11 @@ namespace Weltall
 		int16 ViewTurn = 0;
 		/** The leader runs unless the run button is held, which then walks (off in the original: it runs while the button is held). */
 		bool bAlwaysRun = false;
+		/**
+		 * The stick walks the leader in any direction, and a light push walks it slowly; with Always run a firm push runs (off
+		 * in the original: the d-pad's eight directions).
+		 */
+		bool bAnalogMovement = false;
 		/** A door's talk script starts when the leader walks into the door (off in the original: only for the button). */
 		bool bWalkIntoDoors = false;
 		/**
@@ -692,6 +697,10 @@ namespace Weltall
 		FEventRun Run;
 
 		FEventActorState* StateOf(int32 Actor)
+		{
+			return Actor >= 0 && static_cast<std::size_t>(Actor) < States.size() ? &States[static_cast<std::size_t>(Actor)] : nullptr;
+		}
+		const FEventActorState* StateOf(int32 Actor) const
 		{
 			return Actor >= 0 && static_cast<std::size_t>(Actor) < States.size() ? &States[static_cast<std::size_t>(Actor)] : nullptr;
 		}

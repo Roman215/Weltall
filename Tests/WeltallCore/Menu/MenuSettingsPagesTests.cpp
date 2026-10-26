@@ -490,6 +490,11 @@ TEST_CASE("The Sound page offers the voices and subtitles the game was given, an
 	CHECK(Row(SoundRow::Subtitles, Usa).Help[0] == Text::Sound::NoSubtitlesHelp[0]);
 	CHECK_FALSE(FSettingsPages::Step(ESettingsPage::Sound, SoundRow::Subtitles, 1, Settings, bCustomPicked, Usa));
 	CHECK(FSettingsPages::RowCount(ESettingsPage::Sound, Usa) == SoundRow::SubtitlesFrom);
+	// Where discs come in through the device's file picker, the help names the Saves page rather than the folders.
+	FSettingsContext Picked = Usa;
+	Picked.bDiscsPicked = true;
+	CHECK(Row(SoundRow::Voices, Picked).Help == OptionsText::Fill(Text::Sound::OnlyEnglishPicked));
+	CHECK(Row(SoundRow::Subtitles, Picked).Help == OptionsText::Fill(Text::Sound::NoSubtitlesPicked));
 	CHECK(Settings.VoiceLanguage == EVoiceLanguage::Automatic);
 	CHECK(Settings.MovieSubtitles == EMovieSubtitles::Automatic);
 
@@ -635,6 +640,7 @@ TEST_CASE("Every row's words are in the game's font and fit their places on the 
 			 FSoundSources{true, false, true, false}})
 	{
 		Shown.push_back({ESettingsPage::Sound, {WideDisplay.Display, Sources}});
+		Shown.push_back({ESettingsPage::Sound, {WideDisplay.Display, Sources, true}});
 	}
 	for (const auto& [Page, Context] : Shown)
 	{

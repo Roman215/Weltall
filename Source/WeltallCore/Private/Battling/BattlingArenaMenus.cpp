@@ -36,13 +36,6 @@ namespace Weltall
 		constexpr int32 NamesY = 0x78;
 		constexpr std::array<int32, 2> NamesX{0x50, 0xF0};
 		constexpr int32 VersusX = 0xA0;
-		constexpr std::string_view VersusText = "VS";
-		constexpr std::string_view VibrationOn = "VIBRATION ON";
-		constexpr std::string_view VibrationOff = "VIBRATION OFF";
-		/** Bonus battling's values: a set with no limit shows the font's infinity, #; and the rubber band's. */
-		constexpr std::string_view NoLimit = "#";
-		constexpr std::string_view On = "ON";
-		constexpr std::string_view Off = "OFF";
 		constexpr int16 BoxMargin = 0x0A;
 
 		/** A carousel's step: a portrait slides 24h pixels, its own place 4 a pass, its neighbour's 2. */
@@ -130,7 +123,7 @@ namespace Weltall
 					{
 						Labels.SetFlash(Menus.Cursor(Menu) == 1, Fight.VBlank);
 					}
-					Labels.PrintCentered(Fight.Settings.Vibration[Side] ? VibrationOn : VibrationOff, Buffer);
+					Labels.PrintCentered(Fight.Settings.Vibration[Side] ? Fight.Tables.Texts.VibrationOn : Fight.Tables.Texts.VibrationOff, Buffer);
 				}
 				Menus.VibrationHidden[Side] = !bShown;
 				Labels.SetFlash(false, Fight.VBlank);
@@ -398,7 +391,7 @@ namespace Weltall
 
 		void PrintBonusValues(FBattlingFight& Fight, const FBattlingMenuPlace& Place, int16 Cursor)
 		{
-			using namespace BattlingLabelTexts;
+			const FBattlingTexts& Texts = Fight.Tables.Texts;
 			const uint32 Buffer = Fight.Pass & 1;
 			FBattlingLabels& Labels = Fight.Labels;
 			Labels.SetFlash(false, Fight.VBlank);
@@ -409,11 +402,11 @@ namespace Weltall
 			}
 			Labels.SetFlash(Cursor == 4, Fight.VBlank);
 			const uint8 Wins = Fight.Settings.WinsPerSet;
-			Labels.PrintRight(Wins == 0 ? std::string(NoLimit) : std::to_string(Wins), Buffer);
+			Labels.PrintRight(Wins == 0 ? Texts.NoLimit : std::to_string(Wins), Buffer);
 			Labels.SetFlash(Cursor == 5, Fight.VBlank);
-			Labels.PrintRight(LevelNames[std::min<std::size_t>(Fight.Settings.Level, LevelNames.size() - 1)], Buffer);
+			Labels.PrintRight(Texts.LevelNames[std::min<std::size_t>(Fight.Settings.Level, Texts.LevelNames.size() - 1)], Buffer);
 			Labels.SetFlash(Cursor == 6, Fight.VBlank);
-			Labels.PrintRight(Fight.Settings.bRubberBand ? On : Off, Buffer);
+			Labels.PrintRight(Fight.Settings.bRubberBand ? Texts.On : Texts.Off, Buffer);
 			Labels.SetFlash(false, Fight.VBlank);
 		}
 
@@ -480,7 +473,7 @@ namespace Weltall
 			FBattlingLabels& Labels = Fight.Labels;
 			const uint32 Buffer = Fight.Pass & 1;
 			Labels.SetPosition(VersusX, NamesY);
-			Labels.PrintCentered(VersusText, Buffer);
+			Labels.PrintCentered(Fight.Tables.Texts.Versus, Buffer);
 			for (std::size_t Side = 0; Side < 2; ++Side)
 			{
 				const uint8 Gear = RosterGear(Menus, Gears.Cursors[Side]);

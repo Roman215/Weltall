@@ -45,88 +45,94 @@ namespace Weltall::OptionsText
 
 	namespace Display
 	{
-		inline constexpr FRow FullScreen{"Fullscreen", {"Borderless fullscreen. When", "off, the game plays in a", "window of the size below."}};
-		inline constexpr FRow Resolution{"Resolution", {"The window's size when not", "in fullscreen.", ""}};
+		inline constexpr FRow FullScreen{"Fullscreen", {"Borderless fullscreen. When", "off, the game runs in a", "window of the size below."}};
+		inline constexpr FRow Resolution{"Resolution", {"Window size when not in", "fullscreen.", ""}};
 		/** The value: width, then height. */
 		inline constexpr std::string_view ResolutionValue = "{} x {}";
 		inline constexpr FRow Aspect{"Aspect ratio", {"Auto fills the window. 16:9", "and 4:3 add black bars", "where needed."}};
 		inline constexpr std::array<std::string_view, 3> AspectValues{"Auto", "16:9", "4:3"};
-		inline constexpr FRow Sorting{"Depth sorting", {"Per pixel sorts characters and", "gears by depth. Scenery too", "sorts the scenery as well."}};
+		inline constexpr FRow Sorting{"Depth sorting", {"Draws characters and Gears in", "the right depth order. Scenery", "too includes the scenery."}};
 		inline constexpr std::array<std::string_view, 3> SortingValues{"Original", "Per pixel", "Scenery too"};
 		inline constexpr FRow SceneryFilter{"Scenery filter", {"Sharp: original. Crisp: steady", "in motion. Smooth: softened.", "Upscaled: smooth diagonals."}};
 		inline constexpr FRow SpriteFilter{"Sprite filter", {"Sharp: original. Crisp: steady", "in motion. Smooth: softened.", "Upscaled: smooth diagonals."}};
 		inline constexpr std::array<std::string_view, 4> FilterValues{"Sharp", "Crisp", "Smooth", "Upscaled"};
-		inline constexpr FRow MovieFilter{"Movie filter", {"Smooth keeps the movies' own", "look. Upscaled cleans them", "up and sharpens their lines."}};
+		inline constexpr FRow MovieFilter{"Movie filter", {"Smooth: original look.", "Upscaled: a cleaner picture", "with sharper lines."}};
 		inline constexpr std::array<std::string_view, 2> MovieFilterValues{"Smooth", "Upscaled"};
-		inline constexpr FRow Crt{"CRT filter", {"Draws scanlines and phosphors", "as on a CRT. Press Confirm to", "adjust each part of the look."}};
+		inline constexpr FRow Crt{"CRT filter", {"Simulates a CRT screen with", "scanlines. Press Confirm to", "customize it."}};
 		inline constexpr std::array<std::string_view, 4> CrtValues{"Off", "Monitor", "TV", "Custom"};
 		inline constexpr FRow AntiAliasing{"Anti-aliasing", {"Smooths jagged edges. MSAA", "is fast. Supersampling is", "sharper but costs more."}};
 		inline constexpr std::array<std::string_view, 3> AntiAliasingValues{"Off", "MSAA", "Supersampling"};
-		inline constexpr FRow Culling{"Widescreen drawing", {"Full draws everything in a", "widescreen view. Original", "draws only the 4:3 area."}};
+		inline constexpr FRow Culling{"Widescreen drawing", {"Full draws the whole", "widescreen view. Original", "draws only the 4:3 area."}};
 		inline constexpr std::array<std::string_view, 2> CullingValues{"Original", "Full"};
-		inline constexpr FRow Pilots{"Pilot sprites", {"In areas sized for Gears,", "Detailed draws the party on", "foot with their own sprites."}};
+		inline constexpr FRow Pilots{"Pilot sprites", {"In Gear-sized areas, Detailed", "shows the party on foot with", "their own sprites."}};
 		/** The values with the party's own sprites on, then off. */
 		inline constexpr std::array<std::string_view, 2> PilotsValues{"Detailed", "Original"};
-		inline constexpr FRow Gears{"Gear sprites", {"3D draws the Gears with their", "battle models. In play keeps", "the sprites in cutscenes."}};
+		inline constexpr FRow Gears{"Gear sprites", {"3D shows Gears with their", "battle models. In play keeps", "sprites in cutscenes."}};
 		inline constexpr std::array<std::string_view, 3> GearsValues{"Original", "3D in play", "3D always"};
 		inline constexpr FRow ChapterCards{"Chapter titles", {"Shows each chapter's title", "as the chapter begins.", ""}};
-		inline constexpr FRow TextSpeed{"Text speed", {"How fast text appears in", "message boxes. Instant shows", "a whole page at once."}};
+		inline constexpr FRow TextSpeed{"Text speed", {"How fast text appears in", "message boxes. Instant shows", "each page at once."}};
 		inline constexpr std::array<std::string_view, 4> TextSpeedValues{"Normal", "2x", "4x", "Instant"};
-		inline constexpr FRow BattleSpeed{"Battle speed", {"How fast battles play. You", "can also change it in battle", "with Camera left and right."}};
+		inline constexpr FRow BattleSpeed{"Battle speed", {"How fast battles play. Change", "it in battle with Camera left", "and right."}};
 		inline constexpr std::array<std::string_view, 3> BattleSpeedValues{"Normal", "2x", "4x"};
-		inline constexpr FRow BattleFlashes{"Battle flashes", {"Softer dims the screen flashes", "of attacks and Ether. Off", "leaves them out."}};
+		inline constexpr FRow BattleFlashes{"Battle flashes", {"Softer dims the screen flashes", "of attacks and Ethers. Off", "removes them."}};
 		inline constexpr std::array<std::string_view, 3> BattleFlashesValues{"Original", "Softer", "Off"};
-		inline constexpr FRow PauseInBackground{"Pause in background", {"Pauses the game while its", "window isn't in focus. Play", "time stops too."}};
+		inline constexpr FRow PauseInBackground{"Pause in background", {"Pauses the game when its", "window isn't in focus. Play", "time stops too."}};
 	}
 
 	/** The CRT filter's parts. */
 	namespace Crt
 	{
-		inline constexpr FRow Scanlines{"Scanlines", {"How dark the gaps between", "the lines are. 0 merges the", "lines into a smooth picture."}};
-		inline constexpr FRow Mask{"Phosphor mask", {"The red, green and blue dots", "behind the glass: a monitor's", "stripes or a TV's slots."}};
+		inline constexpr FRow Scanlines{"Scanlines", {"How dark the gaps between", "lines are. 0 gives a smooth", "picture."}};
+		inline constexpr FRow Mask{"Phosphor mask", {"The pattern of red, green and", "blue dots: a monitor's", "stripes or a TV's slots."}};
 		inline constexpr std::array<std::string_view, 3> MaskValues{"None", "Stripes", "Slots"};
-		inline constexpr FRow MaskStrength{"Mask strength", {"How clearly the phosphors", "show. They always fade from", "the brightest colors."}};
-		inline constexpr FRow MaskSize{"Mask size", {"How fine the phosphors are.", "Coarser ones are easier to", "see."}};
+		inline constexpr FRow MaskStrength{"Mask strength", {"How visible the phosphor", "mask is.", ""}};
+		inline constexpr FRow MaskSize{"Mask size", {"How fine the phosphor mask", "is. Coarser is easier to see.", ""}};
 		inline constexpr std::array<std::string_view, 3> MaskSizeValues{"Fine", "Medium", "Coarse"};
-		inline constexpr FRow Sharpness{"Sharpness", {"How crisp the picture is", "along each line. Lower is", "softer."}};
-		inline constexpr FRow ColorBleed{"Color bleed", {"How far colors spread to the", "side, as over S-Video. 0", "keeps them crisp."}};
-		inline constexpr FRow Glow{"Glow", {"Light spreading in the glass", "around the picture's bright", "parts."}};
-		inline constexpr FRow Curvature{"Curvature", {"How much the glass bulges.", "0 is a flat screen.", ""}};
-		inline constexpr FRow Corners{"Rounded corners", {"How round the screen's", "corners are.", ""}};
-		inline constexpr FRow Vignette{"Vignette", {"Darkens the picture toward", "its corners.", ""}};
+		inline constexpr FRow Sharpness{"Sharpness", {"How crisp the picture is.", "Lower is softer.", ""}};
+		inline constexpr FRow ColorBleed{"Color bleed", {"How far colors smear side to", "side, as over S-Video. 0", "keeps them crisp."}};
+		inline constexpr FRow Glow{"Glow", {"Adds a glow around bright", "parts of the picture.", ""}};
+		inline constexpr FRow Curvature{"Curvature", {"How curved the screen is.", "0 is flat.", ""}};
+		inline constexpr FRow Corners{"Rounded corners", {"How rounded the screen's", "corners are.", ""}};
+		inline constexpr FRow Vignette{"Vignette", {"Darkens the corners of the", "picture.", ""}};
 	}
 
 	/** The Sound page: the volumes, the output, then the voices' language and the movies' subtitles as the discs and mods give them. */
 	namespace Sound
 	{
 		inline constexpr std::string_view Volume = "Volume";
-		inline constexpr FRow Master{"Master", {"How loud all of the game's", "sound is.", ""}};
-		inline constexpr FRow Music{"Music", {"How loud the music is.", "", ""}};
-		inline constexpr FRow Effects{"Effects", {"How loud the sound effects", "are.", ""}};
-		inline constexpr FRow VoiceVolume{"Voices", {"How loud the voices in battle", "are: shouts, cries and", "spoken lines."}};
-		inline constexpr FRow Movies{"Movies", {"How loud the movies are.", "Their speech and music are", "one recording."}};
+		inline constexpr FRow Master{"Master", {"Overall volume.", "", ""}};
+		inline constexpr FRow Music{"Music", {"Music volume.", "", ""}};
+		inline constexpr FRow Effects{"Effects", {"Sound effects volume.", "", ""}};
+		inline constexpr FRow VoiceVolume{"Voices", {"Volume of voices in battle:", "shouts, cries and spoken", "lines."}};
+		inline constexpr FRow Movies{"Movies", {"Movie volume. Speech and", "music in movies can't be set", "apart."}};
 		inline constexpr std::string_view VolumeValue = "{}%";
 		inline constexpr std::string_view OutputHeading = "Output";
-		inline constexpr FRow Output{"Sound mode", {"Wide-Stereo spreads the", "sound wider. Mono plays the", "same sound on both sides."}};
+		inline constexpr FRow Output{"Sound mode", {"Wide-Stereo spreads the", "sound wider. Mono plays the", "same sound from both sides."}};
 		inline constexpr std::array<std::string_view, 3> OutputValues{"Stereo", "Wide-Stereo", "Mono"};
-		inline constexpr FRow InBackground{"Background audio", {"Keeps the sound playing", "while the game's window", "isn't in focus."}};
+		inline constexpr FRow InBackground{"Background audio", {"Keeps playing sound when the", "game's window isn't in focus.", ""}};
 		inline constexpr std::string_view Language = "Language";
-		inline constexpr FRow Voices{"Voices", {"Auto follows the play disc.", "USA or undub discs supply", "voices for new movies/battles."}};
+		inline constexpr FRow Voices{"Voices", {"Voice language. Auto uses the", "disc you're playing. Applies", "from the next movie or battle."}};
 		inline constexpr std::array<std::string_view, 3> VoiceValues{"Auto", "English", "Japanese"};
 		/** The Voices row's help where the discs give one language. */
 		inline constexpr std::array<std::string_view, 3> OnlyEnglish{"Japanese voices need the", "undub discs in the Games", "folder."};
 		inline constexpr std::array<std::string_view, 3> OnlyJapanese{"English voices need the USA", "discs in the Games folder.", ""};
-		inline constexpr FRow Subtitles{"Subtitles", {"Subtitles for the movies. Auto", "shows them with the Japanese", "voices. On shows them always."}};
+		/** The same where discs are added through the device's file picker. */
+		inline constexpr std::array<std::string_view, 3> OnlyEnglishPicked{"Japanese voices need the", "undub discs: add them on the", "Saves page."};
+		inline constexpr std::array<std::string_view, 3> OnlyJapanesePicked{"English voices need the USA", "discs: add them on the Saves", "page."};
+		inline constexpr FRow Subtitles{"Subtitles", {"Movie subtitles. Auto shows", "them with Japanese voices.", "On always shows them."}};
 		inline constexpr std::array<std::string_view, 3> SubtitleValues{"Auto", "On", "Off"};
 		/** The Subtitles row's help without the undub's discs, whose Japanese voices Auto waits for. */
-		inline constexpr std::array<std::string_view, 3> SubtitlesWithoutUndub{"Auto shows them with Japanese", "voices, which need the undub", "discs. On shows them always."};
+		inline constexpr std::array<std::string_view, 3> SubtitlesWithoutUndub{"Auto shows them with Japanese", "voices (undub discs needed).", "On always shows them."};
+		inline constexpr std::array<std::string_view, 3> TranslationSubtitles{"Movie subtitles from the", "translation's discs.", ""};
 		/** The Subtitles row where no disc or mod gives subtitles. */
 		inline constexpr std::string_view NoSubtitles = "None found";
 		inline constexpr std::array<std::string_view, 3> NoSubtitlesHelp{"Movie subtitles need the", "undub discs in Games or", "Perfect Works in Mods."};
-		inline constexpr FRow SubtitleSource{"Subtitles from", {"Whose translation the movies'", "subtitles show. Auto prefers", "Perfect Works while it's on."}};
+		inline constexpr std::array<std::string_view, 3> NoSubtitlesPicked{"Movie subtitles need undub", "discs (Saves page) or Perfect", "Works (Modding page)."};
+		inline constexpr FRow SubtitleSource{"Subtitles from", {"Which translation the movie", "subtitles use. Auto uses", "Perfect Works when it's on."}};
 		inline constexpr std::array<std::string_view, 3> SubtitleSourceValues{"Auto", "Undub", "Perfect Works"};
+		inline constexpr std::string_view TranslationSource = "Translation";
 		/** The Subtitles from row's help where one source gives subtitles. */
-		inline constexpr std::array<std::string_view, 3> OnlySource{"The only movie subtitles", "found.", ""};
+		inline constexpr std::array<std::string_view, 3> OnlySource{"The only subtitles found.", "", ""};
 	}
 
 	/** The Modding page: the game's balance as the player changes it, then the Assets page and the mods found. */
@@ -139,10 +145,45 @@ namespace Weltall::OptionsText
 		inline constexpr FRow Encounters{"Encounters", {"Changes how often random", "battles happen on the field", "and the world map."}};
 		inline constexpr std::array<std::string_view, 5> EncounterValues{"None", "1/4", "1/2", "Normal", "2x"};
 		inline constexpr std::string_view Mods = "Mods";
-		inline constexpr FRow Assets{"Assets", {"Export the game's files to", "edit, and load your own", "versions. Press Confirm."}};
+		inline constexpr FRow Assets{"Assets", {"Export game files to edit and", "load your own versions. Press", "Confirm to open."}};
 		/** "{}" is the version of the mod found; the first line has no version where its release names none. */
 		inline constexpr FRow PerfectWorks{"Perfect Works", {"Perfect Works Build {},", "found in the Mods folder.", "Press Confirm for options."}};
 		inline constexpr std::string_view PerfectWorksUnversioned = "Perfect Works Build,";
+
+		/**
+		 * Where the game reaches the device's files only through its file picker (Android): External assets in the
+		 * Assets page's place (its exports would make files nothing else reaches there), Perfect Works' row, then the
+		 * device's rows under their heading: a mod or pack added, and each one on the device.
+		 */
+		inline constexpr FRow External{"External assets", {"Uses texture packs and other", "files added below.", ""}};
+		inline constexpr std::array<std::string_view, 3> PerfectWorksPicked{"Perfect Works Build {}.", "Press Confirm for options.", ""};
+		inline constexpr FRow AddZip{"Add zip file", {"Adds a mod or texture pack", "from a zip file.", ""}};
+		inline constexpr FRow AddFolder{"Add folder", {"Adds a mod or texture pack", "from a folder. Unpack .7z and", ".rar files first."}};
+		/** A mod or pack on the device: its name, then its kind (EModItemKind's order) and size. */
+		inline constexpr std::array<std::string_view, 3> Item{"{}", "{}, {}.", "Press Confirm to remove it."};
+		inline constexpr std::array<std::string_view, 5> ItemKinds{"Perfect Works Build", "Mod", "Texture pack", "Music pack", "Asset files"};
+		inline constexpr std::array<std::string_view, 3> RemoveAsked{"{}", "Press Confirm again to", "remove it from this device."};
+		/** Perfect Works, in the game's use: its value, and its help once removed or replaced by one added. */
+		inline constexpr std::string_view OnRestart = "Pending";
+		inline constexpr std::array<std::string_view, 3> RemovedOnRestart{"{}", "Will be removed when you", "restart Weltall."};
+		inline constexpr std::array<std::string_view, 3> ReplacedOnRestart{"{}", "The new version replaces it", "when you restart Weltall."};
+		inline constexpr std::array<std::string_view, 3> Removed{"Removed {}.", "", ""};
+		inline constexpr std::array<std::string_view, 3> RemoveFailed{"Couldn't remove it.", "", ""};
+		/** A zip's progress, its files not counted before they are read: the file, then how much of the zip is read. */
+		inline constexpr std::array<std::string_view, 3> Extracting{"Extracting:", "{}", "{}% done."};
+		/** A folder's files listed before they are copied: the folder's name, then how many so far. */
+		inline constexpr std::array<std::string_view, 3> Scanning{"Scanning folder:", "{}", "{} files found."};
+		/**
+		 * What a transfer added, Perfect Works switched on and External assets on for a pack: "{}" Perfect Works' version
+		 * after a space (nothing where it names none), a pack's name, a count of files.
+		 */
+		inline constexpr std::array<std::string_view, 3> PerfectWorksAdded{"Added Perfect Works{}.", "Restart Weltall to use it.", ""};
+		inline constexpr std::array<std::string_view, 3> PerfectWorksNext{"Added Perfect Works{}.", "It replaces the current one", "when you restart Weltall."};
+		inline constexpr std::array<std::string_view, 3> TexturesAdded{"Added texture pack", "{}.", ""};
+		inline constexpr std::array<std::string_view, 3> MusicAdded{"Added music pack", "{}.", ""};
+		inline constexpr std::array<std::string_view, 3> FoldersAdded{"Added {} from", "{}.", "Restart Weltall to use them."};
+		inline constexpr std::array<std::string_view, 3> NotAMod{"No mod or texture pack found", "that Weltall can use.", ""};
+		inline constexpr std::array<std::string_view, 3> NotAZip{"That's not a zip file. Unpack", ".7z and .rar files first, then", "use Add folder."};
 	}
 
 	/** The Perfect Works page: the parts of the mod the game takes, from its next start. */
@@ -151,6 +192,8 @@ namespace Weltall::OptionsText
 		/** The page's first line, which the cursor passes over. */
 		inline constexpr std::string_view Notice = "Changes apply on restart";
 		inline constexpr FRow Enabled{"Perfect Works", {"Uses Perfect Works from the", "Mods folder.", ""}};
+		/** The same where it was added through the device's file picker. */
+		inline constexpr std::array<std::string_view, 3> EnabledPicked{"Uses Perfect Works Build.", "", ""};
 		inline constexpr std::string_view Story = "Story";
 		inline constexpr FRow Script{"Script", {"Uses the Perfect Works", "translation for names and", "story script."}};
 		inline constexpr FRow StoryMode{"Story mode", {"Uses Perfect Works' story", "mode: easy battles and no", "random battles on the field."}};
@@ -173,29 +216,29 @@ namespace Weltall::OptionsText
 
 	namespace Assets
 	{
-		inline constexpr FRow External{"External assets", {"Loads files from Assets", "beside Games. Missing files", "come from your discs."}};
-		inline constexpr FRow Capture{"Capture textures", {"Also saves textures as drawn,", "for any the export can't", "reach. Turn off when done."}};
-		inline constexpr FRow Textures{"Export textures", {"Saves every map's and sprite's", "texture as a PNG to edit.", "Existing files are kept."}};
-		inline constexpr FRow Text{"Export text", {"Saves the game's text and its", "font as files to edit.", "Existing files are kept."}};
-		inline constexpr FRow Export{"Dump disc assets", {"Copies your discs to Assets.", "Existing files are kept.", "Keep dumps on your computer."}};
-		inline constexpr FRow Music{"Export music WAVs", {"Renders songs as editable WAV.", "This can use several GB.", "Existing files are kept."}};
-		inline constexpr FRow Cancel{"Cancel export", {"Stops after this step.", "Completed files are kept.", "Start again to resume."}};
+		inline constexpr FRow External{"External assets", {"Loads your files from the", "Assets folder. Everything else", "comes from your discs."}};
+		inline constexpr FRow Capture{"Capture textures", {"Saves textures as they're", "drawn, for any the export", "misses. Turn off when done."}};
+		inline constexpr FRow Textures{"Export textures", {"Saves all textures as PNG", "files to edit. Existing files", "are kept."}};
+		inline constexpr FRow Text{"Export text", {"Saves the game's text and", "font as files to edit.", "Existing files are kept."}};
+		inline constexpr FRow Export{"Dump disc assets", {"Copies every file on your", "discs to Assets. Existing", "files are kept."}};
+		inline constexpr FRow Music{"Export music WAVs", {"Saves every song as a WAV", "file. This can take several", "GB. Existing files are kept."}};
+		inline constexpr FRow Cancel{"Cancel export", {"Stops after this step.", "Finished files are kept.", "Start again to resume."}};
 		inline constexpr FRow Progress{"Export status", {"Files are in Assets beside", "Games. See Docs/Modding.md", "for formats and editing."}};
-		inline constexpr std::array<std::string_view, 6> States{"Ready", "Working", "Complete", "Cancelled", "Failed", "Unavailable"};
+		inline constexpr std::array<std::string_view, 6> States{"Ready", "Working", "Done", "Cancelled", "Failed", "Unavailable"};
 	}
 
 	namespace Camera
 	{
-		inline constexpr FRow Zoom{"Zoom", {"How far back the camera sits", "on the field. 100% is the", "original distance."}};
+		inline constexpr FRow Zoom{"Zoom", {"Camera distance on the field.", "100% is the original.", ""}};
 		inline constexpr std::string_view ZoomValue = "{}%";
-		inline constexpr FRow Tilt{"Tilt", {"Raises the camera's angle on", "the field, in degrees. 0 is", "the original angle."}};
-		inline constexpr FRow Scenes{"Cutscene camera", {"Original switches to the", "game's camera in cutscenes.", "Custom keeps yours if it can."}};
+		inline constexpr FRow Tilt{"Tilt", {"Camera angle on the field, in", "degrees. 0 is the original.", ""}};
+		inline constexpr FRow Scenes{"Cutscene camera", {"Original uses the game's", "camera in cutscenes. Custom", "keeps yours when it can."}};
 		/** The values with the switch on, then off. */
 		inline constexpr std::array<std::string_view, 2> ScenesValues{"Original", "Custom"};
-		inline constexpr FRow Follow{"Camera follow", {"Steady keeps the camera close", "to the party. Original lets", "it trail behind."}};
+		inline constexpr FRow Follow{"Camera follow", {"Steady keeps the camera close", "to the party. Original lets it", "trail behind."}};
 		/** The values with the switch on, then off. */
 		inline constexpr std::array<std::string_view, 2> FollowValues{"Steady", "Original"};
-		inline constexpr FRow Reset{"Reset camera", {"Puts the zoom, tilt and", "rotation back to default.", ""}};
+		inline constexpr FRow Reset{"Reset camera", {"Resets the zoom, tilt and", "rotation.", ""}};
 	}
 
 	namespace Fixes
@@ -332,16 +375,24 @@ namespace Weltall::OptionsText
 
 		/** The help's "{}": the device's noun, then the Cancel row's label. */
 		inline constexpr FRow AlwaysRun{"Always run", {"Run without holding a {}.", "Hold {} to walk.", ""}};
+		inline constexpr FRow AnalogMovement{"Analog movement", {"Walk in any direction with the", "stick, slower when pushed", "lightly."}};
 		/** The help's "{}": the Confirm row's label. */
 		inline constexpr FRow WalkIntoDoors{"Walk into doors", {"Doors open as you walk into", "them. When off, press {}.", ""}};
-		inline constexpr FRow OriginalButtonIcons{"Original PSX icons", {"Keep the original PSX icons.", "Your bindings still apply.", ""}};
+		inline constexpr FRow OriginalButtonIcons{"Original PSX icons", {"Shows PlayStation button", "icons. Your bindings still", "apply."}};
 		inline constexpr FRow ButtonLayout{"Button layout", {"Swaps confirm and cancel.", "Japan swaps jump and menu too.", ""}};
 		/** In EButtonLayout's order. */
 		inline constexpr std::array<std::string_view, 3> ButtonLayoutValues{"USA", "Circle confirms", "Japan"};
 		/** What the layout's row tells when a pair the player bound keeps its buttons. */
-		inline constexpr std::string_view OwnButtonsKept = "Your own buttons are kept.";
+		inline constexpr std::string_view OwnButtonsKept = "Custom bindings are kept.";
 		inline constexpr FRow MouseSensitivity{"Mouse sensitivity", {"How fast the mouse rotates", "the camera.", ""}};
 		inline constexpr FRow StickSensitivity{"Stick sensitivity", {"How fast the stick rotates", "the camera.", ""}};
+		/** The touch screen's pad. */
+		inline constexpr std::string_view TouchHeading = "Touch screen";
+		inline constexpr FRow TouchMovement{"Movement", {"Use a d-pad or an analog", "stick on the touch screen.", ""}};
+		/** In ETouchMovement's order. */
+		inline constexpr std::array<std::string_view, 2> TouchMovementValues{"D-pad", "Stick"};
+		inline constexpr FRow TouchOpacity{"Opacity", {"How opaque the on-screen", "buttons are.", ""}};
+		inline constexpr FRow TouchVibration{"Vibration", {"Vibrates briefly when you", "press an on-screen button.", ""}};
 		/** The reset row's label, and what it says when done, for the keyboard and for a controller. */
 		inline constexpr std::string_view ResetKeys = "Reset keys";
 		inline constexpr std::string_view ResetButtons = "Reset buttons";
@@ -361,15 +412,15 @@ namespace Weltall::OptionsText
 		inline constexpr std::string_view PushStickUp = "Push a stick up.";
 		inline constexpr std::string_view PushStickDown = "Push a stick down.";
 
-		/** What a key action told: "{}" the noun, or a row's label then the noun. */
-		inline constexpr std::string_view OnlyKey = "{}'s only {}.";
+		/** What a key action told: "{}" the row whose only key it is, or the noun. */
+		inline constexpr std::string_view OnlyKey = "Needed by {}.";
 		inline constexpr std::string_view CannotClear = "Can't clear the only {}.";
 		inline constexpr std::string_view Inverted = "Inverted.";
 	}
 
 	namespace Saves
 	{
-		inline constexpr FRow Import{"Import saves", {"Copy saves from a memory", "card image or save file into", "one of your cards."}};
+		inline constexpr FRow Import{"Import saves", {"Copies saves from a memory", "card image or save file into", "one of your cards."}};
 		inline constexpr FRow Export{"Export card", {"Saves a card as a memory card", "image for emulators, in the", "Cards folder."}};
 		/** A card's name: its number. */
 		inline constexpr std::string_view Card = "Card {}";
@@ -381,13 +432,13 @@ namespace Weltall::OptionsText
 		inline constexpr std::string_view NoFolders = "No folders";
 
 		/** The import: the card the saves go into, the copy (its "{}" how many), and each save picked. */
-		inline constexpr FRow Into{"Into", {"The card to copy the saves", "into. Each keeps its slot", "number."}};
+		inline constexpr FRow Into{"Into", {"The card to copy the saves", "to. Each keeps its slot", "number."}};
 		inline constexpr FRow Copy{"Copy {}", {"Press Confirm to copy.", "", ""}};
 		inline constexpr std::string_view OneSave = "1 save";
 		inline constexpr std::string_view ManySaves = "{} saves";
 		/** The copy's value and help when it would overwrite saves: how many, then the card; the saves' numbers fill the second line. */
 		inline constexpr std::string_view Overwrites = "Overwrites {}";
-		inline constexpr std::array<std::string_view, 3> OverwriteHelp{"It would overwrite in {}:", "", "Press Confirm twice to copy."};
+		inline constexpr std::array<std::string_view, 3> OverwriteHelp{"This overwrites in {}:", "", "Press Confirm twice to copy."};
 		/** The same after the first Confirm: the saves' numbers fill the second line, the card is the third's "{}". */
 		inline constexpr std::array<std::string_view, 3> OverwriteAsked{"Confirm again to overwrite", "", "in {}. Cancel keeps them."};
 		/** A save's help: its number and its play time. */
@@ -402,6 +453,46 @@ namespace Weltall::OptionsText
 		inline constexpr std::array<std::string_view, 3> DamagedCard{"A save on the card is", "damaged. Nothing was written.", ""};
 		inline constexpr std::array<std::string_view, 3> WriteFailed{"Couldn't write the card", "image.", ""};
 		inline constexpr std::array<std::string_view, 3> Exported{"Saved as {}.mcr in", "the Cards folder.", ""};
+
+		/**
+		 * Where the game reaches the device's files only through its file picker (Android): the two rows' help there,
+		 * then the device's own rows under their heading.
+		 */
+		inline constexpr std::array<std::string_view, 3> ImportPickedHelp{"Copies saves from a memory", "card image or save file into", "one of your cards."};
+		inline constexpr std::array<std::string_view, 3> ExportPickedHelp{"Saves a card as a memory card", "image for emulators.", ""};
+		inline constexpr std::string_view DeviceHeading = "This device";
+		inline constexpr FRow AddDiscs{"Add disc images", {"Copies disc images into", "Weltall's folder.", ""}};
+		inline constexpr FRow AddDiscFolder{"Add disc folder", {"Copies new disc images from a", "folder. Download itself can't", "be picked: use a subfolder."}};
+		inline constexpr FRow BackUp{"Back up saves", {"Saves all your saves to a", "zip file.", ""}};
+		inline constexpr FRow Restore{"Restore saves", {"Restores your saves from a", "backup zip file.", ""}};
+		inline constexpr FRow SaveLog{"Save the log", {"Saves a copy of the log for a", "bug report.", ""}};
+		/** Restore's help after the first Confirm. */
+		inline constexpr std::array<std::string_view, 3> RestoreAsked{"This replaces your saves.", "Press Confirm again to pick", "the backup."};
+
+		/** A transfer under way: "{}" the file's number and how many, its name, then how much is copied. */
+		inline constexpr std::array<std::string_view, 3> Picking{"Waiting for the file picker.", "", ""};
+		inline constexpr std::array<std::string_view, 3> Copying{"Copying file {} of {}:", "{}", "{}% done."};
+		/** A folder's disc images found before any is copied: the folder's name, then how many so far. */
+		inline constexpr std::array<std::string_view, 3> ScanningDiscs{"Scanning folder:", "{}", "{} disc files found."};
+		/** What a transfer told at its end: "{}" a count of files, or the file copied out. */
+		inline constexpr std::string_view OneFile = "1 file";
+		inline constexpr std::string_view ManyFiles = "{} files";
+		inline constexpr std::array<std::string_view, 3> DiscsCopied{"Copied {} into", "Weltall's folder.", ""};
+		inline constexpr std::array<std::string_view, 3> BackedUp{"Backed up {}.", "", ""};
+		inline constexpr std::array<std::string_view, 3> Restored{"Restored {}.", "", ""};
+		inline constexpr std::array<std::string_view, 3> LogSaved{"Saved a copy of the log.", "", ""};
+		inline constexpr std::array<std::string_view, 3> CardSaved{"Saved {}.", "", ""};
+		/** Why a transfer failed, in ETransferFailure's order from NoRoom (the Modding page's own two empty): "{}" the file's name. */
+		inline constexpr std::array<std::array<std::string_view, 3>, 8> Failures{{
+			{"Not enough storage space.", "", ""},
+			{"Couldn't read the file", "{}", ""},
+			{"Couldn't write the file", "{}", ""},
+			{"That's not a backup of", "Weltall's saves.", ""},
+			{"This device has no file", "picker.", ""},
+			{"", "", ""},
+			{"", "", ""},
+			{"No new disc images found in", "that folder.", ""},
+		}};
 	}
 
 	/** The port's words about the player's discs: under the game's disc prompts ("INSERT DISC 2"), and the screen shown without disc 1. */
@@ -409,11 +500,19 @@ namespace Weltall::OptionsText
 	{
 		/** The disc asked for is still not where the game looks for it. */
 		inline constexpr std::string_view NotFound = "Not found in Games.";
+		/**
+		 * Where the disc asked for is picked through the device's file picker: the copy ("{}" how much is done), the files
+		 * picked holding no such disc, the copy failed, and the picker closed with nothing picked.
+		 */
+		inline constexpr std::string_view PromptCopying = "Copying: {}%";
+		inline constexpr std::string_view PromptNotPicked = "Not the right disc.";
+		inline constexpr std::string_view PromptNotCopied = "Couldn't copy them.";
+		inline constexpr std::string_view PromptPickAgain = "Confirm to pick it.";
 
 		/** The screen shown while neither disc is there: what is wrong, where the discs go ("{}" the folder), what was found and what not. */
-		inline constexpr std::string_view Missing = "Xenogears' discs were not found.";
+		inline constexpr std::string_view Missing = "No Xenogears discs found.";
 		inline constexpr std::string_view WhereTheyGo = "Put your disc images of the USA release (BIN/CUE, CHD, ISO or IMG) in this folder:\n{}\n"
-														"The game starts as soon as one is there.";
+														"The game starts as soon as one is found.";
 		/** A disc found, "{}" its number then its file. */
 		inline constexpr std::string_view Found = "Found disc {}: {}";
 		inline constexpr std::string_view NotUsed = "Not used:";
@@ -421,6 +520,46 @@ namespace Weltall::OptionsText
 		inline constexpr std::string_view NotUsedFile = "{}: {}";
 		/** After the files listed, "{}" how many more there are. */
 		inline constexpr std::string_view More = "And {} more.";
+
+		/**
+		 * The same screen where the discs come in through the device's file picker (Android): what to do in place of where
+		 * they go, the button that opens the picker, and what the copy tells under it.
+		 */
+		inline constexpr std::string_view MissingPicked = "To play, Weltall needs your own copy of Xenogears: disc images of the USA release or a supported "
+														  "undub, as BIN/CUE, CHD, ISO or IMG files.\n\n"
+														  "1. Put the disc images on this device in a folder inside Download, such as Download/Xenogears. "
+														  "You can connect it to a computer by USB and copy them there.\n"
+														  "2. Tap \"Add folder\" below and pick that folder, or tap \"Add disc images\" and pick the files. "
+														  "For a BIN/CUE disc, pick its .cue file together with its .bin files. Android doesn't let apps "
+														  "pick the Download folder itself.\n\n"
+														  "Weltall copies them into its own folder, and the game starts once both discs are there. You can "
+														  "delete the copies in Download afterwards.";
+		inline constexpr std::string_view AddButton = "Add disc images";
+		inline constexpr std::string_view AddFolderButton = "Add folder";
+		/** A picked folder's disc images found before any is copied: "{}" the folder's name, then how many so far. */
+		inline constexpr std::string_view Scanning = "Scanning {}: {} disc files found.";
+		/** One disc of the two there: which ("{}" its number, then the other's), and the button that starts with it alone. */
+		inline constexpr std::string_view OneDiscReady = "Disc {} added. Add Disc {} the same way, or tap \"Continue anyway\" to play with just Disc {} for "
+														 "now.";
+		inline constexpr std::string_view ContinueButton = "Continue anyway";
+		/** "{}" the file's name, then how much is copied; with several files, its number and how many before. */
+		inline constexpr std::string_view CopyingOne = "Copying {}: {}%";
+		inline constexpr std::string_view CopyingMany = "Copying {} (file {} of {}): {}%";
+		/** "{}" a count of files (Saves::OneFile, ManyFiles). */
+		inline constexpr std::string_view Copied = "Copied {}.";
+		/** "{}" the file's name, then why (one of Reasons); none named where the picker could not open. */
+		inline constexpr std::string_view NotCopied = "Couldn't copy {}: {}";
+		inline constexpr std::string_view NotCopiedNoName = "Couldn't copy the disc images: {}";
+		/** A folder picked with no disc image the Games folder does not hold already: "{}" its name. */
+		inline constexpr std::string_view NoNewDiscs = "No new disc images found in {}.";
+		/** Why a transfer failed, in ETransferFailure's order from NoRoom. */
+		inline constexpr std::array<std::string_view, 5> Reasons{
+			"not enough storage space.",
+			"the file couldn't be read.",
+			"the file couldn't be written.",
+			"it's not a backup of Weltall's saves.",
+			"this device has no file picker.",
+		};
 	}
 
 	/**
@@ -430,29 +569,35 @@ namespace Weltall::OptionsText
 	 */
 	namespace SecondDisc
 	{
-		inline constexpr std::string_view Question = "How should Disc 2 be told?";
+		inline constexpr std::string_view Question = "Which version of Disc 2?";
 		inline constexpr std::string_view Original = "Original";
 		inline constexpr std::string_view Extended = "Extended";
-		inline constexpr std::array<std::string_view, 3> OriginalHelp{"Disc 2 as the original game", "tells it, much of it through", "narration."};
-		inline constexpr std::array<std::string_view, 3> ExtendedHelp{"What the original only", "narrates is played: new", "scenes, places and battles."};
+		inline constexpr std::array<std::string_view, 3> OriginalHelp{"Disc 2 as in the original,", "much of it told through", "narration."};
+		inline constexpr std::array<std::string_view, 3> ExtendedHelp{"The narrated parts become", "playable: new scenes, places", "and battles."};
 
 		/** The Fixes page's row in a game that tells it extended: Confirm twice tells the rest as the original, for good. */
-		inline constexpr FRow Row{"Disc 2", {"The rest of Disc 2 played as", "new scenes. Confirm to tell", "it as the original instead."}};
+		inline constexpr FRow Row{"Disc 2", {"The rest of Disc 2 plays as", "new scenes. Press Confirm to", "switch to the original."}};
 		/** Its help once Confirm was pressed, and once the game was switched where it stays. */
-		inline constexpr std::array<std::string_view, 3> SwitchAsked{"Confirm again to switch. It", "can't be switched back to", "Extended afterwards."};
-		inline constexpr std::array<std::string_view, 3> Switched{"Disc 2 is told as the", "original from here on.", ""};
+		inline constexpr std::array<std::string_view, 3> SwitchAsked{"Press Confirm again to switch.", "You can't switch back to", "Extended afterwards."};
+		inline constexpr std::array<std::string_view, 3> Switched{"Disc 2 plays as the original", "from here on.", ""};
 	}
 
 	/** The screen shown over the game's last picture when it stops, or in its place when it cannot start: what happened, then why. */
 	namespace Stop
 	{
 		inline constexpr std::string_view Stopped = "The game has stopped.";
-		inline constexpr std::string_view CannotStart = "The game cannot start.";
+		inline constexpr std::string_view CannotStart = "The game can't start.";
 		/** Where the game's log is, "{}" its file. */
-		inline constexpr std::string_view Log = "What the game was doing is in its log, this file:\n{}\n"
-												"Please include it in a report. When the game starts again, a copy of it named with the date stays in the "
-												"same folder for some days.";
-		inline constexpr std::string_view SavesKept = "Your saves are kept: close the game and start it again to go on from your last save.";
+		inline constexpr std::string_view Log = "Details are in the log file:\n{}\n"
+												"Please attach it to your bug report. When the game starts again, the log is kept in the same folder under "
+												"a name with the date, for a few days.";
+		/** Where the log cannot be reached from outside the game (Android): in place of Log, the button, and what it tells. */
+		inline constexpr std::string_view LogPicked = "Details are in the log. Tap \"Save the log\" to save a copy for your bug report.";
+		inline constexpr std::string_view SaveLogButton = "Save the log";
+		inline constexpr std::string_view LogSaved = "Log saved.";
+		/** "{}" why (one of Discs::Reasons). */
+		inline constexpr std::string_view LogNotSaved = "Couldn't save the log: {}";
+		inline constexpr std::string_view SavesKept = "Your saves are safe. Restart the game to continue from your last save.";
 		/** The last line, "{}" the game's version. */
 		inline constexpr std::string_view Version = "Weltall {}";
 	}

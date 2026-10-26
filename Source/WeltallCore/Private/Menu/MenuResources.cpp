@@ -4,6 +4,7 @@
 #include "Formats/Tim.h"
 #include "Game/ChapterTitles.h"
 #include "Foundation/LittleEndian.h"
+#include "Foundation/Sha1.h"
 #include "Media/GameFileIndex.h"
 #include "Media/PsxExecutable.h"
 #include "Menu/MenuPortFrames.h"
@@ -172,6 +173,49 @@ namespace Weltall
 			}
 			// In full: the data file's last stream may end in the padding after its recorded size.
 			return ReadFileSectors(Image, *Record);
+		}
+
+		/** The French translation's Menu program (directory 16, file 5), by its SHA-1. */
+		constexpr std::string_view FrenchMainModule = "78f877c0e250269d98d302b3e3e9e22dc616d8f3";
+
+		bool IsFrenchMainModule(const FGameFileIndex& Index, std::span<const uint8> Module)
+		{
+			const FIndexRecord* Record = Index.Find(MenuDirectory, MainModuleFile);
+			return Record != nullptr && static_cast<std::size_t>(Record->Size) <= Module.size()
+				&& FSha1::ToHex(FSha1::Hash(Module.first(static_cast<std::size_t>(Record->Size)))) == FrenchMainModule;
+		}
+
+		/**
+		 * Its chapters' titles, past its own code at the module's end: the story value each chapter ends before, the
+		 * titles' offsets from their strings, the strings.
+		 */
+		namespace FrenchChapterOffsets
+		{
+			constexpr std::size_t Ends = 0x25B28;
+			constexpr std::size_t Titles = 0x25BB0;
+			constexpr std::size_t Strings = 0x25C38;
+			constexpr std::size_t Count = 68;
+		}
+
+		std::vector<std::pair<uint16, std::vector<uint8>>> ReadFrenchChapters(std::span<const uint8> Module)
+		{
+			using namespace FrenchChapterOffsets;
+			std::vector<std::pair<uint16, std::vector<uint8>>> Chapters;
+			if (Module.size() < Strings)
+			{
+				return Chapters;
+			}
+			for (std::size_t Chapter = 0; Chapter < Count; ++Chapter)
+			{
+				const std::size_t First = Strings + ReadU16(Module, Titles + Chapter * 2);
+				const auto End = std::find(Module.begin() + static_cast<std::ptrdiff_t>(std::min(First, Module.size())), Module.end(), uint8{0});
+				if (End == Module.end())
+				{
+					return {};
+				}
+				Chapters.emplace_back(ReadU16(Module, Ends + Chapter * 2), std::vector<uint8>(Module.begin() + static_cast<std::ptrdiff_t>(First), End + 1));
+			}
+			return Chapters;
 		}
 	}
 
@@ -517,6 +561,11 @@ namespace Weltall
 		{
 			return Resources;
 		}
+		Resources->bFrench = IsFrenchMainModule(Index, *Module);
+		if (Resources->bFrench)
+		{
+			Resources->FrenchChapters = ReadFrenchChapters(*Module);
+		}
 		// A translation redraws the letters the port pieces "Options" from: its own label for an options screen shows
 		// instead where Weltall knows one, else the word typed in the disc's font.
 		if (!HasUsaOptionsLetters(Resources->SpriteSheet, Resources->Archive)
@@ -598,6 +647,18 @@ namespace Weltall
 		}
 		Resources->ArctangentTable = *Arctangents;
 		return Resources;
+	}
+
+	std::span<const uint8> FMenuResources::FrenchChapterTitle(uint16 Progress) const
+	{
+		if (FrenchChapters.empty())
+		{
+			return {};
+		}
+		// The first chapter that ends past the value; past them all, the first: the program's table of each save's chapter
+		// starts at 0, and its search leaves a later value's entry as it was.
+		const auto Found = std::find_if(FrenchChapters.begin(), FrenchChapters.end(), [Progress](const auto& Chapter) { return Chapter.first > Progress; });
+		return Found != FrenchChapters.end() ? Found->second : FrenchChapters.front().second;
 	}
 
 	std::span<const uint8> FMenuResources::CharacterCommands(int32 Character) const

@@ -32,6 +32,15 @@ namespace Weltall
 				"SLPS_011.60", "3f9633f80213427f55894cda9fc8c3346ecf31b4"},
 			FKnownDisc{{EDiscRelease::JapanDisc2, 2, "Xenogears (Japan) Disc 2"},
 				"SLPS_011.61", "15dae4421e0db5d864b5cada59dfcc786f323c9b"},
+			// The French translation, built on the undub's patch: with the English voices, and with the Japanese.
+			FKnownDisc{{EDiscRelease::UsaDisc1, 1, "Xenogears (French translation) Disc 1", true},
+				"SLUS_006.64", "3fd5d978b4ee6a3452827f5beaad5424c6925bfa"},
+			FKnownDisc{{EDiscRelease::UsaDisc2, 2, "Xenogears (French translation) Disc 2", true},
+				"SLUS_006.69", "36329b2840293a96b544416d8bd05a45bc7868b8"},
+			FKnownDisc{{EDiscRelease::UndubDisc1, 1, "Xenogears (French translation, Japanese voices) Disc 1", true},
+				"SLUS_006.64", "308c08f84d1d61c5c1de527b14e8932d795fca9d"},
+			FKnownDisc{{EDiscRelease::UndubDisc2, 2, "Xenogears (French translation, Japanese voices) Disc 2", true},
+				"SLUS_006.69", "f887847e031eaeb3a83f81c478b8b18bed56ffbe"},
 		};
 
 		/**

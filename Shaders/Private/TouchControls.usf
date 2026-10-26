@@ -1,0 +1,198 @@
+// One control of the touch pad, drawn from distances to its shapes in the display's own pixels so that it is sharp at any
+// size: a translucent disc with a light rim (for the cross, a plus of four arms with an arrow in each; for the stick, its
+// base with a knob where the finger pushes it), its symbol or label over it, lighter while a finger holds it.
+// Premultiplied alpha.
+
+#include "/Engine/Public/Platform.ush"
+
+// The control's centre and radius, in the target's pixels.
+float2 Centre;
+float Radius;
+// 0 the cross; 1-4 Triangle, Circle, Cross, Square; 5-8 L1, L2, R1, R2; 9 Select; 10 Start; 11 the stick.
+uint Kind;
+// For the cross, the directions held (1 up, 2 right, 4 down, 8 left); for a button or the stick, 1 while held.
+uint Held;
+// The stick's knob: where it is pushed and its own radius, in the stick's radii.
+float2 Knob;
+float KnobRadius;
+float Opacity;
+
+static const uint Kind_Pad = 0;
+static const uint Kind_Triangle = 1;
+static const uint Kind_Circle = 2;
+static const uint Kind_Cross = 3;
+static const uint Kind_Square = 4;
+static const uint Kind_L1 = 5;
+static const uint Kind_R2 = 8;
+static const uint Kind_Select = 9;
+static const uint Kind_Stick = 11;
+
+// The labels' strokes, on a grid of 3.5 by 6 units for a letter, the digit 5 units right of it.
+static const float4 LetterL[2] = {float4(0.0, 0.0, 0.0, 6.0), float4(0.0, 6.0, 3.0, 6.0)};
+static const float4 LetterR[7] = {float4(0.0, 6.0, 0.0, 0.0), float4(0.0, 0.0, 2.5, 0.0), float4(2.5, 0.0, 3.5, 1.0), float4(3.5, 1.0, 3.5, 2.0),
+	float4(3.5, 2.0, 2.5, 3.0), float4(2.5, 3.0, 0.0, 3.0), float4(1.5, 3.0, 3.5, 6.0)};
+static const float4 Digit1[3] = {float4(5.5, 1.0, 6.5, 0.0), float4(6.5, 0.0, 6.5, 6.0), float4(5.5, 6.0, 7.5, 6.0)};
+static const float4 Digit2[6] = {float4(5.0, 1.0, 6.0, 0.0), float4(6.0, 0.0, 7.5, 0.0), float4(7.5, 0.0, 8.5, 1.0), float4(8.5, 1.0, 8.5, 2.0),
+	float4(8.5, 2.0, 5.0, 6.0), float4(5.0, 6.0, 8.5, 6.0)};
+
+float Segment(float2 P, float2 A, float2 B)
+{
+	const float2 Along = B - A;
+	const float T = saturate(dot(P - A, Along) / dot(Along, Along));
+	return length(P - A - Along * T);
+}
+
+float Box(float2 P, float2 Half)
+{
+	const float2 Q = abs(P) - Half;
+	return length(max(Q, 0.0)) + min(max(Q.x, Q.y), 0.0);
+}
+
+// An equilateral triangle pointing up the screen, its corners Size from its centre.
+float Triangle(float2 P, float Size)
+{
+	const float K = sqrt(3.0);
+	const float R = Size * K * 0.5;
+	P.y = -P.y;
+	P.x = abs(P.x) - R;
+	P.y = P.y + R / K;
+	if (P.x + K * P.y > 0.0)
+	{
+		P = float2(P.x - K * P.y, -K * P.x - P.y) * 0.5;
+	}
+	P.x -= clamp(P.x, -2.0 * R, 0.0);
+	return -length(P) * sign(P.y);
+}
+
+// How much of a pixel a shape covers, from the pixel's distance to its edge (negative inside).
+float Cover(float Distance)
+{
+	return saturate(0.5 - Distance);
+}
+
+float LabelDistance(float2 P)
+{
+	float Distance = 1e9;
+	const bool bLeft = Kind < Kind_R2 - 1;
+	const bool bTwo = Kind == Kind_L1 + 1 || Kind == Kind_R2;
+	if (bLeft)
+	{
+		for (int Each = 0; Each < 2; ++Each) Distance = min(Distance, Segment(P, LetterL[Each].xy, LetterL[Each].zw));
+	}
+	else
+	{
+		for (int Each = 0; Each < 7; ++Each) Distance = min(Distance, Segment(P, LetterR[Each].xy, LetterR[Each].zw));
+	}
+	if (bTwo)
+	{
+		for (int Each = 0; Each < 6; ++Each) Distance = min(Distance, Segment(P, Digit2[Each].xy, Digit2[Each].zw));
+	}
+	else
+	{
+		for (int Each = 0; Each < 3; ++Each) Distance = min(Distance, Segment(P, Digit1[Each].xy, Digit1[Each].zw));
+	}
+	return Distance;
+}
+
+// The symbols' colours, as the PlayStation prints them.
+float3 SymbolColour()
+{
+	if (Kind == Kind_Triangle) return float3(0.35, 0.86, 0.68);
+	if (Kind == Kind_Circle) return float3(1.0, 0.42, 0.45);
+	if (Kind == Kind_Cross) return float3(0.52, 0.70, 1.0);
+	if (Kind == Kind_Square) return float3(0.95, 0.56, 0.86);
+	return float3(0.92, 0.92, 0.92);
+}
+
+// Paints Colour at Alpha over the premultiplied Under.
+float4 Over(float4 Under, float3 Colour, float Alpha)
+{
+	return float4(Colour * Alpha, Alpha) + Under * (1.0 - Alpha);
+}
+
+float4 MainPS(float4 SvPosition : SV_POSITION) : SV_Target0
+{
+	const float2 P = SvPosition.xy - Centre;
+	const float Rim = max(1.5, Radius * 0.04);
+	const float3 Body = float3(0.04, 0.04, 0.06);
+	const float3 Lit = float3(0.85, 0.87, 0.9);
+	float4 Result = 0.0;
+	if (Kind == Kind_Pad)
+	{
+		const float Arm = Radius * 0.33;
+		const float Pad = min(Box(P, float2(Radius, Arm)), Box(P, float2(Arm, Radius))) - Radius * 0.04;
+		Result = Over(Result, Body, Cover(Pad) * 0.4);
+		// A held direction lights its arm: the part of the plus beyond the centre square on that side.
+		const bool bUp = (Held & 1u) != 0 && P.y < -Arm;
+		const bool bRight = (Held & 2u) != 0 && P.x > Arm;
+		const bool bDown = (Held & 4u) != 0 && P.y > Arm;
+		const bool bLeftArm = (Held & 8u) != 0 && P.x < -Arm;
+		if (bUp || bRight || bDown || bLeftArm)
+		{
+			Result = Over(Result, Lit, Cover(Pad) * 0.45);
+		}
+		Result = Over(Result, Lit, Cover(abs(Pad + Rim * 0.5) - Rim * 0.5) * 0.6);
+		// An arrow in each arm, pointing out.
+		const float Size = Radius * 0.16;
+		const float Out = Radius * 0.66;
+		float Arrow = Triangle(P - float2(0.0, -Out), Size);
+		Arrow = min(Arrow, Triangle(float2(P.x, -P.y) - float2(0.0, -Out), Size));
+		Arrow = min(Arrow, Triangle(float2(P.y, P.x) - float2(0.0, -Out), Size));
+		Arrow = min(Arrow, Triangle(float2(P.y, -P.x) - float2(0.0, -Out), Size));
+		Result = Over(Result, Lit, Cover(Arrow) * 0.7);
+	}
+	else if (Kind == Kind_Stick)
+	{
+		const bool bHeld = Held != 0;
+		const float Base = length(P) - Radius;
+		Result = Over(Result, Body, Cover(Base) * 0.3);
+		Result = Over(Result, Lit, Cover(abs(Base + Rim * 0.5) - Rim * 0.5) * 0.45);
+		const float KnobEdge = length(P - Knob * Radius) - Radius * KnobRadius;
+		Result = Over(Result, bHeld ? Lit : Body, Cover(KnobEdge) * (bHeld ? 0.55 : 0.5));
+		Result = Over(Result, Lit, Cover(abs(KnobEdge + Rim * 0.5) - Rim * 0.5) * 0.7);
+	}
+	else
+	{
+		const bool bHeld = Held != 0;
+		const float Disc = length(P) - Radius;
+		const float3 Colour = SymbolColour();
+		Result = Over(Result, bHeld ? Colour : Body, Cover(Disc) * (bHeld ? 0.5 : 0.35));
+		Result = Over(Result, Lit, Cover(abs(Disc + Rim * 0.5) - Rim * 0.5) * 0.6);
+		const float3 Ink = bHeld ? float3(1.0, 1.0, 1.0) : Colour;
+		const float Stroke = Radius * 0.11;
+		float Symbol = 1e9;
+		if (Kind == Kind_Triangle)
+		{
+			Symbol = abs(Triangle(P - float2(0.0, Radius * 0.08), Radius * 0.46)) - Stroke * 0.5;
+		}
+		else if (Kind == Kind_Circle)
+		{
+			Symbol = abs(length(P) - Radius * 0.42) - Stroke * 0.5;
+		}
+		else if (Kind == Kind_Cross)
+		{
+			const float Arm = Radius * 0.36;
+			Symbol = min(Segment(P, float2(-Arm, -Arm), float2(Arm, Arm)), Segment(P, float2(-Arm, Arm), float2(Arm, -Arm))) - Stroke * 0.5;
+		}
+		else if (Kind == Kind_Square)
+		{
+			Symbol = abs(Box(P, Radius * 0.34)) - Stroke * 0.5;
+		}
+		else if (Kind < Kind_Select)
+		{
+			// The label's 8.5 by 6 units centred, a unit a ninth of the radius.
+			const float Unit = Radius * 0.11;
+			Symbol = LabelDistance(P / Unit + float2(4.25, 3.0)) * Unit - Unit * 0.5;
+		}
+		else if (Kind == Kind_Select)
+		{
+			Symbol = Box(P, float2(Radius * 0.36, Radius * 0.06)) - Radius * 0.06;
+		}
+		else
+		{
+			Symbol = Triangle(float2(P.y, -P.x), Radius * 0.4);
+		}
+		Result = Over(Result, Ink, Cover(Symbol) * 0.9);
+	}
+	return Result * Opacity;
+}

@@ -7,11 +7,12 @@
 #include "ButtonGlyphSubsystem.generated.h"
 
 class FDeviceUseProcessor;
+struct FKey;
 
 /**
  * How the game's PlayStation buttons are shown right now: each as the key or button the player's
  * bindings put it on, from the icons of the device the player last pressed something on (the
- * keyboard and mouse, or a gamepad's family by its name). A change of device or of bindings changes
+ * keyboard and mouse, a gamepad's family by its name, or the touch screen's pad, a DualShock's). A change of device or of bindings changes
  * the revision and is told. It also follows whether the player still has a controller: the gamepad
  * they last used going away leaves them without one until a gamepad is connected or they press
  * something on any device.
@@ -39,6 +40,18 @@ public:
 	/** The player pressed something on a device: its icons are shown from now on. */
 	void UseDevice(bool bGamepad, FName HardwareName, FInputDeviceId Device);
 
+	/**
+	 * A phone's own buttons (its volume, back and menu keys), which the engine names as a gamepad's but are no device the
+	 * player plays with; a controller's Select and Start come as them too, beside their own keys.
+	 */
+	static bool IsPhoneButton(const FKey& Key);
+
+	/** The player touched the screen: the touch screen's pad is their device from now on. */
+	void UseTouch();
+
+	/** Whether the touch screen's pad is the device the player uses: from a touch, or from the start where the screen is one. */
+	bool IsTouchInUse() const { return bUsingTouch; }
+
 	/** Whether the player has a controller: false from the moment the gamepad they last used is disconnected. */
 	bool HasController() const { return bHasController; }
 
@@ -63,6 +76,7 @@ private:
 	FDelegateHandle ConnectionChanged;
 	/** The gamepad the player last pressed something on, while it is the device in use. */
 	bool bUsingGamepad = false;
+	bool bUsingTouch = false;
 	FInputDeviceId LastGamepad;
 	bool bHasController = true;
 };

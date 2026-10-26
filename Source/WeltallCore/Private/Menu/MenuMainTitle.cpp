@@ -306,7 +306,10 @@ namespace Weltall
 				{
 					break;
 				}
-				SayDiscNotFound(Message);
+				if (co_await AddDiscThroughPicker(Disc, Message))
+				{
+					break;
+				}
 			}
 			co_await CloseMessage();
 		}

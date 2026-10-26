@@ -718,6 +718,10 @@ namespace Weltall
 		const FKernelPadWords Words = Services.Pad->TakeMerged();
 		MapContext->Pad.Held = Words.Held;
 		MapContext->Pad.Pressed = Words.Pressed;
+		MapContext->Pad.StickHeld = Words.StickHeld;
+		MapContext->Pad.StickX = Words.StickX;
+		MapContext->Pad.StickY = Words.StickY;
+		MapContext->Stick = MapContext->bAnalogMovement ? ReadAnalogStick(Words.Held, Words.StickHeld, Words.StickX, Words.StickY) : std::nullopt;
 	}
 
 	std::optional<FError> FWorldMapRuntime::Tick(std::span<const FPadState> HeldPerVblank, IWorldMapDrawing* Drawing)
@@ -806,7 +810,12 @@ namespace Weltall
 		Context.bNoticeBackdrop = false;
 		Context.Sprites.BuildPendingFrames();
 		Context.Ground.ClearReadOutside();
+		Context.bPartyPaced = false;
 		RunTasks(Context);
+		if (!Context.bPartyPaced)
+		{
+			RestorePartyPace(Context);
+		}
 		if (Context.Fault)
 		{
 			Phase = EPhase::Stopped;

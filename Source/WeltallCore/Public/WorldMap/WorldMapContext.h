@@ -7,6 +7,7 @@
 #include "Graphics/SpriteFile.h"
 #include "Graphics/SpriteSystem.h"
 #include "Foundation/Result.h"
+#include "Input/AnalogStick.h"
 #include "Text/MesWindow.h"
 #include "Text/MessageTable.h"
 #include "WorldMap/WorldMapEncounters.h"
@@ -23,6 +24,7 @@
 #include <array>
 #include <memory>
 #include <optional>
+#include <utility>
 #include <vector>
 
 namespace Weltall
@@ -100,11 +102,17 @@ namespace Weltall
 		int16 DriftZ = 0;
 	};
 
-	/** The loop's words for the pad: every queued vertical blank's held and newly pressed buttons ORed. */
+	/**
+	 * The loop's words for the pad: every queued vertical blank's held and newly pressed buttons ORed; the stick's
+	 * report where the last of them left it, and the directions only it holds.
+	 */
 	struct FWorldMapPad
 	{
 		uint16 Held = 0;
 		uint16 Pressed = 0;
+		uint16 StickHeld = 0;
+		uint8 StickX = 0x80;
+		uint8 StickY = 0x80;
 	};
 
 	/** A shadow a task asked for this tick: where (whole units) and its shape (0 a member's, 1 a gear's half as big again, 2 the Yggdrasil's, turned with its heading). */
@@ -294,6 +302,16 @@ namespace Weltall
 		int32 ShadowCount = 0;
 
 		FWorldMapPad Pad;
+		/**
+		 * Analog movement (the player's setting; off in the original): the stick this tick, none when it does not hold the
+		 * direction; the party's sprites' own time scales, by slot, while a light push slows their walk (empty while not
+		 * slowed: the frame task animates before the leader moves, so a slowing lasts until a tick the walk is not slowed);
+		 * and whether this tick's walk slowed them.
+		 */
+		bool bAnalogMovement = false;
+		std::optional<FAnalogStick> Stick;
+		std::vector<std::pair<int32, uint32>> SlowedSprites;
+		bool bPartyPaced = false;
 
 		/** The place names and notices. */
 		std::optional<FMessageTable> Messages;

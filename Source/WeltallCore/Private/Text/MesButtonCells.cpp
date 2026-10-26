@@ -50,9 +50,10 @@ namespace Weltall
 	void FMesButtonCells::Find(std::span<const FMesPlacedGlyph> Glyphs, int32 First, int32 Pixels, const FMesFont* Font, uint32 Primitive,
 		std::vector<FTextButtonCell>& Out)
 	{
+		const int32 Unit = Font != nullptr ? Font->UnitPixels() : UnitPixels;
 		for (const FMesPlacedGlyph& Glyph : Glyphs)
 		{
-			const int32 At = Glyph.XUnits * UnitPixels - First;
+			const int32 At = Glyph.XUnits * Unit - First;
 			if (Font == nullptr || At < 0 || At + ButtonGlyphPixels > Pixels)
 			{
 				continue;
@@ -69,11 +70,11 @@ namespace Weltall
 			{
 				continue;
 			}
-			const int32 At = Glyphs[Word.FirstGlyph].XUnits * UnitPixels - First;
+			const int32 At = Glyphs[Word.FirstGlyph].XUnits * Unit - First;
 			// A name ends where the glyph after it starts; one whose end is still to be typed covers what of it is, its
 			// picture showing from its first letter.
 			const bool bWhole = Word.FirstGlyph + Word.GlyphCount < Glyphs.size();
-			const int32 Width = bWhole ? (Word.EndUnits - Glyphs[Word.FirstGlyph].XUnits) * UnitPixels : Pixels - At;
+			const int32 Width = bWhole ? (Word.EndUnits - Glyphs[Word.FirstGlyph].XUnits) * Unit : Pixels - At;
 			if (At >= 0 && Width > 0 && At + Width <= Pixels)
 			{
 				Out.push_back({Primitive, static_cast<int16>(At), static_cast<int16>(Width), Word.Button, Word.bDirections});

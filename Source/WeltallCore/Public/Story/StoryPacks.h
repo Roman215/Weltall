@@ -65,8 +65,8 @@ namespace Weltall
 
 		/**
 		 * Every pack in Folder: each folder in it a pack of its name, each .txt file there one of its documents, the
-		 * packs and their documents in the order of their names. None at all where there is no such folder; an error
-		 * naming the document where one cannot be read.
+		 * packs and their documents in the order of their names, hidden ones left out (IsHiddenFile). None at all
+		 * where there is no such folder; an error naming the document where one cannot be read.
 		 */
 		WELTALLCORE_API static TResult<FStoryPacks> Read(const std::filesystem::path& Folder);
 

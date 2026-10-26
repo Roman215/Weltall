@@ -1,5 +1,6 @@
 #include "Field/EventAssembly.h"
 #include "Story/StoryPacks.h"
+#include "Support/AppleDouble.h"
 #include "Text/MesText.h"
 
 #include <catch_amalgamated.hpp>
@@ -138,6 +139,19 @@ TEST_CASE("The story is read from a folder of packs, each a folder of documents,
 	const auto None = FStoryPacks::Read(Folder.Path / "missing");
 	REQUIRE(None);
 	CHECK(None->Documents().empty());
+}
+
+TEST_CASE("The story leaves out the files and folders a leading dot hides, such as macOS's companions of copied files", "[Story]")
+{
+	const FStoryFolder Folder("WeltallStoryHidden");
+	Folder.Write("additions/castle.txt", Addition(12));
+	Testing::WriteAppleDoubleCompanion(Folder.Path / "additions" / "castle.txt");
+	Folder.Write(".backup/old.txt", Addition(13));
+	const auto Packs = FStoryPacks::Read(Folder.Path);
+	REQUIRE(Packs);
+	REQUIRE(Packs->Documents().size() == 1);
+	CHECK(Packs->Documents()[0].Name == "additions/castle.txt");
+	CHECK(Added(*Packs, 13, FEventOptions()) == 0);
 }
 
 TEST_CASE("A map of its own is made by one document, and the patches of its number are added to it", "[Story]")

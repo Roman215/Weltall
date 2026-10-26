@@ -14,6 +14,7 @@
 
 #include <array>
 #include <span>
+#include <utility>
 #include <vector>
 
 namespace Weltall
@@ -241,6 +242,16 @@ namespace Weltall
 		 */
 		std::span<const uint8> NameEntry() const { return NameEntryTable; }
 		const std::array<uint16, 32>& TextClut() const { return TextColours; }
+		/**
+		 * The Menu's programs are the French translation's (its main module, which the others come with): they place some
+		 * things otherwise for its variable-width text.
+		 */
+		bool IsFrench() const { return bFrench; }
+		/**
+		 * The title the French translation's Menu shows for a save made at a story value (event variable 0): its own
+		 * chapters' titles, each up to a story value, rather than the card's title. Empty for the game's own Menu.
+		 */
+		WELTALLCORE_API std::span<const uint8> FrenchChapterTitle(uint16 Progress) const;
 		/** The weapons' and accessories' records the screens recompute characters from. */
 		const FEquipmentTables& Equipment() const { return EquipmentTables; }
 		/** A character's command records (38 of 0x28 bytes: its attacks, Deathblows, abilities), by character id. */
@@ -315,6 +326,9 @@ namespace Weltall
 		std::vector<uint8> GearShopStockTable;
 		std::vector<uint8> NameEntryTable;
 		std::array<uint16, 32> TextColours{};
+		bool bFrench = false;
+		/** The French Menu's chapters: the story value each ends before, and its title's codes ended by 00. */
+		std::vector<std::pair<uint16, std::vector<uint8>>> FrenchChapters;
 		FEquipmentTables EquipmentTables;
 		std::array<std::vector<uint8>, 11> Commands{};
 		std::vector<uint8> GrowthTable;

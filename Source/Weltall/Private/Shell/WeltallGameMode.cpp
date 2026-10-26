@@ -5,6 +5,7 @@
 #include "Engine/GameViewportClient.h"
 #include "Engine/World.h"
 #include "Foundation/Result.h"
+#include "Framework/Application/SlateApplication.h"
 #include "Input/ButtonGlyphSubsystem.h"
 #include "Input/KeyListenerSubsystem.h"
 #include "Input/WeltallPlayerController.h"
@@ -12,6 +13,7 @@
 #include "Menu/OptionsText.h"
 #include "Screens/GameLoopScreen.h"
 #include "Screens/GameScreenSubsystem.h"
+#include "Shell/DeviceFilesSubsystem.h"
 #include "Shell/GameDiscsSubsystem.h"
 #include "Shell/GameModsSubsystem.h"
 #include "Shell/GameAssetsSubsystem.h"
@@ -26,6 +28,27 @@
 
 #include <filesystem>
 #include <string>
+
+namespace
+{
+	FText TextOf(const std::string& Message)
+	{
+		return FText::FromString(FString(UTF8_TO_TCHAR(Message.c_str())));
+	}
+
+	std::string FileCount(int32 Count)
+	{
+		namespace Text = Weltall::OptionsText::Saves;
+		return Count == 1 ? std::string(Text::OneFile) : Weltall::OptionsText::Fill(Text::ManyFiles, {std::to_string(Count)});
+	}
+
+	/** Why a transfer failed, as the end of a sentence. */
+	std::string_view Reason(Weltall::ETransferFailure Failure)
+	{
+		const std::size_t Number = static_cast<std::size_t>(Failure);
+		return Number == 0 || Number > Weltall::OptionsText::Discs::Reasons.size() ? std::string_view() : Weltall::OptionsText::Discs::Reasons[Number - 1];
+	}
+}
 
 AWeltallGameMode::AWeltallGameMode()
 {
@@ -48,17 +71,61 @@ void AWeltallGameMode::BeginPlay()
 		return;
 	}
 	UE_LOG(LogWeltall, Error, TEXT("No disc of the game is in %s"), *UGameDiscsSubsystem::GamesFolder());
-	ShowNotice(DiscsMissing(), false);
+	AwaitDiscs();
+}
+
+void AWeltallGameMode::AwaitDiscs()
+{
+	if (UDeviceFilesSubsystem::UsesPicker())
+	{
+		ShowDiscsPicked(false);
+	}
+	else
+	{
+		ShowNotice(DiscsMissing(), false);
+	}
 	GetWorldTimerManager().SetTimer(LookAgain, this, &AWeltallGameMode::LookForDiscs, 2.0f, true);
+}
+
+void AWeltallGameMode::ShowDiscsPicked(bool bContinue)
+{
+	namespace Text = Weltall::OptionsText::Discs;
+	UDeviceFilesSubsystem* Picker = GetGameInstance()->GetSubsystem<UDeviceFilesSubsystem>();
+	TArray<FNoticeButton> Buttons;
+	Buttons.Add({TextOf(std::string(Text::AddFolderButton)), [Picker]() { Picker->Start(Weltall::EDeviceTransfer::DiscFolder); }});
+	Buttons.Add({TextOf(std::string(Text::AddButton)), [Picker]() { Picker->Start(Weltall::EDeviceTransfer::Discs); }});
+	if (bContinue)
+	{
+		// The notice goes with the button: after its click.
+		Buttons.Add({TextOf(std::string(Text::ContinueButton)), [this]() { GetWorldTimerManager().SetTimerForNextTick(this, &AWeltallGameMode::ContinueWithOneDisc); }});
+	}
+	bContinueOffered = bContinue;
+	ShowNotice(TextOf(std::string(Text::MissingPicked)), false, MoveTemp(Buttons), [this]() { return DiscsAdded(); });
 }
 
 void AWeltallGameMode::LookForDiscs()
 {
 	UGameDiscsSubsystem* Discs = GetGameInstance()->GetSubsystem<UGameDiscsSubsystem>();
 	Discs->Rescan();
-	if (Discs->Library().PlayableDisc(1) == nullptr && Discs->Library().PlayableDisc(2) == nullptr)
+	const bool bFirst = Discs->Library().PlayableDisc(1) != nullptr;
+	const bool bSecond = Discs->Library().PlayableDisc(2) != nullptr;
+	// Discs added through the picker may come one at a time: the player is not hurried past the other.
+	const bool bWaitForOther = UDeviceFilesSubsystem::UsesPicker() && bFirst != bSecond;
+	if (bWaitForOther && !bContinueOffered)
 	{
-		NoticeText->SetText(DiscsMissing());
+		ShowDiscsPicked(true);
+		return;
+	}
+	if (bWaitForOther || (!bFirst && !bSecond))
+	{
+		if (NoticeBelowText)
+		{
+			NoticeBelow->SetText(NoticeBelowText());
+		}
+		else
+		{
+			NoticeText->SetText(DiscsMissing());
+		}
 		return;
 	}
 	GetWorldTimerManager().ClearTimer(LookAgain);
@@ -66,15 +133,53 @@ void AWeltallGameMode::LookForDiscs()
 	StartGame();
 }
 
-void AWeltallGameMode::ShowNotice(const FText& Text, bool bOverPicture)
+void AWeltallGameMode::ContinueWithOneDisc()
+{
+	GetWorldTimerManager().ClearTimer(LookAgain);
+	HideNotice();
+	StartGame();
+}
+
+void AWeltallGameMode::FollowTransfer()
+{
+	const Weltall::FTransferStatus Status = GetGameInstance()->GetSubsystem<UDeviceFilesSubsystem>()->Status();
+	if (Status.Revision == TransferSeen)
+	{
+		return;
+	}
+	TransferSeen = Status.Revision;
+	if (Weltall::IsDiscTransfer(Status.Kind) && Status.State == Weltall::ETransferState::Done && GetWorldTimerManager().IsTimerActive(LookAgain))
+	{
+		LookForDiscs();
+	}
+	if (NoticeBelow && NoticeBelowText)
+	{
+		NoticeBelow->SetText(NoticeBelowText());
+	}
+}
+
+void AWeltallGameMode::ShowNotice(const FText& Text, bool bOverPicture, TArray<FNoticeButton> Buttons, TFunction<FText()> Below)
 {
 	HideNotice();
-	const FGameNotice Shown = MakeGameNotice(Text, bOverPicture);
+	const FGameNotice Shown = MakeGameNotice(Text, bOverPicture, MoveTemp(Buttons));
 	Notice = Shown.Widget;
 	NoticeText = Shown.Text;
+	NoticeBelow = Shown.Below;
+	NoticeBelowText = MoveTemp(Below);
 	if (UGameViewportClient* Viewport = GetWorld()->GetGameViewport())
 	{
 		Viewport->AddViewportWidgetContent(Shown.Widget);
+	}
+	if (!Shown.Buttons.IsEmpty())
+	{
+		// A controller or a keyboard presses the buttons too.
+		FSlateApplication::Get().SetAllUserFocus(Shown.Buttons[0], EFocusCause::SetDirectly);
+	}
+	if (NoticeBelow && NoticeBelowText)
+	{
+		TransferSeen = GetGameInstance()->GetSubsystem<UDeviceFilesSubsystem>()->Status().Revision;
+		NoticeBelow->SetText(NoticeBelowText());
+		GetWorldTimerManager().SetTimer(FollowCopy, this, &AWeltallGameMode::FollowTransfer, 0.2f, true);
 	}
 }
 
@@ -84,15 +189,31 @@ void AWeltallGameMode::HideNotice()
 	{
 		return;
 	}
+	GetWorldTimerManager().ClearTimer(FollowCopy);
 	if (UGameViewportClient* Viewport = GetWorld()->GetGameViewport())
 	{
 		Viewport->RemoveViewportWidgetContent(Notice.ToSharedRef());
 	}
 	Notice.Reset();
 	NoticeText.Reset();
+	NoticeBelow.Reset();
+	NoticeBelowText.Reset();
 }
 
 FText AWeltallGameMode::DiscsMissing() const
+{
+	namespace Text = Weltall::OptionsText::Discs;
+	const std::u8string FolderName = std::filesystem::path(*UGameDiscsSubsystem::GamesFolder()).make_preferred().u8string();
+	std::string Message = std::string(Text::Missing) + "\n\n" + Weltall::OptionsText::Fill(Text::WhereTheyGo, {std::string(FolderName.begin(), FolderName.end())});
+	const std::string Found = DiscsFound();
+	if (!Found.empty())
+	{
+		Message += "\n\n" + Found;
+	}
+	return TextOf(Message);
+}
+
+std::string AWeltallGameMode::DiscsFound() const
 {
 	namespace Text = Weltall::OptionsText::Discs;
 	const Weltall::FGameLibrary& Library = GetGameInstance()->GetSubsystem<UGameDiscsSubsystem>()->Library();
@@ -104,28 +225,116 @@ FText AWeltallGameMode::DiscsMissing() const
 		const std::u8string Name = (Relative.empty() ? File : Relative).u8string();
 		return std::string(Name.begin(), Name.end());
 	};
-	const std::u8string FolderName = Folder.u8string();
-	std::string Message = std::string(Text::Missing) + "\n\n" + Weltall::OptionsText::Fill(Text::WhereTheyGo, {std::string(FolderName.begin(), FolderName.end())});
+	std::string Message;
+	const auto Paragraph = [&Message](const std::string& Lines)
+	{
+		Message += (Message.empty() ? "" : "\n\n") + Lines;
+	};
 	for (const Weltall::EDiscRelease Release : Library.Releases())
 	{
 		const std::string_view Number = Weltall::DiscNumberOfRelease(Release) == 1 ? "1" : "2";
-		Message += "\n\n" + Weltall::OptionsText::Fill(Text::Found, {Number, Shown(Library.FileOf(Release))});
+		Paragraph(Weltall::OptionsText::Fill(Text::Found, {Number, Shown(Library.FileOf(Release))}));
 	}
 	constexpr std::size_t MostListed = 12;
 	if (!Library.Notes().empty())
 	{
-		Message += "\n\n" + std::string(Text::NotUsed);
+		std::string NotUsed(Text::NotUsed);
 		for (std::size_t Index = 0; Index < Library.Notes().size() && Index < MostListed; ++Index)
 		{
 			const Weltall::FLibraryNote& Note = Library.Notes()[Index];
-			Message += "\n" + Weltall::OptionsText::Fill(Text::NotUsedFile, {Shown(Note.File), Note.Text});
+			NotUsed += "\n" + Weltall::OptionsText::Fill(Text::NotUsedFile, {Shown(Note.File), Note.Text});
 		}
 		if (Library.Notes().size() > MostListed)
 		{
-			Message += "\n" + Weltall::OptionsText::Fill(Text::More, {std::to_string(Library.Notes().size() - MostListed)});
+			NotUsed += "\n" + Weltall::OptionsText::Fill(Text::More, {std::to_string(Library.Notes().size() - MostListed)});
 		}
+		Paragraph(NotUsed);
 	}
-	return FText::FromString(FString(UTF8_TO_TCHAR(Message.c_str())));
+	return Message;
+}
+
+FText AWeltallGameMode::DiscsAdded() const
+{
+	namespace Text = Weltall::OptionsText::Discs;
+	const Weltall::FTransferStatus Status = GetGameInstance()->GetSubsystem<UDeviceFilesSubsystem>()->Status();
+	std::string Message;
+	switch (Weltall::IsDiscTransfer(Status.Kind) ? Status.State : Weltall::ETransferState::Idle)
+	{
+	case Weltall::ETransferState::Copying:
+		if (Status.Kind == Weltall::EDeviceTransfer::DiscFolder && Status.Files == 0)
+		{
+			// A folder's disc images are counted before any is copied.
+			Message = Weltall::OptionsText::Fill(Text::Scanning, {Status.Name, std::to_string(Status.File)});
+		}
+		else if (Status.Files > 1)
+		{
+			Message = Weltall::OptionsText::Fill(Text::CopyingMany, {Status.Name, std::to_string(Status.File), std::to_string(Status.Files), std::to_string(Status.Percent())});
+		}
+		else
+		{
+			Message = Weltall::OptionsText::Fill(Text::CopyingOne, {Status.Name, std::to_string(Status.Percent())});
+		}
+		break;
+	case Weltall::ETransferState::Done:
+		Message = Weltall::OptionsText::Fill(Text::Copied, {FileCount(Status.Files)});
+		break;
+	case Weltall::ETransferState::Failed:
+		if (Status.Failure == Weltall::ETransferFailure::NoDiscImages)
+		{
+			Message = Weltall::OptionsText::Fill(Text::NoNewDiscs, {Status.Name});
+			break;
+		}
+		Message = Status.Name.empty() ? Weltall::OptionsText::Fill(Text::NotCopiedNoName, {Reason(Status.Failure)})
+									  : Weltall::OptionsText::Fill(Text::NotCopied, {Status.Name, Reason(Status.Failure)});
+		break;
+	default:
+		break;
+	}
+	const Weltall::FGameLibrary& Library = GetGameInstance()->GetSubsystem<UGameDiscsSubsystem>()->Library();
+	const bool bFirst = Library.PlayableDisc(1) != nullptr;
+	if (bFirst != (Library.PlayableDisc(2) != nullptr))
+	{
+		const std::string_view Ready = bFirst ? "1" : "2";
+		Message += (Message.empty() ? "" : "\n\n") + Weltall::OptionsText::Fill(Text::OneDiscReady, {Ready, bFirst ? "2" : "1", Ready});
+	}
+	const std::string Found = DiscsFound();
+	if (!Found.empty())
+	{
+		Message += (Message.empty() ? "" : "\n\n") + Found;
+	}
+	return TextOf(Message);
+}
+
+void AWeltallGameMode::ShowStopped(const Weltall::FError& Error, bool bStarted)
+{
+	if (!UDeviceFilesSubsystem::UsesPicker())
+	{
+		ShowNotice(GameStoppedText(Error, bStarted), bStarted);
+		return;
+	}
+	UDeviceFilesSubsystem* Picker = GetGameInstance()->GetSubsystem<UDeviceFilesSubsystem>();
+	TArray<FNoticeButton> Buttons;
+	Buttons.Add({TextOf(std::string(Weltall::OptionsText::Stop::SaveLogButton)), [Picker]() { Picker->Start(Weltall::EDeviceTransfer::Log); }});
+	ShowNotice(GameStoppedText(Error, bStarted, true), bStarted, MoveTemp(Buttons), [this]() { return LogSaved(); });
+}
+
+FText AWeltallGameMode::LogSaved() const
+{
+	namespace Text = Weltall::OptionsText::Stop;
+	const Weltall::FTransferStatus Status = GetGameInstance()->GetSubsystem<UDeviceFilesSubsystem>()->Status();
+	if (Status.Kind != Weltall::EDeviceTransfer::Log)
+	{
+		return FText::GetEmpty();
+	}
+	switch (Status.State)
+	{
+	case Weltall::ETransferState::Done:
+		return TextOf(std::string(Text::LogSaved));
+	case Weltall::ETransferState::Failed:
+		return TextOf(Weltall::OptionsText::Fill(Text::LogNotSaved, {Reason(Status.Failure)}));
+	default:
+		return FText::GetEmpty();
+	}
 }
 
 bool AWeltallGameMode::StartGame()
@@ -154,7 +363,7 @@ bool AWeltallGameMode::StartGame()
 	if (!Started)
 	{
 		UE_LOG(LogWeltall, Error, TEXT("The game cannot start: %hs"), Started.Error().Message.c_str());
-		ShowNotice(GameStoppedText(Started.Error(), false), false);
+		ShowStopped(Started.Error(), false);
 		return true;
 	}
 	const TSharedRef<FGameLoopScreen> Screen = *Started;
@@ -168,7 +377,8 @@ bool AWeltallGameMode::StartGame()
 	Screen->SetMenuKeys(Game->GetSubsystem<UKeyListenerSubsystem>());
 	UGameAssetsSubsystem* Assets = Game->GetSubsystem<UGameAssetsSubsystem>();
 	Screen->SetMenuAssets(Assets);
-	Screen->SetMenuMods(Mods->MenuMods());
+	Screen->SetMenuDeviceFiles(Game->GetSubsystem<UDeviceFilesSubsystem>()->Files());
+	Screen->SetMenuMods([Mods]() { return Mods->MenuMods(); });
 	Screen->SetPerfectWorksSubtitles(Mods->PerfectWorksSubtitles(), Mods->MenuMods().PerfectWorksInUse.bEnabled);
 	Screen->SetDisplayModes([Window = Game->GetSubsystem<UGameWindowSubsystem>()]() { return Window->Modes(); });
 	Screen->SetSettingsFollowed([Settings](const Weltall::FPlayerSettings& Changed) { Settings->Follow(Changed); });
@@ -191,7 +401,7 @@ bool AWeltallGameMode::StartGame()
 	{
 		if (AWeltallGameMode* Playing = Mode.Get())
 		{
-			Playing->ShowNotice(GameStoppedText(Error, true), true);
+			Playing->ShowStopped(Error, true);
 		}
 	});
 	Game->GetSubsystem<UGameScreenSubsystem>()->Show(Screen);

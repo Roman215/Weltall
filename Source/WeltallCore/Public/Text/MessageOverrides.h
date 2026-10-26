@@ -98,7 +98,7 @@ namespace Weltall
 		WELTALLCORE_API static std::shared_ptr<const FMessageOverrides> Parse(std::span<const FMessageFile> Files, const FMesCharacters& Characters,
 			FReport Report, FMesGlyphWidths Widths = {});
 
-		/** Every .txt below Folder but its OriginalsFolder, by their paths' order; none where Folder is missing. */
+		/** Every .txt below Folder but its OriginalsFolder and hidden ones (IsHiddenFile), by their paths' order; none where Folder is missing. */
 		WELTALLCORE_API static TResult<std::shared_ptr<const FMessageOverrides>> Read(const std::filesystem::path& Folder, const FMesCharacters& Characters,
 			FReport Report, FMesGlyphWidths Widths = {});
 

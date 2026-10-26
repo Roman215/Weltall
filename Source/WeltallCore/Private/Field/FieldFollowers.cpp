@@ -86,6 +86,7 @@ namespace Weltall
 			}
 			const FFollowStep& Step = Context.Controls.Trail[Index];
 			Play(Context, Actor, State, Step.Animation);
+			SlowActorSprite(Context, Actor, Sprite, Step.Slow);
 			State.FloorTriangles = Step.FloorTriangles;
 			State.Layer = Step.Layer;
 			State.FloorNormal = Step.FloorNormal;
@@ -193,6 +194,7 @@ namespace Weltall
 		Step.Flags1 = State->Flags1;
 		Step.FloorTriangles = State->FloorTriangles;
 		Step.Layer = static_cast<uint8>(State->Layer);
+		Step.Slow = Controls.LeaderSlow;
 		Controls.bTrailStepped = true;
 		Head = (Head - 1) & TrailMask;
 		return true;

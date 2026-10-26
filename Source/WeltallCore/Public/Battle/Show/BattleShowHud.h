@@ -64,6 +64,69 @@ namespace Weltall
 		int16 Y = 0;
 	};
 
+	/**
+	 * Where the Battle program's code (not its tables) puts the HUD's message boxes and lists: the game's places, or
+	 * those of the French translation's program, which moves them for its longer words.
+	 */
+	struct FBattleHudPlaces
+	{
+		/** The message boxes' window at the foot, and the boxes' text in it. */
+		int16 MessageWindowY = 0xC8;
+		int16 MessageBoxY = 0xCA;
+		/** The item list: its cursor's first row, its cells' two quads, the target label. */
+		int16 ItemCursorY = 0x63;
+		int16 ItemCellsX = 0x30;
+		int16 ItemCellsBeyondX = 0x98;
+		int16 ItemTargetsX = 0xD0;
+		/** The Ether list: its cursor's first row, the cost, the help's kind and target labels. */
+		int16 EtherCursorY = 0x38;
+		int16 EtherCostX = 0x20;
+		int16 EtherKindX = 0xDA;
+		int16 EtherTargetsX = 0xFE;
+		/** A gear's Specials: the cursor, the list's two quads, the cost, the target label and the help's lines. */
+		int16 SpecialCursorX = 0x8C;
+		int16 SpecialCursorY = 0x58;
+		int16 SpecialListX = 0x94;
+		int16 SpecialListRightX = 0xFC;
+		int16 SpecialCostX = 0x7C;
+		int16 SpecialTargetsX = 0x48;
+		int16 SpecialHelpX = 0x88;
+		/** The Combo list's stored AP: its tens' row and its units'. */
+		int16 ComboTensY = 0x38;
+		int16 ComboUnitsY = 0x38;
+		/** The lists' windows: x, y, width, height. */
+		std::array<std::array<int16, 4>, 4> EtherWindows{{{0x1C, 0xA0, 0xAC, 0x38}, {0x20, 0x2C, 0x118, 0x70}, {0xD0, 0xA4, 0x50, 0x18}, {0xE6, 0xC0, 0x4C, 0x18}}};
+		std::array<std::array<int16, 4>, 3> SpecialWindows{{{0x74, 0xA0, 0xAC, 0x38}, {0x84, 0x4C, 0x9C, 0x50}, {0x1C, 0xA0, 0x50, 0x18}}};
+
+		/**
+		 * The French translation's: the Specials 12 pixels right, the costs' windows wider, the message boxes higher. Its
+		 * program moves the stored AP's units and "/28" 4 down but leaves the tens: here they go down with them.
+		 */
+		WELTALLCORE_API static FBattleHudPlaces French();
+	};
+
+	/** Where the result program's code puts the level-up's numbers and bars and the learned label: the game's, or the French translation's. */
+	struct FBattleResultPlaces
+	{
+		/** The old maximum HP and EP, a change's sign and its digits, the stat bars, a stat's old value. */
+		int16 OldMaxHpX = 0xB8;
+		int16 OldMaxEpX = 0xC0;
+		int16 ChangeSignX = 0xD8;
+		int16 ChangeDigitsX = 0xE0;
+		int16 BarX = 0x78;
+		/** Where a fallen stat's loss starts from: its bar's end less the loss, past this. */
+		int16 FallBarX = 0x78;
+		int16 StatValueX = 0xB8;
+		/** The learned label, this far right of the name's width. */
+		int16 LearnedLabelX = 0x5A;
+
+		/**
+		 * The French translation's: the numbers and bars 8 pixels right, the learned label 5 pixels left. Its program leaves
+		 * a fallen stat's loss where the bars started (78h), 8 pixels short of its bar's end: here it moves with them.
+		 */
+		WELTALLCORE_API static FBattleResultPlaces French();
+	};
+
 	/** The Battle program's own tables the HUD reads, from the program as the game loads it. */
 	struct FBattleHudTables
 	{
@@ -95,6 +158,7 @@ namespace Weltall
 		std::array<FBattleHudResultLabel, 18> ResultPanelLabels{};
 		std::array<FBattleHudLevelLabel, 27> ResultLevelLabels{};
 		std::array<FBattleHudResultLabel, 7> ResultGoldLabels{};
+		FBattleHudPlaces Places;
 
 		/** From the program as it lies in memory (unpacked), loaded at its base address. */
 		WELTALLCORE_API static TResult<FBattleHudTables> Parse(std::span<const uint8> Program);
@@ -140,6 +204,10 @@ namespace Weltall
 		FMenuSpriteSheet ResultSheet;
 		std::vector<FVramImage> ResultImages;
 		std::vector<uint8> ResultPortraits;
+		/** The result program (directory 16 file 4) the disc carries decides these. */
+		static constexpr int32 ResultProgramDirectory = 16;
+		static constexpr int32 ResultProgramFile = 4;
+		FBattleResultPlaces ResultPlaces;
 
 		WELTALLCORE_API static TResult<FBattleHudResources> Parse(std::span<const uint8> Data, std::span<const uint8> Program,
 			std::span<const uint16, 32> TextClut);
@@ -618,7 +686,7 @@ namespace Weltall
 
 		// The party's menus (BattleShowHudMenus.cpp).
 		void InitCommandIcons();
-		void DrawIconElement(uint8 Slot, int32 Layer, const FBattleHudIconElement& Element);
+		void DrawIconElement(uint8 Slot, int32 Layer, const FBattleHudIconElement& Element, uint16 PromptRole);
 		void FadeCommandIcons();
 		void LinkCommandIcons();
 		void DrawDirectionArrows();

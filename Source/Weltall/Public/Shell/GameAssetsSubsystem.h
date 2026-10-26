@@ -31,6 +31,8 @@ public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 	void Refresh();
+	/** The replacements found again, as External assets switched off and on: after a pack was added or removed. */
+	void ReloadReplacements();
 
 	virtual Weltall::FMenuAssetProgress Progress() const override { return Current; }
 	virtual bool StartExport(Weltall::EAssetExportKind Kind) override;

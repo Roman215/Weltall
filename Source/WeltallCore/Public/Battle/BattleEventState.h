@@ -127,6 +127,12 @@ namespace Weltall
 		 * (the game's window stops at 4) but 4 beside a portrait, and the "more" arrow 2 pixels left and 1 higher.
 		 */
 		PerfectWorks,
+		/**
+		 * The French translation's change, for its variable-width text: a window's width in 4-pixel columns, its lines
+		 * as asked up to 4 without a portrait and 4 with one (the window keeps the count), and the "more" arrow 4 pixels
+		 * past the text's last pixel, 1 higher, drawn as a quad of its own pointing down.
+		 */
+		French,
 	};
 
 	/**

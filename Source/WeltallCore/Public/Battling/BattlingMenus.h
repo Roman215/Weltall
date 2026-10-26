@@ -70,7 +70,6 @@ namespace Weltall
 		EBattlingMenuAction Action = EBattlingMenuAction::Open;
 		/** The menu an Open item opens, or the kind of bout a gear choice is for. */
 		int8 Argument = -1;
-		std::string_view Label;
 	};
 
 	struct FBattlingMenuDefinition

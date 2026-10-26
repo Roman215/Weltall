@@ -419,9 +419,9 @@ namespace Weltall
 		/** The next of the eight message boxes the enemies' messages take in a turn (1 at its start). */
 		uint8 NextMessageBox = 0;
 		/**
-		 * With `bDeusKeepsCamera`, the last queue write's third byte (Perfect Works' rebalance: the byte after it): while it
-		 * is set, the show's next taking of the camera for a model (sequence op 68) is passed over, and that op or the next
-		 * damage numbers clear it.
+		 * With `bDeusKeepsCamera` (or a program that does it, FBattleProgramTables::bQueueKeepsCamera), the last queue
+		 * write's third byte (Perfect Works' rebalance: the byte after it): while it is set, the show's next taking of the
+		 * camera for a model (sequence op 68) is passed over, and that op or the next damage numbers clear it.
 		 */
 		uint8 KeepCamera = 0;
 		/** The route the next approach walks, from the actor's place (for the show). */

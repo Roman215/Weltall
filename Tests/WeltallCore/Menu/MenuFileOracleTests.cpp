@@ -5,49 +5,13 @@
 using namespace Weltall;
 using namespace Weltall::Testing;
 using namespace Weltall::Testing::MenuPad;
+using namespace Weltall::Testing::MenuCardSaves;
 
 // The File screen against the original module run whole under the oracle harness,
 // frame by frame, on two cards the oracle models and the port's first two stores hold: the
 // same saves, made by each side's own save code. The oracle runs the original without its memory card's waits,
 // as the port has none; a save's place name is drawn from the BIOS's font on a
 // console, so its image is left out on both sides.
-
-namespace
-{
-	/** No.1: the new game an hour and a bit in. */
-	FMenuCardSave FirstSave()
-	{
-		return {0, {}, 0x3F2A1};
-	}
-
-	/** No.3: a party of three who have all joined, with levels, HP and EP of their own, at a later place. */
-	FMenuCardSave ThirdSave()
-	{
-		// The party (Fei, Billy, Citan) and both joined masks; the levels; Fei's HP, Billy's EP, Citan's HP; the place.
-		return {2,
-			{{0x1D34, {0x00, 0x04, 0x02}}, {0x1D30, {0xFF, 0x07, 0xFF, 0x07}}, {0x2CE, {0x0C}}, {0x55E, {0x25}}, {0x416, {0x63}},
-				{0x2B8, {0x41, 0x01}}, {0x2BA, {0xE0, 0x01}}, {0x54C, {0x07, 0x00}}, {0x400, {0xE7, 0x03}}, {0x402, {0xE7, 0x03}},
-				{0x1930, {0x78, 0x00}}},
-			0x123456};
-	}
-
-	/** No.2: a game of nearly 1,000 hours at a later place still. */
-	FMenuCardSave LongSave()
-	{
-		return {1, {{0x1930, {0x2C, 0x01}}}, 0xCDFE5FF};
-	}
-
-	/** A card of fifteen saves, No.1 to No.15, each a day further in. */
-	std::vector<FMenuCardSave> FullCard()
-	{
-		std::vector<FMenuCardSave> Card;
-		for (int32 Slot = 0; Slot < 15; ++Slot)
-		{
-			Card.push_back({Slot, {}, 0x100000u + static_cast<uint32>(Slot) * 5184000u});
-		}
-		return Card;
-	}
-}
 
 TEST_CASE("The title's Continue moves over both cards and loads a save, as the original does", "[Content][Menu]")
 {

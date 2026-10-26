@@ -6,6 +6,7 @@
 #include "Field/FieldPresenter.h"
 #include "Field/FieldRuntime.h"
 #include "Field/FieldSceneFrame.h"
+#include "Game/BootNotice.h"
 #include "Game/GameProgram.h"
 
 #include <array>
@@ -21,8 +22,9 @@ namespace Weltall
 	 * The Field program as the kernel runs it: its start (the map, camera and entrance the game state
 	 * holds, the song, effect file 0 registered with the sound), the field's frames with their drawing
 	 * (the last two kept for the display to draw between), the movies it plays and the menu it runs
-	 * inside itself, and its way out to the program its scripts or the player ask for, with what it
-	 * hands over in the kernel's globals and the game state.
+	 * inside itself, the screen the French translation's kernel shows from its file reading, and its
+	 * way out to the program its scripts or the player ask for, with what it hands over in the
+	 * kernel's globals and the game state.
 	 */
 	class FFieldProgram final : public IGameProgram
 	{
@@ -53,7 +55,13 @@ namespace Weltall
 		/** The movie the field plays inside itself, while it plays one. */
 		const FFieldMovie* Movie() const { return FieldMovie.get(); }
 
-		/** What the player does to the field's view, shown from the next frame; nothing while the menu or a movie runs. */
+		/**
+		 * The French translation's credits while its kernel shows them: as the field reads the picture that ends the
+		 * game, its tick's work stands still until a press ends them, then the field goes on.
+		 */
+		const FBootNotice* Credits() const { return TranslationCredits ? &*TranslationCredits : nullptr; }
+
+		/** What the player does to the field's view, shown from the next frame; nothing while the menu, a movie or the credits run. */
 		WELTALLCORE_API void AddViewInput(const FFieldViewInput& Input);
 
 		/** The player's camera the frames are presented with. */
@@ -69,6 +77,10 @@ namespace Weltall
 		/** Takes up what the field stopped at, if anything. */
 		std::optional<FError> TakeRequest();
 		std::optional<FError> StartMovie();
+		/** The credits' screen, their song started anew. */
+		std::optional<FError> StartCredits();
+		/** A vertical blank of the credits; once they are over, what the field's tick stopped at is taken up. */
+		std::optional<FError> AdvanceCredits(FPadState Held);
 		/** The movie's share of the field's frame: its pictures and cues through the frame's vertical blanks, the picture in the scene. */
 		std::optional<FError> AdvanceMovie(int32 Vblanks);
 		std::optional<FError> StartMenu(const FFieldRequest& Request);
@@ -89,6 +101,7 @@ namespace Weltall
 		std::unique_ptr<FFieldRuntime> FieldRuntime;
 		std::optional<FFieldPresenter> Presenter;
 		std::unique_ptr<FFieldMovie> FieldMovie;
+		std::optional<FBootNotice> TranslationCredits;
 		/** The menu the field runs inside itself, while it runs. */
 		std::unique_ptr<IGameProgram> Menu;
 		EFieldCulling Culling = EFieldCulling::Original;

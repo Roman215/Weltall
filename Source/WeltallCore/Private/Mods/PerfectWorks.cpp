@@ -1,5 +1,6 @@
 #include "Mods/PerfectWorks.h"
 
+#include "Foundation/HiddenFiles.h"
 #include "Foundation/Sha1.h"
 #include "Media/PsxExecutable.h"
 
@@ -161,14 +162,14 @@ namespace Weltall
 			return {};
 		}
 
-		/** Every file of Folder that names a record, in the order the folder lists them, but those Skip names. */
+		/** Every file of Folder that names a record, in the order the folder lists them, but those Skip names and hidden ones. */
 		template <typename TSkip>
 		void AddFolder(const std::filesystem::path& Folder, std::map<int32, FModFile>& Files, TSkip Skip)
 		{
 			std::error_code Error;
 			for (const std::filesystem::directory_entry& Entry : std::filesystem::directory_iterator(Folder, Error))
 			{
-				if (!Entry.is_regular_file(Error))
+				if (IsHiddenFile(Entry.path()) || !Entry.is_regular_file(Error))
 				{
 					continue;
 				}
@@ -184,13 +185,13 @@ namespace Weltall
 			AddFolder(Folder, Files, [](int32) { return false; });
 		}
 
-		/** The first file of Folder; none where it has none. */
+		/** The first file of Folder but hidden ones; none where it has none. */
 		std::optional<std::filesystem::path> FirstFile(const std::filesystem::path& Folder)
 		{
 			std::error_code Error;
 			for (const std::filesystem::directory_entry& Entry : std::filesystem::directory_iterator(Folder, Error))
 			{
-				if (Entry.is_regular_file(Error))
+				if (!IsHiddenFile(Entry.path()) && Entry.is_regular_file(Error))
 				{
 					return Entry.path();
 				}
@@ -245,17 +246,28 @@ namespace Weltall
 		return FMovieSubtitles::FromFile(*Bytes, Entry.Lines);
 	}
 
-	std::optional<FPerfectWorksRelease> FPerfectWorksRelease::Find(const std::filesystem::path& Folder)
+	bool FPerfectWorksRelease::IsRelease(const std::filesystem::path& Folder)
 	{
 		std::error_code Error;
 		const std::filesystem::path GameFiles = Folder / "gamefiles";
-		if (!std::filesystem::is_directory(GameFiles / "bug_fix1", Error) || !std::filesystem::is_directory(GameFiles / "script1", Error))
+		return std::filesystem::is_directory(GameFiles / "bug_fix1", Error) && std::filesystem::is_directory(GameFiles / "script1", Error);
+	}
+
+	std::string FPerfectWorksRelease::VersionIn(const std::filesystem::path& Folder)
+	{
+		return ReadVersion(Folder / "README.md");
+	}
+
+	std::optional<FPerfectWorksRelease> FPerfectWorksRelease::Find(const std::filesystem::path& Folder)
+	{
+		if (!IsRelease(Folder))
 		{
 			return std::nullopt;
 		}
+		const std::filesystem::path GameFiles = Folder / "gamefiles";
 		FPerfectWorksRelease Release;
 		Release.GameFiles = GameFiles;
-		Release.VersionName = ReadVersion(Folder / "README.md");
+		Release.VersionName = VersionIn(Folder);
 		Release.bKnownBattleEventCode = IsKnownBattleEventCode(GameFiles / "script1" / "3087");
 		Release.bKnownRebalanceCode = IsKnownCode(RecordFile(GameFiles / "items1", BattleCode), KnownRebalanceBattle)
 			&& IsKnownCode(RecordFile(GameFiles / "items1", MenuMainCode), KnownRebalanceMenu);

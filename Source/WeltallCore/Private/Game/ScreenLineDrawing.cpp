@@ -21,7 +21,6 @@ namespace Weltall
 		constexpr int32 LettersV = 16;
 		/** White, with the bit that lets a texel blend. */
 		constexpr uint16 Ink = 0xFFFF;
-		constexpr int32 PixelsPerWidthUnit = 4;
 
 		FDrawColor Grey(int32 Level)
 		{
@@ -59,7 +58,7 @@ namespace Weltall
 		for (const char Character : Drawn)
 		{
 			const FMesCode Code = MesCodeOfCharacter(Character).value_or(*MesCodeOfCharacter(' '));
-			const int32 Advance = Font.WidthUnits(Code) * PixelsPerWidthUnit;
+			const int32 Advance = Font.WidthUnits(Code) * Font.UnitPixels();
 			if (Left + FMesFont::CellWidth > PictureWidth)
 			{
 				break;

@@ -4,6 +4,20 @@ Open Options from the title screen or the in-game menu, press L1 or R1 to reach 
 Assets. One export runs at a time. The page shows its progress, and you can cancel it. Everything you export stays
 on your computer. Neither the game nor this repository includes any extracted game content.
 
+## On Android
+
+Android keeps Weltall's folders out of reach, so the Modding page adds mods itself, under **This device**. **Add
+zip file** adds a texture pack, such as Perfect ART Works, or Perfect Works Build from a zip file. **Add folder**
+adds one from a folder you pick. A `.7z` or `.rar` file has to be unpacked first, on a computer or with a file
+manager that can, before you copy the folder to the device. A zip of a computer's `Mods` and `Assets` folders adds
+everything in them, each file in its place. The mods and packs on the device are listed below with their sizes, and
+you can remove any of them there. Adding a texture pack turns on **External assets**, which loads texture packs and
+other replacements, and Perfect Works is turned on and used from the next time you start Weltall. Making exports and
+editing files is a computer's work, so the Android version has no exports.
+
+Perfect Works Build is read while the game runs, so replacing or removing one the game already has takes effect
+the next time you start Weltall.
+
 ## Voices
 
 Put both discs of a supported English undub in `Games` to play with English text and Japanese voices. If
@@ -37,8 +51,11 @@ from, such as the Spanish translation by Romhack Hispano. The game checks that t
 program as the USA one. It doesn't need to know the translation. Put the patched images in `Games`. If the original
 USA images are there too, the patched ones play. Weltall's own screens, such as Options, stay in English.
 
-Translations that also change the game's program aren't supported yet. The French translation by Atelier
-Traduction is one: it adds a font with letters of different widths, which Weltall doesn't draw yet.
+Translations that also change the game's program play only when Weltall knows them. The French translation by
+Atelier Traduction (version 1.1) is one: make the images with its patcher, and with its undub step for the
+Japanese voices. Weltall plays its font with letters of different widths, its menus and battle screens as it
+lays them out, its opening logo, the subtitles in its movies and the credits screen it adds at the very end
+of the game. Its version with Japanese command names hasn't been tried.
 
 ## Dumping disc files
 

@@ -39,10 +39,9 @@ namespace Weltall
 		constexpr std::array<uint8, 3> ValueBar{0xFF, 0x80, 0x80};
 		constexpr std::array<uint8, 3> RiseBar{0xFF, 0, 0};
 		constexpr std::array<uint8, 3> FallBar{0, 0, 0xFF};
-		/** The stat rows: 8 apart from y 90h, each bar from x 78h, 6 high from 2 below its row's top. */
+		/** The stat rows: 8 apart from y 90h, each bar (from FBattleResultPlaces::BarX) 6 high from 2 below its row's top. */
 		constexpr int32 StatRowY = 0x90;
 		constexpr int32 StatRowStep = 8;
-		constexpr int32 BarX = 0x78;
 		constexpr int32 BarTop = 2;
 		constexpr int32 BarBottom = 8;
 		/** The screen's windows: the items', the level-ups', the gold's. */
@@ -413,27 +412,28 @@ namespace Weltall
 			return;
 		}
 		const FBattleStartFigures& Start = Battle->StartFigures[Slot];
+		const FBattleResultPlaces& Places = Resources.ResultPlaces;
 		Work.OldMaxHp.Count = 0;
 		Work.OldMaxEp.Count = 0;
 		Work.MaxHpChange.Count = 0;
 		Work.MaxEpChange.Count = 0;
-		DrawResultDigits(Work.OldMaxHp.Parts, Work.OldMaxHp.Count, Start.MaxHp, 6, 0xB8, 0x80, false);
+		DrawResultDigits(Work.OldMaxHp.Parts, Work.OldMaxHp.Count, Start.MaxHp, 6, Places.OldMaxHpX, 0x80, false);
 		Work.OldMaxHp.Buffer = Buffer;
-		DrawResultDigits(Work.OldMaxEp.Parts, Work.OldMaxEp.Count, Start.MaxEp, 7, 0xC0, 0x88, false);
+		DrawResultDigits(Work.OldMaxEp.Parts, Work.OldMaxEp.Count, Start.MaxEp, 7, Places.OldMaxEpX, 0x88, false);
 		Work.OldMaxEp.Buffer = Buffer;
 		const int32 HpChange = static_cast<int32>(LittleEndian::ReadU16(Record, GameStateLayout::Character::MaxHp)) - Start.MaxHp;
 		if (HpChange != 0)
 		{
-			Work.MaxHpChange.Count = DrawSheet(HpChange < 0 ? MinusFrame : PlusFrame, Work.MaxHpChange.Parts, 0, 0xD8, 0x80, FullScale);
-			DrawResultDigits(Work.MaxHpChange.Parts, Work.MaxHpChange.Count, static_cast<uint32>(HpChange < 0 ? -HpChange : HpChange), 6, 0xE0, 0x80, true);
+			Work.MaxHpChange.Count = DrawSheet(HpChange < 0 ? MinusFrame : PlusFrame, Work.MaxHpChange.Parts, 0, Places.ChangeSignX, 0x80, FullScale);
+			DrawResultDigits(Work.MaxHpChange.Parts, Work.MaxHpChange.Count, static_cast<uint32>(HpChange < 0 ? -HpChange : HpChange), 6, Places.ChangeDigitsX, 0x80, true);
 			TintResultParts(Work.MaxHpChange.Parts, 0, Work.MaxHpChange.Count, Red);
 			Work.MaxHpChange.Buffer = Buffer;
 		}
 		const int32 EpChange = static_cast<int32>(LittleEndian::ReadU16(Record, GameStateLayout::Character::MaxEp)) - Start.MaxEp;
 		if (EpChange != 0)
 		{
-			Work.MaxEpChange.Count = DrawSheet(EpChange < 0 ? MinusFrame : PlusFrame, Work.MaxEpChange.Parts, 0, 0xD8, 0x88, FullScale);
-			DrawResultDigits(Work.MaxEpChange.Parts, Work.MaxEpChange.Count, static_cast<uint32>(EpChange < 0 ? -EpChange : EpChange), 7, 0xE0, 0x88, true);
+			Work.MaxEpChange.Count = DrawSheet(EpChange < 0 ? MinusFrame : PlusFrame, Work.MaxEpChange.Parts, 0, Places.ChangeSignX, 0x88, FullScale);
+			DrawResultDigits(Work.MaxEpChange.Parts, Work.MaxEpChange.Count, static_cast<uint32>(EpChange < 0 ? -EpChange : EpChange), 7, Places.ChangeDigitsX, 0x88, true);
 			TintResultParts(Work.MaxEpChange.Parts, 0, Work.MaxEpChange.Count, Red);
 			Work.MaxEpChange.Buffer = Buffer;
 		}
@@ -466,18 +466,18 @@ namespace Weltall
 			const int32 Y = StatRowY + StatRowStep * Row;
 			const int16 Top = static_cast<int16>(Y + BarTop);
 			const int16 Bottom = static_cast<int16>(Y + BarBottom);
-			const int16 End = static_cast<int16>(Length + BarX);
-			SetCorners(Stat.Bar[Buffer], BarX, Top, End, Top, BarX, Bottom, End, Bottom);
-			const int16 Left = bFall ? static_cast<int16>(Length - (ChangeLength - BarX)) : End;
+			const int16 End = static_cast<int16>(Length + Places.BarX);
+			SetCorners(Stat.Bar[Buffer], Places.BarX, Top, End, Top, Places.BarX, Bottom, End, Bottom);
+			const int16 Left = bFall ? static_cast<int16>(Length - (ChangeLength - Places.FallBarX)) : End;
 			const int16 Right = static_cast<int16>(Left + ChangeLength);
 			SetCorners(Stat.ChangeBar[Buffer], Left, Top, Right, Top, Left, Bottom, Right, Bottom);
 			Stat.BarBuffer = Buffer;
-			DrawResultDigits(Stat.Value.Parts, Stat.Value.Count, static_cast<uint32>(Was), 6, 0xB8, Y, false);
+			DrawResultDigits(Stat.Value.Parts, Stat.Value.Count, static_cast<uint32>(Was), 6, Places.StatValueX, Y, false);
 			Stat.Value.Buffer = Buffer;
 			if (Change != 0)
 			{
-				Stat.Change.Count = DrawSheet(bFall ? MinusFrame : PlusFrame, Stat.Change.Parts, 0, 0xD8, Y, FullScale);
-				DrawResultDigits(Stat.Change.Parts, Stat.Change.Count, static_cast<uint32>(Change), 6, 0xE0, Y, true);
+				Stat.Change.Count = DrawSheet(bFall ? MinusFrame : PlusFrame, Stat.Change.Parts, 0, Places.ChangeSignX, Y, FullScale);
+				DrawResultDigits(Stat.Change.Parts, Stat.Change.Count, static_cast<uint32>(Change), 6, Places.ChangeDigitsX, Y, true);
 				TintResultParts(Stat.Change.Parts, 0, Stat.Change.Count, bFall ? Blue : Red);
 				Stat.Change.Buffer = Buffer;
 			}
@@ -541,7 +541,7 @@ namespace Weltall
 		SetColor(Quad, 0, Colour[0], Colour[1], Colour[2]);
 		Work.LearnedNameBuffer = Buffer;
 		const FBattleHudLabel& Label = Labels[LearnedLabel];
-		SetTextQuad(Work.LearnedLabel[Buffer], static_cast<int16>(Width + 0x5A), 0x9C, Label.U, Label.V, Label.Width);
+		SetTextQuad(Work.LearnedLabel[Buffer], static_cast<int16>(Width + Resources.ResultPlaces.LearnedLabelX), 0x9C, Label.U, Label.V, Label.Width);
 		Work.LearnedLabelBuffer = Buffer;
 	}
 

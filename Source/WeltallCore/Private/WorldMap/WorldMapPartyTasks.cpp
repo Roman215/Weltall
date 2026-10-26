@@ -6,12 +6,28 @@
 #include "WorldMap/WorldMapInput.h"
 #include "WorldMap/WorldMapStateLayout.h"
 
+#include <algorithm>
+
 namespace Weltall::WorldMapOps
 {
+	void RestorePartyPace(FWorldMapContext& Context)
+	{
+		for (const auto& [Slot, TimeScale] : Context.SlowedSprites)
+		{
+			if (FSprite* Sprite = SlotSprite(Context, Context.Tasks[static_cast<std::size_t>(Slot)]))
+			{
+				Sprite->SetTimeScale(static_cast<int32>(TimeScale));
+			}
+		}
+		Context.SlowedSprites.clear();
+	}
+
 	namespace
 	{
 		constexpr int32 MemberSpeed = 8;
 		constexpr int32 MemberScale = 0x1800;
+		constexpr int32 PartySize = 3;
+		constexpr uint32 LargestTimeScale = 0xFFF;
 		constexpr int32 FirstDustEffect = 0x2E;
 		constexpr int32 LeaderDust = FirstDustEffect + FWorldMapContext::LeaderSlot;
 		/** How far behind on the trail members 2 and 3 walk. */
@@ -129,7 +145,33 @@ namespace Weltall::WorldMapOps
 			SetStateWord(Context, WorldMapStateLayout::LeaderHeading, Task.Heading);
 		}
 
-		/** The leader's or gear 1's walk: the move, the colliders, the trail and the encounters, the triggers of its list. */
+		/** Analog movement's walk on foot: the share of the walk's pace a light push gives (FullTilt: not slowed). */
+		int32 WalkPace(const FWorldMapContext& Context)
+		{
+			return Context.Stick ? Context.Stick->Pace(FAnalogStick::RunTilt) : FAnalogStick::FullTilt;
+		}
+
+		/** The party's sprites slowed as much as their walk, each one's own time scale kept for RestorePartyPace. */
+		void PaceParty(FWorldMapContext& Context, int32 Pace)
+		{
+			for (int32 Slot = FWorldMapContext::LeaderSlot; Slot < FWorldMapContext::LeaderSlot + PartySize; ++Slot)
+			{
+				FSprite* Sprite = SlotSprite(Context, TaskAt(Context, Slot));
+				if (Sprite == nullptr)
+				{
+					continue;
+				}
+				auto Kept = std::find_if(Context.SlowedSprites.begin(), Context.SlowedSprites.end(), [Slot](const auto& Each) { return Each.first == Slot; });
+				if (Kept == Context.SlowedSprites.end())
+				{
+					Kept = Context.SlowedSprites.insert(Context.SlowedSprites.end(), {Slot, Sprite->TimeScale()});
+				}
+				Sprite->SetTimeScale(static_cast<int32>(std::min<uint32>(Kept->second * FAnalogStick::FullTilt / static_cast<uint32>(Pace), LargestTimeScale)));
+			}
+			Context.bPartyPaced = true;
+		}
+
+		/** The leader's walk: the move, the colliders, the trail and the encounters, the triggers of its list. */
 		void WalkControlled(FWorldMapContext& Context, FWorldMapTask& Task, int32 Dust, int32 Radius, int32 Height, int32 List)
 		{
 			if (Task.Direction.X == 0 && Task.Direction.Y == 0 && Task.Direction.Z == 0)
@@ -148,7 +190,12 @@ namespace Weltall::WorldMapOps
 				}
 				UpdateDust(Context, Dust, Task);
 			}
-			const int32 Speed = Task.Speed << 12;
+			const int32 Pace = WalkPace(Context);
+			if (Pace != FAnalogStick::FullTilt)
+			{
+				PaceParty(Context, Pace);
+			}
+			const int32 Speed = static_cast<int32>(int64{Task.Speed << 12} * Pace / FAnalogStick::FullTilt);
 			FWorldMapVector& Out = Context.MoveResult;
 			bool bFree = MoveOnWorldMapGround(Context.Ground, Task.Position, Task.Direction, Out, Speed, Context.TravelMode);
 			if (!bFree)

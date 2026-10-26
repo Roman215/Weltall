@@ -82,6 +82,20 @@ namespace
 	}
 }
 
+TEST_CASE("Powered on, the French translation shows its translators' picture then the opening movie", "[Game][Content]")
+{
+	REQUIRE_PATCHED_DISC(Disc, EDiscRelease::UsaDisc1);
+	auto Game = Testing::FGameLoopSession::Start(*Disc);
+	Game->PowerOn();
+	FGameLoop& Loop = *Game->Loop;
+	REQUIRE(Loop.Stage() == EGameLoopStage::Boot);
+	REQUIRE(Loop.Notice() != nullptr);
+	CHECK(Loop.Notice()->Vblanks() == 361);
+	Game->RunUntil([&] { return Loop.Stage() != EGameLoopStage::Boot; }, 400);
+	CHECK(Game->Vblanks == 1 + 361);
+	CHECK(Loop.Program() == EGameProgram::Movie);
+}
+
 TEST_CASE("Powered on the game shows its notice then the opening movie then the title's map", "[Game][Content]")
 {
 	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
@@ -91,8 +105,9 @@ TEST_CASE("Powered on the game shows its notice then the opening movie then the 
 	REQUIRE(Loop.Stage() == EGameLoopStage::Boot);
 	REQUIRE(Loop.Notice() != nullptr);
 	// The pad read once, then the notice's 143 vertical blanks.
+	CHECK(Loop.Notice()->Vblanks() == 143);
 	Game->RunUntil([&] { return Loop.Stage() != EGameLoopStage::Boot; }, 200);
-	CHECK(Game->Vblanks == 1 + FBootNotice::Vblanks);
+	CHECK(Game->Vblanks == 1 + 143);
 	REQUIRE(Loop.Program() == EGameProgram::Movie);
 	REQUIRE(Loop.Movie() != nullptr);
 	REQUIRE(Loop.Movie()->Player() != nullptr);

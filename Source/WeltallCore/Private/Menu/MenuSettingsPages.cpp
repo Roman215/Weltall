@@ -336,7 +336,14 @@ namespace Weltall
 				return Notice;
 			}
 			case PerfectWorks::Enabled:
-				return Shown(Words::Enabled, OnOff(Mod.bEnabled));
+			{
+				FSettingsRow Enabled = Shown(Words::Enabled, OnOff(Mod.bEnabled));
+				if (Context.bDiscsPicked)
+				{
+					Enabled.Help = Text::Fill(Words::EnabledPicked);
+				}
+				return Enabled;
+			}
 			case PerfectWorks::Story:
 				return Heading(Words::Story);
 			case PerfectWorks::Script:
@@ -366,7 +373,7 @@ namespace Weltall
 			}
 		}
 		case ESettingsPage::Sound:
-			return SoundPage::Row(Row, Settings, Context.Sound);
+			return SoundPage::Row(Row, Settings, Context.Sound, Context.bDiscsPicked);
 		case ESettingsPage::Camera:
 			switch (Row)
 			{

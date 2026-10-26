@@ -21,6 +21,8 @@
 #include <array>
 #include <cstdlib>
 #include <memory>
+#include <utility>
+#include <vector>
 
 using namespace Weltall;
 
@@ -547,6 +549,31 @@ TEST_CASE("The battle HUD's button pictures are shown as the player's controller
 		CHECK(List.Primitives[Cell].Corners[0].V == Original.Primitives[Shown].Corners[0].V);
 	}
 	CHECK(List.Primitives[Pressed].Texture->Vram == FMenuButtonIcons::PicturesVram);
+
+	// The prompt's words go with the button of the command they name (cancel's with the circle), and the Japanese layout
+	// sets each button out with its words at its symbol's place on the pad, as the Japanese release draws them.
+	const auto Find = [](const std::vector<FMenuPrimitive>& Primitives, uint16 Role, bool bWords) {
+		const auto Found = std::find_if(Primitives.begin(), Primitives.end(), [Role, bWords](const FMenuPrimitive& Primitive) {
+			return Primitive.PromptRole == Role && (bWords ? Primitive.ButtonRole == 0 : Primitive.ButtonRole == Role && Primitive.ButtonSlot == EMenuIconSlot::FaceButton);
+		});
+		REQUIRE(Found != Primitives.end());
+		return std::pair{Found->Corners[0].X, Found->Corners[0].Y};
+	};
+	std::vector<FMenuPrimitive> Placed = Kept.Primitives;
+	Pictures.PlacePrompt(Placed, Japan);
+	for (const auto& [Role, Place] : {std::pair<uint16, uint16>{0x80, 0x10}, {0x10, 0x80}, {0x20, 0x40}, {0x40, 0x20}})
+	{
+		INFO("role " << Role);
+		const auto [ButtonX, ButtonY] = Find(Kept.Primitives, Role, false);
+		const auto [WordsX, WordsY] = Find(Kept.Primitives, Role, true);
+		const auto [PlaceX, PlaceY] = Find(Kept.Primitives, Place, false);
+		CHECK(Find(Placed, Role, false) == std::pair{PlaceX, PlaceY});
+		CHECK(Find(Placed, Role, true) == std::pair{static_cast<int16>(WordsX + PlaceX - ButtonX), static_cast<int16>(WordsY + PlaceY - ButtonY)});
+	}
+	// A PlayStation pad with confirm and cancel swapped by the player: the fierce attack at the circle's place.
+	Placed = Kept.Primitives;
+	Pictures.PlacePrompt(Placed, PlayStation);
+	CHECK(Find(Placed, 0x20, false) == Find(Kept.Primitives, 0x40, false));
 }
 
 TEST_CASE("A scripted battle's message is typed in its window by the game's HUD and goes on at the player's button", "[Battle][Content]")

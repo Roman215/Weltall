@@ -2,11 +2,13 @@
 
 #include "Battle/BattleContext.h"
 #include "Battle/BattleProgram.h"
+#include "Battle/Show/BattleHudButtons.h"
 #include "Battle/Show/BattleHudGpu.h"
 #include "Formats/SectionContainer.h"
 #include "Formats/Tim.h"
 #include "Formats/VramImageList.h"
 #include "Foundation/LittleEndian.h"
+#include "Foundation/Sha1.h"
 #include "Graphics/TextureRegion.h"
 #include "Media/GameFileIndex.h"
 #include "Media/PsxExecutable.h"
@@ -17,15 +19,20 @@
 #include <algorithm>
 #include <memory>
 #include <optional>
+#include <string_view>
 #include <utility>
 
 namespace Weltall
 {
+	using namespace BattleHudButtons;
 	using namespace BattleHudGpu;
 
 	namespace
 	{
 		constexpr uint32 SheetSection = 1;
+		/** The French translation's Battle program (unpacked) and result program (as the disc holds it), by their SHA-1. */
+		constexpr std::string_view FrenchProgram = "ff6e9fc59534f6867e183db0faf3981cb28695e7";
+		constexpr std::string_view FrenchResultProgram = "21bbc471a6e4d41f8c71ed7090f5ab8d6e8ca0e8";
 		constexpr uint32 ImagesSection = 2;
 		constexpr uint32 PortraitsSection = 0x24;
 		constexpr uint32 MessagesSection = 0x26;
@@ -232,51 +239,6 @@ namespace Weltall
 			return true;
 		}
 
-		/** A sheet frame that pictures a button: the logical button (0 for any other frame) and the picture's shape. */
-		struct FHudButton
-		{
-			uint16 Role = 0;
-			EMenuIconSlot Slot = EMenuIconSlot::FaceButton;
-		};
-
-		/**
-		 * The button a sheet frame pictures, for the player's bindings: the command ring's four face buttons
-		 * (Bh-Eh, dimmed 46h-49h), the attack buttons pressed (5Dh-5Fh) and the Deathblow hints' clusters with one button
-		 * lit (7-9). The pictures are the US release's physical buttons; the roles are the logical ones behind them.
-		 */
-		FHudButton HudButton(int32 Frame)
-		{
-			switch (Frame)
-			{
-			case 0x0B:
-			case 0x46:
-				return {0x40, EMenuIconSlot::FaceButton};
-			case 0x0C:
-			case 0x47:
-				return {0x20, EMenuIconSlot::FaceButton};
-			case 0x0D:
-			case 0x48:
-				return {0x10, EMenuIconSlot::FaceButton};
-			case 0x0E:
-			case 0x49:
-				return {0x80, EMenuIconSlot::FaceButton};
-			case 0x5D:
-				return {0x20, EMenuIconSlot::Symbol};
-			case 0x5E:
-				return {0x80, EMenuIconSlot::Symbol};
-			case 0x5F:
-				return {0x10, EMenuIconSlot::Symbol};
-			case 0x07:
-				return {0x20, EMenuIconSlot::Cluster};
-			case 0x08:
-				return {0x80, EMenuIconSlot::Cluster};
-			case 0x09:
-				return {0x10, EMenuIconSlot::Cluster};
-			default:
-				return {};
-			}
-		}
-
 		/** A text image as the battle allocates one for Units units: three more units of pitch, 13 rows. */
 		FVramImage TextImage(std::size_t Units)
 		{
@@ -321,7 +283,54 @@ namespace Weltall
 		{
 			return MakeError("the Battle program is too short to hold the result screen's tables");
 		}
+		if (FSha1::ToHex(FSha1::Hash(Program)) == FrenchProgram)
+		{
+			Tables.Places = FBattleHudPlaces::French();
+		}
 		return Tables;
+	}
+
+	FBattleHudPlaces FBattleHudPlaces::French()
+	{
+		FBattleHudPlaces Places;
+		Places.MessageWindowY = 0xC4;
+		Places.MessageBoxY = 0xC6;
+		Places.ItemCursorY = 0x61;
+		Places.ItemCellsX = 0x32;
+		Places.ItemCellsBeyondX = 0x9A;
+		Places.ItemTargetsX = 0xD3;
+		Places.EtherCursorY = 0x37;
+		Places.EtherCostX = 0x24;
+		Places.EtherKindX = 0xD8;
+		Places.EtherTargetsX = 0x103;
+		Places.SpecialCursorX = 0x97;
+		Places.SpecialCursorY = 0x57;
+		Places.SpecialListX = 0xA0;
+		Places.SpecialListRightX = 0x108;
+		Places.SpecialCostX = 0x88;
+		Places.SpecialTargetsX = 0x4F;
+		Places.SpecialHelpX = 0x94;
+		Places.ComboTensY = 0x3C;
+		Places.ComboUnitsY = 0x3C;
+		Places.EtherWindows[2][2] = 0x5E;
+		Places.SpecialWindows[0][0] = 0x80;
+		Places.SpecialWindows[1][0] = 0x90;
+		Places.SpecialWindows[2][2] = 0x5E;
+		return Places;
+	}
+
+	FBattleResultPlaces FBattleResultPlaces::French()
+	{
+		FBattleResultPlaces Places;
+		Places.OldMaxHpX = 0xC0;
+		Places.OldMaxEpX = 0xC8;
+		Places.ChangeSignX = 0xE0;
+		Places.ChangeDigitsX = 0xE8;
+		Places.BarX = 0x80;
+		Places.FallBarX = 0x80;
+		Places.StatValueX = 0xC0;
+		Places.LearnedLabelX = 0x55;
+		return Places;
 	}
 
 	TResult<FBattleHudResources> FBattleHudResources::Parse(std::span<const uint8> Data, std::span<const uint8> Program, std::span<const uint16, 32> TextClut)
@@ -447,6 +456,16 @@ namespace Weltall
 		if (std::optional<FError> Error = Resources->ParseResult(*ResultBytes))
 		{
 			return *Error;
+		}
+		if (const FIndexRecord* ProgramRecord = Index.Find(ResultProgramDirectory, ResultProgramFile))
+		{
+			const TResult<std::vector<uint8>> ResultProgram = ReadFileSectors(Image, *ProgramRecord);
+			const std::size_t Size = static_cast<std::size_t>(ProgramRecord->Size);
+			if (ResultProgram && ResultProgram->size() >= Size
+				&& FSha1::ToHex(FSha1::Hash(std::span<const uint8>(*ResultProgram).first(Size))) == FrenchResultProgram)
+			{
+				Resources->ResultPlaces = FBattleResultPlaces::French();
+			}
 		}
 		const std::array<std::pair<std::string_view, std::vector<uint8>*>, 5> Tables = {{
 			{MessageTables::Battle, &Resources->Messages},

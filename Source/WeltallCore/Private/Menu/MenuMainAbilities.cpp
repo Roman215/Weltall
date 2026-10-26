@@ -160,7 +160,8 @@ namespace Weltall
 				OpenWindow(5, 0x0C, 0x86, 0xAC, 0x38, false, true, PiecesEntry, false);
 				OpenWindow(4, static_cast<int16>(Tables.AbilityPointsX[Kinded]), 0xA6, static_cast<uint16>(Tables.AbilityPointsWidth[Kinded]), 0x18, false, true,
 					PiecesEntry, false);
-				OpenWindow(3, 200, 0x86, 0x50, 0x18, false, true, PiecesEntry, false);
+				// 16 pixels wider in the French translation's program, for its longer word.
+				OpenWindow(3, 200, 0x86, Resources.IsFrench() ? 0x60 : 0x50, 0x18, false, true, PiecesEntry, false);
 				bFirst = false;
 				if (bFromArc)
 				{

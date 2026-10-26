@@ -45,17 +45,51 @@ namespace Weltall
 		/** The lead byte from which codes take a second byte. */
 		uint8 LeadByte() const { return SecondPageLead; }
 
-		/** How far the text advances after a glyph, in units of 4 pixels: 2 for the narrow ones, 3 for the rest. */
+		/** The code of the font's first glyph (its header's). */
+		uint32 FirstGlyphCode() const { return FirstCode; }
+
+		/**
+		 * How far the text advances after a glyph, in the font's units (UnitPixels): 2 for the narrow ones, 3 for the rest;
+		 * a variable-width font's pixels.
+		 */
 		WELTALLCORE_API int32 WidthUnits(FMesCode Code) const;
 
 		/** Code's glyph advances Units from now on, whatever the game's rule gives it (a font sheet's width). */
 		WELTALLCORE_API void SetWidthUnits(FMesCode Code, int32 Units);
+
+		/**
+		 * The French translation's font, which its program types at any pixel: each code's advance in pixels, as its table
+		 * gives it to the code's last byte (a two-byte code's lead is not looked at). Its glyphs are then drawn with a drop
+		 * shadow (DrawMesGlyph), and a window's cursor and its lines' widths count pixels.
+		 */
+		WELTALLCORE_API void SetVariableWidths(const std::array<uint8, 256>& Pixels);
+		/**
+		 * The same, with the widths its glyph drawing takes, which differ below the first code: it looks them up 64 KB
+		 * past the table (the code's distance from the first taken as 16 bits), its typing just before it.
+		 */
+		WELTALLCORE_API void SetVariableWidths(const std::array<uint8, 256>& Pixels, const std::array<uint8, 256>& DrawnPixels);
+
+		/** The width a variable-width glyph is drawn with (its first page's code). */
+		int32 VariableDrawWidth(uint8 Code) const { return VariableDrawWidths[Code]; }
+
+		bool IsVariableWidth() const { return bVariableWidth; }
+
+		/** The pixels in a unit of WidthUnits, of a window's cursor and of its lines' widths: 4, or 1 for a variable-width font. */
+		int32 UnitPixels() const { return bVariableWidth ? 1 : 4; }
+
+		/** Where the kernel puts a window's "more" arrow after its text, in pixels from its x: the cursor X × 4, or X + 4 for a variable-width font. */
+		int32 CursorPixels(int32 X) const { return bVariableWidth ? X + 4 : X * 4; }
 
 		/** The glyph's cell; empty for a code the font does not hold. */
 		WELTALLCORE_API FCell Cell(FMesCode Code) const;
 
 		/** The glyph's pixels; none for a code the font does not hold. */
 		WELTALLCORE_API std::optional<FGlyphRows> Rows(FMesCode Code) const;
+		/**
+		 * A first-page code's rows as the variable-width program reads them, 22 bytes a code counted back from the first
+		 * glyph: below it the font file's header, then nothing (zeros; on a console what lies before the font).
+		 */
+		WELTALLCORE_API FGlyphRows VariableWidthRows(uint8 Code) const;
 
 		/** Draws Rows for Code's glyph from now on; false (changing nothing) for a code the font does not hold. */
 		WELTALLCORE_API bool SetRows(FMesCode Code, const FGlyphRows& Rows);
@@ -72,6 +106,8 @@ namespace Weltall
 		std::optional<std::span<const uint8>> GlyphOf(FMesCode Code) const;
 
 		std::vector<uint8> Glyphs;
+		/** The file's bytes before its glyphs. */
+		std::vector<uint8> Header;
 		std::array<uint8, GlyphBytes> Box{};
 		uint8 SecondPageLead = 0;
 		uint32 SecondPageOffset = 0;
@@ -82,5 +118,8 @@ namespace Weltall
 		uint8 DrawnFaceButtons = 0;
 		/** The glyphs a font sheet gives widths of their own, by their code's lead << 8 | code. */
 		std::unordered_map<uint16, int32> OwnWidths;
+		bool bVariableWidth = false;
+		std::array<uint8, 256> VariableWidths{};
+		std::array<uint8, 256> VariableDrawWidths{};
 	};
 }

@@ -146,7 +146,7 @@ namespace Weltall
 			if (Glyph.Last < 0)
 			{
 				// A space keeps the font's advance.
-				Width += Font.WidthUnits(Code) * 4;
+				Width += Font.WidthUnits(Code) * Font.UnitPixels();
 				bInked = false;
 				continue;
 			}

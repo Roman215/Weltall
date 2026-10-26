@@ -1,0 +1,1228 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- The player's files brought into the game and out of it through Android's own file picker (UDeviceFilesSubsystem). -->
+<root xmlns:android="http://schemas.android.com/apk/res/android">
+	<gameActivityImportAdditions>
+		<insert>
+<![CDATA[
+import android.database.Cursor;
+import android.provider.DocumentsContract;
+import android.provider.OpenableColumns;
+import java.io.Closeable;
+import java.io.FilterInputStream;
+import java.nio.charset.StandardCharsets;
+import java.util.HashSet;
+import java.util.Locale;
+import java.util.concurrent.atomic.AtomicInteger;
+import java.util.concurrent.atomic.AtomicLong;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipInputStream;
+import java.util.zip.ZipOutputStream;
+]]>
+		</insert>
+	</gameActivityImportAdditions>
+
+	<gameActivityClassAdditions>
+		<insert>
+<![CDATA[
+	// The transfers, their states and why one failed, as UDeviceFilesSubsystem numbers them.
+	private static final int WELTALL_FILES_REQUEST = 0x5701;
+	private static final int WELTALL_DISCS = 0, WELTALL_BACK_UP = 1, WELTALL_RESTORE = 2, WELTALL_LOG = 3, WELTALL_IMPORT_FILE = 4, WELTALL_CARD_IMAGE = 5,
+		WELTALL_MOD_ZIP = 6, WELTALL_MOD_FOLDER = 7, WELTALL_DISC_FOLDER = 8;
+	private static final int WELTALL_COPYING = 2, WELTALL_DONE = 3, WELTALL_CANCELLED = 4, WELTALL_FAILED = 5;
+	private static final int WELTALL_NO_ROOM = 1, WELTALL_UNREADABLE = 2, WELTALL_UNWRITABLE = 3, WELTALL_NOT_A_BACKUP = 4, WELTALL_NO_PICKER = 5,
+		WELTALL_NOT_A_MOD = 6, WELTALL_NOT_A_ZIP = 7, WELTALL_NO_DISC_IMAGES = 8;
+	/** A backup's save, after the folder the saves were zipped in, if any. */
+	private static final Pattern WELTALL_SAVE = Pattern.compile("(.*/)?Card[1-8]/No[0-9][0-9]\\.sav");
+
+	private int weltallFilesKind = WELTALL_DISCS;
+	private String weltallFilesPath = "";
+
+	public native void nativeWeltallFiles(int state, int failure, String name, int file, int files, long copied, long total, String detail);
+
+	/** Opens the picker for a transfer: the folder files picked go into or come from, or the file copied out, and the name offered. */
+	public void AndroidThunkJava_WeltallFiles(final int kind, final String path, final String title)
+	{
+		weltallFilesKind = kind;
+		weltallFilesPath = path;
+		runOnUiThread(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				boolean bZip = kind == WELTALL_BACK_UP || kind == WELTALL_LOG;
+				boolean bOut = bZip || kind == WELTALL_CARD_IMAGE;
+				Intent intent;
+				if (kind == WELTALL_MOD_FOLDER || kind == WELTALL_DISC_FOLDER)
+				{
+					intent = new Intent(Intent.ACTION_OPEN_DOCUMENT_TREE);
+				}
+				else
+				{
+					intent = new Intent(bOut ? Intent.ACTION_CREATE_DOCUMENT : Intent.ACTION_OPEN_DOCUMENT);
+					intent.addCategory(Intent.CATEGORY_OPENABLE);
+					// A card image keeps the name offered: a type of its own would add its extension. A mod's zip may be any
+					// file, so that a 7z picked is told to be unpacked first rather than shown greyed out.
+					intent.setType(bZip ? "application/zip" : bOut ? "application/octet-stream" : "*/*");
+				}
+				if (bOut)
+				{
+					intent.putExtra(Intent.EXTRA_TITLE, title);
+				}
+				if (kind == WELTALL_DISCS)
+				{
+					intent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true);
+				}
+				try
+				{
+					startActivityForResult(intent, WELTALL_FILES_REQUEST);
+				}
+				catch (ActivityNotFoundException e)
+				{
+					nativeWeltallFiles(WELTALL_FAILED, WELTALL_NO_PICKER, "", 0, 0, 0, 0, e.toString());
+				}
+			}
+		});
+	}
+
+	/** Why a transfer stopped, and the file it names. */
+	private static class WeltallFilesFailure extends Exception
+	{
+		final int reason;
+		final String name;
+
+		WeltallFilesFailure(int reason, String name, Exception cause)
+		{
+			super(cause);
+			this.reason = reason;
+			this.name = name;
+		}
+	}
+
+	private static WeltallFilesFailure weltallFailure(int reason, String name, Exception cause)
+	{
+		String message = String.valueOf(cause.getMessage());
+		boolean bFull = message.contains("ENOSPC") || message.contains("No space left");
+		return new WeltallFilesFailure(bFull ? WELTALL_NO_ROOM : reason, name, cause);
+	}
+
+	private static void weltallClose(Closeable closed)
+	{
+		try
+		{
+			if (closed != null)
+			{
+				closed.close();
+			}
+		}
+		catch (IOException e)
+		{
+		}
+	}
+
+	private void weltallFilesPicked(int resultCode, Intent data)
+	{
+		final int kind = weltallFilesKind;
+		final String path = weltallFilesPath;
+		final ArrayList<Uri> picked = new ArrayList<Uri>();
+		if (resultCode == RESULT_OK && data != null)
+		{
+			ClipData clip = data.getClipData();
+			if (clip != null)
+			{
+				for (int item = 0; item < clip.getItemCount(); item++)
+				{
+					picked.add(clip.getItemAt(item).getUri());
+				}
+			}
+			else if (data.getData() != null)
+			{
+				picked.add(data.getData());
+			}
+		}
+		if (picked.isEmpty())
+		{
+			nativeWeltallFiles(WELTALL_CANCELLED, 0, "", 0, 0, 0, 0, "");
+			return;
+		}
+		new Thread(new Runnable()
+		{
+			@Override
+			public void run()
+			{
+				weltallTransfer(kind, path, picked);
+			}
+		}, "WeltallFiles").start();
+	}
+
+	private void weltallTransfer(int kind, String path, ArrayList<Uri> picked)
+	{
+		try
+		{
+			switch (kind)
+			{
+			case WELTALL_DISCS:
+			case WELTALL_IMPORT_FILE:
+				weltallCopyIn(path, picked);
+				break;
+			case WELTALL_BACK_UP:
+			case WELTALL_LOG:
+				weltallBackUp(path, picked.get(0));
+				break;
+			case WELTALL_RESTORE:
+				weltallRestore(path, picked.get(0));
+				break;
+			case WELTALL_MOD_ZIP:
+				weltallUnzipMod(path, picked.get(0));
+				break;
+			case WELTALL_MOD_FOLDER:
+				weltallCopyTree(path, picked.get(0), false);
+				break;
+			case WELTALL_DISC_FOLDER:
+				weltallCopyTree(path, picked.get(0), true);
+				break;
+			default:
+				weltallCopyOut(path, picked.get(0));
+				break;
+			}
+		}
+		catch (WeltallFilesFailure failure)
+		{
+			nativeWeltallFiles(WELTALL_FAILED, failure.reason, failure.name, 0, 0, 0, 0, String.valueOf(failure.getCause()));
+		}
+		catch (RuntimeException e)
+		{
+			nativeWeltallFiles(WELTALL_FAILED, WELTALL_UNREADABLE, weltallDisplayName(picked.get(0)), 0, 0, 0, 0, e.toString());
+		}
+	}
+
+	/** The name the picker shows for a file, slashes made safe for a file's name. */
+	private String weltallDisplayName(Uri file)
+	{
+		try (Cursor cursor = getContentResolver().query(file, new String[] { OpenableColumns.DISPLAY_NAME }, null, null, null))
+		{
+			if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0))
+			{
+				return cursor.getString(0).replace('/', '_');
+			}
+		}
+		catch (RuntimeException e)
+		{
+		}
+		String last = file.getLastPathSegment();
+		return last != null ? last.replace('/', '_') : "file";
+	}
+
+	private long weltallSize(Uri file)
+	{
+		try (Cursor cursor = getContentResolver().query(file, new String[] { OpenableColumns.SIZE }, null, null, null))
+		{
+			if (cursor != null && cursor.moveToFirst() && !cursor.isNull(0))
+			{
+				return Math.max(cursor.getLong(0), 0);
+			}
+		}
+		catch (RuntimeException e)
+		{
+		}
+		return 0;
+	}
+
+	/** In to Out, told at most ten times a second as part of every file's bytes; the bytes copied so far after it. */
+	private long weltallCopy(InputStream in, OutputStream out, String name, int file, int files, long copied, long total) throws WeltallFilesFailure
+	{
+		byte[] buffer = new byte[1 << 20];
+		long toldAt = 0;
+		while (true)
+		{
+			int read;
+			try
+			{
+				read = in.read(buffer);
+			}
+			catch (IOException e)
+			{
+				throw weltallFailure(WELTALL_UNREADABLE, name, e);
+			}
+			if (read == -1)
+			{
+				return copied;
+			}
+			try
+			{
+				out.write(buffer, 0, read);
+			}
+			catch (IOException e)
+			{
+				throw weltallFailure(WELTALL_UNWRITABLE, name, e);
+			}
+			copied += read;
+			long now = SystemClock.uptimeMillis();
+			if (now - toldAt >= 100)
+			{
+				toldAt = now;
+				nativeWeltallFiles(WELTALL_COPYING, 0, name, file, files, copied, total, "");
+			}
+		}
+	}
+
+	/** Out closed: a file whose last bytes cannot be written is not whole. */
+	private static void weltallFinish(OutputStream out, String name) throws WeltallFilesFailure
+	{
+		try
+		{
+			out.close();
+		}
+		catch (IOException e)
+		{
+			throw weltallFailure(WELTALL_UNWRITABLE, name, e);
+		}
+	}
+
+	private static void weltallMove(File written, File target, String name) throws WeltallFilesFailure
+	{
+		if (!written.renameTo(target))
+		{
+			throw new WeltallFilesFailure(WELTALL_UNWRITABLE, name, new IOException("rename to " + target + " failed"));
+		}
+	}
+
+	/**
+	 * Every file picked copied into Folder under a hidden name (the game skips hidden files), then all put in place
+	 * together: a .cue never shows without the .bin picked with it. A failure leaves none.
+	 */
+	private void weltallCopyIn(String folder, ArrayList<Uri> picked) throws WeltallFilesFailure
+	{
+		File into = new File(folder);
+		into.mkdirs();
+		String[] names = new String[picked.size()];
+		File[] written = new File[picked.size()];
+		long total = 0;
+		for (int file = 0; file < picked.size(); file++)
+		{
+			names[file] = weltallDisplayName(picked.get(file));
+			written[file] = new File(into, "." + names[file] + ".part");
+			total += weltallSize(picked.get(file));
+		}
+		long copied = 0;
+		try
+		{
+			for (int file = 0; file < picked.size(); file++)
+			{
+				String name = names[file];
+				InputStream in = null;
+				OutputStream out = null;
+				try
+				{
+					try
+					{
+						in = getContentResolver().openInputStream(picked.get(file));
+					}
+					catch (Exception e)
+					{
+						throw weltallFailure(WELTALL_UNREADABLE, name, e);
+					}
+					if (in == null)
+					{
+						throw new WeltallFilesFailure(WELTALL_UNREADABLE, name, new IOException("no stream"));
+					}
+					try
+					{
+						out = new FileOutputStream(written[file]);
+					}
+					catch (IOException e)
+					{
+						throw weltallFailure(WELTALL_UNWRITABLE, name, e);
+					}
+					copied = weltallCopy(in, out, name, file + 1, picked.size(), copied, total);
+					OutputStream whole = out;
+					out = null;
+					weltallFinish(whole, name);
+				}
+				finally
+				{
+					weltallClose(in);
+					weltallClose(out);
+				}
+			}
+			for (int file = 0; file < picked.size(); file++)
+			{
+				weltallMove(written[file], new File(into, names[file]), names[file]);
+			}
+		}
+		finally
+		{
+			for (File part : written)
+			{
+				part.delete();
+			}
+		}
+		nativeWeltallFiles(WELTALL_DONE, 0, names[names.length - 1], picked.size(), picked.size(), copied, total, "");
+	}
+
+	/** The file at Path copied to the one the player named. */
+	private void weltallCopyOut(String path, Uri picked) throws WeltallFilesFailure
+	{
+		File source = new File(path);
+		String name = source.getName();
+		InputStream in = null;
+		OutputStream out = null;
+		try
+		{
+			try
+			{
+				in = new FileInputStream(source);
+			}
+			catch (IOException e)
+			{
+				throw weltallFailure(WELTALL_UNREADABLE, name, e);
+			}
+			try
+			{
+				out = getContentResolver().openOutputStream(picked);
+			}
+			catch (Exception e)
+			{
+				throw weltallFailure(WELTALL_UNWRITABLE, name, e);
+			}
+			if (out == null)
+			{
+				throw new WeltallFilesFailure(WELTALL_UNWRITABLE, name, new IOException("no stream"));
+			}
+			long copied = weltallCopy(in, out, name, 1, 1, 0, source.length());
+			try
+			{
+				out.close();
+				out = null;
+			}
+			catch (IOException e)
+			{
+				throw weltallFailure(WELTALL_UNWRITABLE, name, e);
+			}
+			nativeWeltallFiles(WELTALL_DONE, 0, name, 1, 1, copied, copied, "");
+		}
+		finally
+		{
+			weltallClose(in);
+			weltallClose(out);
+		}
+	}
+
+	private static void weltallListFiles(File folder, ArrayList<File> files)
+	{
+		File[] listed = folder.listFiles();
+		if (listed == null)
+		{
+			return;
+		}
+		Arrays.sort(listed);
+		for (File file : listed)
+		{
+			if (file.getName().startsWith("."))
+			{
+				continue;
+			}
+			if (file.isDirectory())
+			{
+				weltallListFiles(file, files);
+			}
+			else
+			{
+				files.add(file);
+			}
+		}
+	}
+
+	/** Every file below Folder (the saves', or the logs') zipped into the one the player named, by its path from Folder. */
+	private void weltallBackUp(String folder, Uri picked) throws WeltallFilesFailure
+	{
+		File root = new File(folder);
+		ArrayList<File> files = new ArrayList<File>();
+		weltallListFiles(root, files);
+		long total = 0;
+		for (File file : files)
+		{
+			total += file.length();
+		}
+		String backup = weltallDisplayName(picked);
+		ZipOutputStream zip = null;
+		long copied = 0;
+		try
+		{
+			try
+			{
+				OutputStream out = getContentResolver().openOutputStream(picked);
+				if (out == null)
+				{
+					throw new IOException("no stream");
+				}
+				zip = new ZipOutputStream(new BufferedOutputStream(out));
+			}
+			catch (Exception e)
+			{
+				throw weltallFailure(WELTALL_UNWRITABLE, backup, e);
+			}
+			int rootLength = root.getAbsolutePath().length() + 1;
+			for (int file = 0; file < files.size(); file++)
+			{
+				String name = files.get(file).getAbsolutePath().substring(rootLength);
+				InputStream in = null;
+				try
+				{
+					try
+					{
+						in = new FileInputStream(files.get(file));
+					}
+					catch (IOException e)
+					{
+						throw weltallFailure(WELTALL_UNREADABLE, name, e);
+					}
+					try
+					{
+						zip.putNextEntry(new ZipEntry(name));
+					}
+					catch (IOException e)
+					{
+						throw weltallFailure(WELTALL_UNWRITABLE, backup, e);
+					}
+					copied = weltallCopy(in, zip, name, file + 1, files.size(), copied, total);
+					try
+					{
+						zip.closeEntry();
+					}
+					catch (IOException e)
+					{
+						throw weltallFailure(WELTALL_UNWRITABLE, backup, e);
+					}
+				}
+				finally
+				{
+					weltallClose(in);
+				}
+			}
+			try
+			{
+				zip.close();
+				zip = null;
+			}
+			catch (IOException e)
+			{
+				throw weltallFailure(WELTALL_UNWRITABLE, backup, e);
+			}
+		}
+		finally
+		{
+			weltallClose(zip);
+		}
+		nativeWeltallFiles(WELTALL_DONE, 0, backup, files.size(), files.size(), copied, total, "");
+	}
+
+	private ZipInputStream weltallOpenZip(Uri picked, String name) throws WeltallFilesFailure
+	{
+		try
+		{
+			InputStream in = getContentResolver().openInputStream(picked);
+			if (in == null)
+			{
+				throw new IOException("no stream");
+			}
+			return new ZipInputStream(new BufferedInputStream(in));
+		}
+		catch (Exception e)
+		{
+			throw weltallFailure(WELTALL_UNREADABLE, name, e);
+		}
+	}
+
+	private static ZipEntry weltallNextEntry(ZipInputStream zip, String name) throws WeltallFilesFailure
+	{
+		try
+		{
+			return zip.getNextEntry();
+		}
+		catch (IOException e)
+		{
+			throw new WeltallFilesFailure(WELTALL_NOT_A_BACKUP, name, e);
+		}
+	}
+
+	/** A name that stays inside the folder it is written into. */
+	private static boolean weltallSafeName(String name)
+	{
+		if (name.isEmpty() || name.startsWith("/") || name.contains("\\"))
+		{
+			return false;
+		}
+		for (String part : name.split("/", -1))
+		{
+			if (part.isEmpty() || part.equals(".") || part.equals(".."))
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
+	/**
+	 * A backup's files put in place of those of the same names below Folder: read through first, every name safe and one
+	 * a save, or nothing is written. A backup zipped with its folder (Saves/Card1/No01.sav) gives that folder's files.
+	 */
+	private void weltallRestore(String folder, Uri picked) throws WeltallFilesFailure
+	{
+		String backup = weltallDisplayName(picked);
+		String within = null;
+		ArrayList<String> names = new ArrayList<String>();
+		ArrayList<Long> sizes = new ArrayList<Long>();
+		byte[] buffer = new byte[1 << 16];
+		ZipInputStream zip = weltallOpenZip(picked, backup);
+		try
+		{
+			ZipEntry entry;
+			while ((entry = weltallNextEntry(zip, backup)) != null)
+			{
+				if (entry.isDirectory())
+				{
+					continue;
+				}
+				if (!weltallSafeName(entry.getName()))
+				{
+					throw new WeltallFilesFailure(WELTALL_NOT_A_BACKUP, backup, new IOException("unsafe entry " + entry.getName()));
+				}
+				Matcher save = WELTALL_SAVE.matcher(entry.getName());
+				if (within == null && save.matches())
+				{
+					within = save.group(1) != null ? save.group(1) : "";
+				}
+				long size = 0;
+				try
+				{
+					int read;
+					while ((read = zip.read(buffer)) != -1)
+					{
+						size += read;
+					}
+				}
+				catch (IOException e)
+				{
+					throw new WeltallFilesFailure(WELTALL_NOT_A_BACKUP, backup, e);
+				}
+				names.add(entry.getName());
+				sizes.add(size);
+			}
+		}
+		finally
+		{
+			weltallClose(zip);
+		}
+		if (within == null)
+		{
+			throw new WeltallFilesFailure(WELTALL_NOT_A_BACKUP, backup, new IOException("no saves"));
+		}
+		int count = 0;
+		long total = 0;
+		for (int entry = 0; entry < names.size(); entry++)
+		{
+			if (names.get(entry).startsWith(within))
+			{
+				count++;
+				total += sizes.get(entry);
+			}
+		}
+		File root = new File(folder);
+		long copied = 0;
+		int file = 0;
+		zip = weltallOpenZip(picked, backup);
+		try
+		{
+			ZipEntry entry;
+			while ((entry = weltallNextEntry(zip, backup)) != null)
+			{
+				// The names were checked as the backup was read through; a file changed since is checked again.
+				if (entry.isDirectory() || !entry.getName().startsWith(within) || !weltallSafeName(entry.getName()))
+				{
+					continue;
+				}
+				String name = entry.getName().substring(within.length());
+				File target = new File(root, name);
+				target.getParentFile().mkdirs();
+				File written = new File(target.getParentFile(), "." + target.getName() + ".part");
+				OutputStream out = null;
+				try
+				{
+					try
+					{
+						out = new FileOutputStream(written);
+					}
+					catch (IOException e)
+					{
+						throw weltallFailure(WELTALL_UNWRITABLE, name, e);
+					}
+					copied = weltallCopy(zip, out, name, ++file, count, copied, total);
+					OutputStream whole = out;
+					out = null;
+					weltallFinish(whole, name);
+					weltallMove(written, target, name);
+				}
+				finally
+				{
+					weltallClose(out);
+					written.delete();
+				}
+			}
+		}
+		finally
+		{
+			weltallClose(zip);
+		}
+		nativeWeltallFiles(WELTALL_DONE, 0, backup, file, file, copied, total, "");
+	}
+
+	/** A stream's bytes read so far: how far into a zip its unpacking is. */
+	private static class WeltallCountingStream extends FilterInputStream
+	{
+		long count;
+
+		WeltallCountingStream(InputStream in)
+		{
+			super(in);
+		}
+
+		@Override
+		public int read() throws IOException
+		{
+			int read = super.read();
+			count += read >= 0 ? 1 : 0;
+			return read;
+		}
+
+		@Override
+		public int read(byte[] buffer, int offset, int length) throws IOException
+		{
+			int read = super.read(buffer, offset, length);
+			count += Math.max(read, 0);
+			return read;
+		}
+
+		@Override
+		public long skip(long bytes) throws IOException
+		{
+			long skipped = super.skip(bytes);
+			count += Math.max(skipped, 0);
+			return skipped;
+		}
+	}
+
+	/** Folder and everything in it deleted. */
+	private static void weltallDeleteTree(File folder)
+	{
+		File[] inside = folder.listFiles();
+		if (inside != null)
+		{
+			for (File file : inside)
+			{
+				if (file.isDirectory())
+				{
+					weltallDeleteTree(file);
+				}
+				file.delete();
+			}
+		}
+		folder.delete();
+	}
+
+	/** A name some part of which is hidden (macOS's companions among them), which the game never reads. */
+	private static boolean weltallHidden(String name)
+	{
+		for (String part : name.split("/"))
+		{
+			if (part.startsWith("."))
+			{
+				return true;
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Every file of a zip picked unpacked into Folder (emptied first) by its path there, hidden ones left out, for the
+	 * game to add as the mod or pack it holds. A file that is no zip, or an entry whose name would leave the folder, adds
+	 * nothing. Its progress is how much of the zip is read.
+	 */
+	private void weltallUnzipMod(String folder, Uri picked) throws WeltallFilesFailure
+	{
+		String zipName = weltallDisplayName(picked);
+		long total = weltallSize(picked);
+		File into = new File(folder);
+		weltallDeleteTree(into);
+		into.mkdirs();
+		WeltallCountingStream counted;
+		ZipInputStream zip;
+		try
+		{
+			InputStream in = getContentResolver().openInputStream(picked);
+			if (in == null)
+			{
+				throw new IOException("no stream");
+			}
+			counted = new WeltallCountingStream(new BufferedInputStream(in));
+			zip = new ZipInputStream(counted);
+		}
+		catch (Exception e)
+		{
+			throw weltallFailure(WELTALL_UNREADABLE, zipName, e);
+		}
+		int entries = 0;
+		int files = 0;
+		byte[] buffer = new byte[1 << 16];
+		long toldAt = 0;
+		try
+		{
+			while (true)
+			{
+				ZipEntry entry;
+				try
+				{
+					entry = zip.getNextEntry();
+				}
+				catch (IOException e)
+				{
+					throw new WeltallFilesFailure(entries == 0 ? WELTALL_NOT_A_ZIP : WELTALL_UNREADABLE, zipName, e);
+				}
+				if (entry == null)
+				{
+					break;
+				}
+				entries++;
+				String name = entry.getName();
+				if (entry.isDirectory() || weltallHidden(name))
+				{
+					continue;
+				}
+				if (!weltallSafeName(name))
+				{
+					throw new WeltallFilesFailure(WELTALL_NOT_A_MOD, zipName, new IOException("unsafe entry " + name));
+				}
+				File target = new File(into, name);
+				target.getParentFile().mkdirs();
+				OutputStream out = null;
+				try
+				{
+					try
+					{
+						out = new FileOutputStream(target);
+					}
+					catch (IOException e)
+					{
+						throw weltallFailure(WELTALL_UNWRITABLE, target.getName(), e);
+					}
+					while (true)
+					{
+						int read;
+						try
+						{
+							read = zip.read(buffer);
+						}
+						catch (IOException e)
+						{
+							throw weltallFailure(WELTALL_UNREADABLE, zipName, e);
+						}
+						if (read == -1)
+						{
+							break;
+						}
+						try
+						{
+							out.write(buffer, 0, read);
+						}
+						catch (IOException e)
+						{
+							throw weltallFailure(WELTALL_UNWRITABLE, target.getName(), e);
+						}
+						long now = SystemClock.uptimeMillis();
+						if (now - toldAt >= 100)
+						{
+							toldAt = now;
+							nativeWeltallFiles(WELTALL_COPYING, 0, target.getName(), files + 1, 0, counted.count, total, "");
+						}
+					}
+					OutputStream whole = out;
+					out = null;
+					weltallFinish(whole, target.getName());
+				}
+				finally
+				{
+					weltallClose(out);
+				}
+				files++;
+			}
+		}
+		finally
+		{
+			weltallClose(zip);
+		}
+		if (entries == 0)
+		{
+			throw new WeltallFilesFailure(WELTALL_NOT_A_ZIP, zipName, new IOException("no entries"));
+		}
+		nativeWeltallFiles(WELTALL_DONE, 0, zipName, files, files, total, total, "");
+	}
+
+	/**
+	 * Every file below a picked folder's document Id, by its path from that folder, hidden ones left out; how many are
+	 * found so far told at most ten times a second (ToldAt holds when it last was), as copying with none to copy yet.
+	 */
+	private void weltallListTree(Uri tree, String id, String prefix, ArrayList<String> ids, ArrayList<String> paths, ArrayList<Long> sizes, String treeName,
+		long[] toldAt, HashSet<String> discsThere) throws WeltallFilesFailure
+	{
+		ArrayList<String[]> folders = new ArrayList<String[]>();
+		String[] columns = new String[] { DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+			DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_SIZE };
+		try (Cursor cursor = getContentResolver().query(DocumentsContract.buildChildDocumentsUriUsingTree(tree, id), columns, null, null, null))
+		{
+			while (cursor != null && cursor.moveToNext())
+			{
+				String child = cursor.getString(0);
+				String name = cursor.getString(1);
+				if (child == null || name == null || name.isEmpty() || name.startsWith(".") || name.contains("/"))
+				{
+					continue;
+				}
+				if (DocumentsContract.Document.MIME_TYPE_DIR.equals(cursor.getString(2)))
+				{
+					folders.add(new String[] { child, prefix + name + "/" });
+				}
+				else
+				{
+					long size = cursor.isNull(3) ? 0L : Math.max(cursor.getLong(3), 0L);
+					if (discsThere == null || weltallIsNewDisc(DocumentsContract.buildDocumentUriUsingTree(tree, child), name, size, discsThere))
+					{
+						ids.add(child);
+						paths.add(prefix + name);
+						sizes.add(size);
+					}
+				}
+			}
+		}
+		catch (RuntimeException e)
+		{
+			throw weltallFailure(WELTALL_UNREADABLE, treeName, e);
+		}
+		long now = SystemClock.uptimeMillis();
+		if (now - toldAt[0] >= 100)
+		{
+			toldAt[0] = now;
+			nativeWeltallFiles(WELTALL_COPYING, 0, treeName, ids.size(), 0, 0, 0, "");
+		}
+		for (String[] inner : folders)
+		{
+			weltallListTree(tree, inner[0], inner[1], ids, paths, sizes, treeName, toldAt, discsThere);
+		}
+	}
+
+	/** How many of a picked folder's files are copied at once: Android's document provider takes a while to open each. */
+	private static final int WELTALL_FOLDER_COPIERS = 8;
+
+	/** A picked folder's copy as its copiers share it: the files left, the bytes copied, the last progress told, the first failure. */
+	private static class WeltallTreeCopy
+	{
+		final Uri tree;
+		final File into;
+		final ArrayList<String> ids;
+		final ArrayList<String> paths;
+		final long total;
+		final AtomicInteger next = new AtomicInteger();
+		final AtomicInteger done = new AtomicInteger();
+		final AtomicLong copied = new AtomicLong();
+		final AtomicLong toldAt = new AtomicLong();
+		final AtomicReference<WeltallFilesFailure> failure = new AtomicReference<WeltallFilesFailure>();
+
+		WeltallTreeCopy(Uri tree, File into, ArrayList<String> ids, ArrayList<String> paths, long total)
+		{
+			this.tree = tree;
+			this.into = into;
+			this.ids = ids;
+			this.paths = paths;
+			this.total = total;
+		}
+	}
+
+	/** One file of a picked folder copied to its place, its progress told at most ten times a second among all the copiers'. */
+	private void weltallCopyDocument(WeltallTreeCopy copy, int file, byte[] buffer) throws WeltallFilesFailure
+	{
+		File target = new File(copy.into, copy.paths.get(file));
+		String name = target.getName();
+		InputStream in = null;
+		OutputStream out = null;
+		try
+		{
+			try
+			{
+				in = getContentResolver().openInputStream(DocumentsContract.buildDocumentUriUsingTree(copy.tree, copy.ids.get(file)));
+			}
+			catch (Exception e)
+			{
+				throw weltallFailure(WELTALL_UNREADABLE, name, e);
+			}
+			if (in == null)
+			{
+				throw new WeltallFilesFailure(WELTALL_UNREADABLE, name, new IOException("no stream"));
+			}
+			try
+			{
+				out = new FileOutputStream(target);
+			}
+			catch (IOException e)
+			{
+				throw weltallFailure(WELTALL_UNWRITABLE, name, e);
+			}
+			while (copy.failure.get() == null)
+			{
+				int read;
+				try
+				{
+					read = in.read(buffer);
+				}
+				catch (IOException e)
+				{
+					throw weltallFailure(WELTALL_UNREADABLE, name, e);
+				}
+				if (read == -1)
+				{
+					break;
+				}
+				try
+				{
+					out.write(buffer, 0, read);
+				}
+				catch (IOException e)
+				{
+					throw weltallFailure(WELTALL_UNWRITABLE, name, e);
+				}
+				long copied = copy.copied.addAndGet(read);
+				long now = SystemClock.uptimeMillis();
+				long told = copy.toldAt.get();
+				if (now - told >= 100 && copy.toldAt.compareAndSet(told, now))
+				{
+					nativeWeltallFiles(WELTALL_COPYING, 0, name, copy.done.get() + 1, copy.ids.size(), copied, copy.total, "");
+				}
+			}
+			OutputStream whole = out;
+			out = null;
+			weltallFinish(whole, name);
+			copy.done.incrementAndGet();
+		}
+		finally
+		{
+			weltallClose(in);
+			weltallClose(out);
+		}
+	}
+
+	/** A file the Games folder already holds, as the picked ones are matched against it: its name, any case, and its size. */
+	private static String weltallDiscKey(String name, long size)
+	{
+		return name.toLowerCase(Locale.ROOT) + "\n" + size;
+	}
+
+	/** Every file below Folder (the Games folder), hidden ones left out, by its key. */
+	private static void weltallListDiscsThere(File folder, HashSet<String> found)
+	{
+		File[] listed = folder.listFiles();
+		if (listed == null)
+		{
+			return;
+		}
+		for (File file : listed)
+		{
+			if (file.getName().startsWith("."))
+			{
+				continue;
+			}
+			if (file.isDirectory())
+			{
+				weltallListDiscsThere(file, found);
+			}
+			else
+			{
+				found.add(weltallDiscKey(file.getName(), file.length()));
+			}
+		}
+	}
+
+	/**
+	 * A disc image picked that the Games folder does not hold yet: a .cue sheet, or a .bin, .iso, .img or .chd whose
+	 * first bytes are a CD image's (a raw sector's sync, an ISO's volume descriptor, a CHD's header): mods name other
+	 * files .bin too, Perfect Works its movies.
+	 */
+	private boolean weltallIsNewDisc(Uri file, String name, long size, HashSet<String> discsThere)
+	{
+		String lower = name.toLowerCase(Locale.ROOT);
+		boolean bSheet = lower.endsWith(".cue");
+		boolean bImage = lower.endsWith(".bin") || lower.endsWith(".iso") || lower.endsWith(".img") || lower.endsWith(".chd");
+		if ((!bSheet && !bImage) || (size > 0 && discsThere.contains(weltallDiscKey(name, size))))
+		{
+			return false;
+		}
+		if (bSheet)
+		{
+			return true;
+		}
+		byte[] head = new byte[0x8006];
+		int read = 0;
+		try (InputStream in = getContentResolver().openInputStream(file))
+		{
+			while (in != null && read < head.length)
+			{
+				int got = in.read(head, read, head.length - read);
+				if (got < 0)
+				{
+					break;
+				}
+				read += got;
+			}
+		}
+		catch (Exception e)
+		{
+			return false;
+		}
+		if (lower.endsWith(".chd"))
+		{
+			return read >= 8 && new String(head, 0, 8, StandardCharsets.US_ASCII).equals("MComprHD");
+		}
+		boolean bSync = read >= 12 && head[0] == 0 && head[11] == 0;
+		for (int at = 1; at <= 10 && bSync; at++)
+		{
+			bSync = head[at] == (byte) 0xFF;
+		}
+		return bSync || (read >= 0x8006 && new String(head, 0x8001, 5, StandardCharsets.US_ASCII).equals("CD001"));
+	}
+
+	/**
+	 * Every file of a folder picked copied, several at a time and by its path from that folder, hidden ones left out: a
+	 * mod or pack the player unpacked into Folder (emptied first), for the game to add as the one it holds; or (bDiscs)
+	 * the disc images the Games folder does not hold yet alone, into a hidden folder of it, then all put in their places
+	 * in Games together, so that a .cue never shows without its .bin.
+	 */
+	private void weltallCopyTree(String folder, Uri tree, boolean bDiscs) throws WeltallFilesFailure
+	{
+		String rootId;
+		try
+		{
+			rootId = DocumentsContract.getTreeDocumentId(tree);
+		}
+		catch (RuntimeException e)
+		{
+			throw weltallFailure(WELTALL_UNREADABLE, "", e);
+		}
+		String treeName = weltallDisplayName(DocumentsContract.buildDocumentUriUsingTree(tree, rootId));
+		ArrayList<String> ids = new ArrayList<String>();
+		ArrayList<String> paths = new ArrayList<String>();
+		ArrayList<Long> sizes = new ArrayList<Long>();
+		nativeWeltallFiles(WELTALL_COPYING, 0, treeName, 0, 0, 0, 0, "");
+		HashSet<String> discsThere = null;
+		if (bDiscs)
+		{
+			discsThere = new HashSet<String>();
+			weltallListDiscsThere(new File(folder), discsThere);
+		}
+		weltallListTree(tree, rootId, "", ids, paths, sizes, treeName, new long[] { SystemClock.uptimeMillis() }, discsThere);
+		if (bDiscs && ids.isEmpty())
+		{
+			throw new WeltallFilesFailure(WELTALL_NO_DISC_IMAGES, treeName, new IOException("no disc images"));
+		}
+		long total = 0;
+		for (Long size : sizes)
+		{
+			total += size;
+		}
+		File into = bDiscs ? new File(folder, ".Adding") : new File(folder);
+		weltallDeleteTree(into);
+		into.mkdirs();
+		for (String path : paths)
+		{
+			new File(into, path).getParentFile().mkdirs();
+		}
+		final WeltallTreeCopy copy = new WeltallTreeCopy(tree, into, ids, paths, total);
+		Thread[] copiers = new Thread[WELTALL_FOLDER_COPIERS];
+		for (int copier = 0; copier < copiers.length; copier++)
+		{
+			copiers[copier] = new Thread(new Runnable()
+			{
+				@Override
+				public void run()
+				{
+					byte[] buffer = new byte[1 << 16];
+					int file;
+					while (copy.failure.get() == null && (file = copy.next.getAndIncrement()) < copy.ids.size())
+					{
+						try
+						{
+							weltallCopyDocument(copy, file, buffer);
+						}
+						catch (WeltallFilesFailure failure)
+						{
+							copy.failure.compareAndSet(null, failure);
+						}
+						catch (RuntimeException e)
+						{
+							copy.failure.compareAndSet(null, weltallFailure(WELTALL_UNREADABLE, copy.paths.get(file), e));
+						}
+					}
+				}
+			}, "WeltallFiles");
+			copiers[copier].start();
+		}
+		for (Thread copier : copiers)
+		{
+			while (copier.isAlive())
+			{
+				try
+				{
+					copier.join();
+				}
+				catch (InterruptedException e)
+				{
+				}
+			}
+		}
+		if (copy.failure.get() != null)
+		{
+			if (bDiscs)
+			{
+				weltallDeleteTree(into);
+			}
+			throw copy.failure.get();
+		}
+		if (bDiscs)
+		{
+			try
+			{
+				for (String path : paths)
+				{
+					File target = new File(folder, path);
+					target.getParentFile().mkdirs();
+					weltallMove(new File(into, path), target, target.getName());
+				}
+			}
+			finally
+			{
+				weltallDeleteTree(into);
+			}
+		}
+		nativeWeltallFiles(WELTALL_DONE, 0, treeName, ids.size(), ids.size(), copy.copied.get(), total, "");
+	}
+]]>
+		</insert>
+	</gameActivityClassAdditions>
+
+	<gameActivityOnActivityResultAdditions>
+		<insert>
+<![CDATA[
+		if (requestCode == WELTALL_FILES_REQUEST)
+		{
+			weltallFilesPicked(resultCode, data);
+		}
+]]>
+		</insert>
+	</gameActivityOnActivityResultAdditions>
+</root>

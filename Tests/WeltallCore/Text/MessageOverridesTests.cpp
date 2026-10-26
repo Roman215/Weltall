@@ -1,3 +1,4 @@
+#include "Support/AppleDouble.h"
 #include "Text/MesText.h"
 #include "Text/MessageOverrides.h"
 
@@ -5,6 +6,8 @@
 
 #include <algorithm>
 #include <array>
+#include <filesystem>
+#include <fstream>
 
 using namespace Weltall;
 
@@ -94,6 +97,30 @@ TEST_CASE("A message of the player's replaces the one of its id, its window size
 	CHECK(Applied->Replaced.Table == "field/4");
 	CHECK(Applied->Replaced.Messages == std::vector<int32>{0, 1});
 	CHECK_FALSE(FMessageOverrides::Apply(Mine.Overrides, "field/5", Disc, EMessageWindows::Table));
+}
+
+TEST_CASE("The player's messages are read from the text files below the folder, but the originals and hidden ones", "[Text]")
+{
+	const std::filesystem::path Folder = std::filesystem::temp_directory_path() / "WeltallTextOverridesFolder";
+	std::filesystem::remove_all(Folder);
+	const auto Write = [&Folder](const std::filesystem::path& File, std::string_view Text)
+	{
+		std::filesystem::create_directories((Folder / File).parent_path());
+		std::ofstream(Folder / File, std::ios::binary) << Text;
+	};
+	Write("field/004.txt", "message field/4/0\n{\nFei\n\"Hello there!\"\n}\n");
+	Testing::WriteAppleDoubleCompanion(Folder / "field" / "004.txt");
+	Write("original/field/004.txt", "message field/4/3\n{\nSo long\n}\n");
+	Write(".backup/old.txt", "message field/4/2\n{\nOld\n}\n");
+	std::vector<std::string> Reports;
+	const auto Read = FMessageOverrides::Read(Folder, FMesCharacters::Font(), [&Reports](const std::string& Line) { Reports.push_back(Line); });
+	std::filesystem::remove_all(Folder);
+	REQUIRE(Read);
+	CHECK(Reports.empty());
+	const FBytes Disc = Table();
+	const auto Applied = FMessageOverrides::Apply(*Read, "field/4", Disc, EMessageWindows::Table);
+	REQUIRE(Applied);
+	CHECK(Applied->Replaced.Messages == std::vector<int32>{0});
 }
 
 TEST_CASE("A message is measured with the widths a font sheet gives its glyphs", "[Text]")

@@ -52,6 +52,11 @@ namespace Weltall
 		std::vector<uint8> NumberString;
 		/** The player's text speed. */
 		EMesTextSpeed Speed = EMesTextSpeed::Original;
+		/**
+		 * The French translation's kernel flag that types a variable-width font 8 pixels a glyph (7 a two-byte code's), as
+		 * its Enter Name sets it for its grid of letters; the glyphs are still drawn their own width.
+		 */
+		bool bFixedAdvance = false;
 	};
 
 	/** Why a window stopped typing. */
@@ -63,11 +68,13 @@ namespace Weltall
 		Hold = 3,
 	};
 
-	/** A glyph a window typed, from its line's left edge in units of 4 pixels. */
+	/** A glyph a window typed, from its line's left edge in the font's units (FMesFont::UnitPixels: 4 pixels, or 1). */
 	struct FMesPlacedGlyph
 	{
 		FMesCode Code;
 		int16 XUnits = 0;
+		/** The glyphs its step had left after it (DrawMesGlyph: a variable-width font's drawing reads it). */
+		uint8 StepBudget = 0;
 
 		bool operator==(const FMesPlacedGlyph&) const = default;
 	};
@@ -93,8 +100,8 @@ namespace Weltall
 	{
 	public:
 		/**
-		 * A line of the window as shown: its glyphs, which draw over each other in order, its width, and the
-		 * strip of the window's text image it is typed into (two strips share a row of 13 texel rows, each a
+		 * A line of the window as shown: its glyphs, which draw over each other in order, its width (in the font's units),
+		 * and the strip of the window's text image it is typed into (two strips share a row of 13 texel rows, each a
 		 * plane of it).
 		 */
 		struct FLine
@@ -226,7 +233,7 @@ namespace Weltall
 		WELTALLCORE_API void PendingGlyphs(uint8 LeadByte, std::size_t Limit, std::vector<FMesCode>& Out, bool bNextLine = false) const;
 		int32 CurrentStrip() const { return Entries[static_cast<std::size_t>(Line)].Strip; }
 
-		/** Where the text ends, for the "more" cursor: in units from the left, and the row. */
+		/** Where the text ends, for the "more" cursor: in the font's units from the left (FMesFont::CursorPixels), and the row. */
 		int32 CursorXUnits() const { return X; }
 		WELTALLCORE_API int32 CursorRow() const;
 

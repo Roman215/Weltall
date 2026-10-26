@@ -1,5 +1,6 @@
 #include "Media/GameLibrary.h"
 
+#include "Foundation/HiddenFiles.h"
 #include "Media/CdImage.h"
 #include "Media/CueSheet.h"
 #include "Media/GameFileIndex.h"
@@ -9,6 +10,7 @@
 #include <array>
 #include <cctype>
 #include <fstream>
+#include <optional>
 #include <set>
 #include <sstream>
 #include <string>
@@ -70,18 +72,29 @@ namespace Weltall
 		}
 
 		/** The files a sheet's tracks lie in: the sheet stands for them. */
-		void AddSheetFiles(const std::filesystem::path& Sheet, std::set<std::filesystem::path>& Files)
+		/**
+		 * The files Sheet names added to Files; the first of them that is not there, if one is not (a .cue copied without
+		 * its .bin).
+		 */
+		std::optional<std::filesystem::path> AddSheetFiles(const std::filesystem::path& Sheet, std::set<std::filesystem::path>& Files)
 		{
 			std::ifstream Stream(Sheet, std::ios::binary);
 			std::ostringstream Text;
 			Text << Stream.rdbuf();
+			std::optional<std::filesystem::path> Missing;
 			if (const TResult<std::vector<FCueTrack>> Tracks = ParseCueSheet(Text.str(), Sheet.parent_path()))
 			{
 				for (const FCueTrack& Track : *Tracks)
 				{
 					Files.insert(Track.File.lexically_normal());
+					std::error_code Error;
+					if (!Missing && !std::filesystem::is_regular_file(Track.File, Error))
+					{
+						Missing = Track.File;
+					}
 				}
 			}
+			return Missing;
 		}
 
 		/**
@@ -152,6 +165,11 @@ namespace Weltall
 		for (auto Entry = std::filesystem::recursive_directory_iterator(Folder, std::filesystem::directory_options::skip_permission_denied, Error);
 			 !Error && Entry != std::filesystem::recursive_directory_iterator(); Entry.increment(Error))
 		{
+			if (IsHiddenFile(Entry->path()))
+			{
+				Entry.disable_recursion_pending();
+				continue;
+			}
 			if (!Entry->is_regular_file(Error))
 			{
 				continue;
@@ -175,7 +193,12 @@ namespace Weltall
 		{
 			if (IsSheet(Path))
 			{
-				AddSheetFiles(Path, SheetFiles);
+				if (const std::optional<std::filesystem::path> Missing = AddSheetFiles(Path, SheetFiles))
+				{
+					const std::u8string Name = Missing->filename().u8string();
+					Library.LibraryNotes.push_back({Path, "The file it names, " + std::string(Name.begin(), Name.end()) + ", is not beside it."});
+					continue;
+				}
 			}
 			else if (SheetFiles.contains(Path.lexically_normal()))
 			{
@@ -251,11 +274,21 @@ namespace Weltall
 		{
 			return nullptr;
 		}
-		if (const FIso9660* Original = Find(Number == 1 ? EDiscRelease::UsaDisc1 : EDiscRelease::UsaDisc2))
+		// A translation's copy before the originals, so that its text is played whichever voices it carries.
+		const std::array<EDiscRelease, 2> Releases = Number == 1 ? std::array{EDiscRelease::UsaDisc1, EDiscRelease::UndubDisc1}
+															  : std::array{EDiscRelease::UsaDisc2, EDiscRelease::UndubDisc2};
+		for (const bool bPatched : {true, false})
 		{
-			return Original;
+			for (const EDiscRelease Release : Releases)
+			{
+				const auto Found = Discs.find(Release);
+				if (Found != Discs.end() && Found->second.bPatched == bPatched)
+				{
+					return Found->second.Disc.get();
+				}
+			}
 		}
-		return Find(Number == 1 ? EDiscRelease::UndubDisc1 : EDiscRelease::UndubDisc2);
+		return nullptr;
 	}
 
 	std::filesystem::path FGameLibrary::FileOf(EDiscRelease Release) const

@@ -143,8 +143,11 @@ namespace Weltall::BattleEventSteps
 				Event.ArrowFrame = 4;
 			}
 			const bool bPerfectWorks = Event.Layout == EBattleMessageLayout::PerfectWorks;
-			Event.ArrowX = static_cast<int16>(Event.Text->CursorXUnits() * 4 + static_cast<int32>(Event.TextX) + (bPerfectWorks ? 0 : 2));
-			Event.ArrowY = static_cast<int16>(Event.Text->CurrentLine() * 14 + static_cast<int32>(Event.TextY) + (bPerfectWorks ? 4 : 5));
+			const bool bFrench = Event.Layout == EBattleMessageLayout::French;
+			// The French translation's cursor counts pixels, which its kernel gives the arrow 4 past.
+			const int32 Cursor = bFrench ? Event.Text->CursorXUnits() + 4 : Event.Text->CursorXUnits() * 4 + (bPerfectWorks ? 0 : 2);
+			Event.ArrowX = static_cast<int16>(Cursor + static_cast<int32>(Event.TextX));
+			Event.ArrowY = static_cast<int16>(Event.Text->CurrentLine() * 14 + static_cast<int32>(Event.TextY) + (bPerfectWorks || bFrench ? 4 : 5));
 			Event.bArrowShown = true;
 			MenuCue(Context, EBattleMenuCue::EventArrow, 0, 1);
 		}
@@ -181,8 +184,9 @@ namespace Weltall::BattleEventSteps
 				}
 				const uint16 Style = Run.Style;
 				const bool bPerfectWorks = Event.Layout == EBattleMessageLayout::PerfectWorks;
+				const bool bFrench = Event.Layout == EBattleMessageLayout::French;
 				const bool bPortraitAsked = (Style & Style::NoPortrait) == 0 && Portrait != NoPortrait;
-				const uint16 TextWidth = static_cast<uint16>(Event.Window.Width * (bPerfectWorks ? 4 : 12));
+				const uint16 TextWidth = static_cast<uint16>(Event.Window.Width * (bPerfectWorks || bFrench ? 4 : 12));
 				uint16 BoxWidth = static_cast<uint16>(TextWidth + 0x18);
 				uint16 X = Event.Window.X;
 				uint16 Y = Event.Window.Y;
@@ -192,6 +196,10 @@ namespace Weltall::BattleEventSteps
 					Y = (Style & Style::Bottom) != 0 ? BottomY : TopY;
 				}
 				if (bPerfectWorks && bPortraitAsked)
+				{
+					Event.Window.Lines = 4;
+				}
+				if (bFrench && (Portrait != NoPortrait || Event.Window.Lines >= 5))
 				{
 					Event.Window.Lines = 4;
 				}
@@ -265,7 +273,7 @@ namespace Weltall::BattleEventSteps
 				{
 					Event.Text.emplace(0, 0);
 				}
-				const int32 WidthUnits = Event.Layout == EBattleMessageLayout::PerfectWorks ? Event.Window.Width : Event.Window.Width * 3;
+				const int32 WidthUnits = Event.Layout == EBattleMessageLayout::Original ? Event.Window.Width * 3 : Event.Window.Width;
 				Event.Text->Reinitialize(WidthUnits, Event.Window.Lines);
 				if (Event.Replaced != nullptr)
 				{

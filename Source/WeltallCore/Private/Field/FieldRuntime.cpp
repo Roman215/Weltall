@@ -180,7 +180,7 @@ namespace Weltall
 		FFieldTickInput Input;
 		if (!bDefeatHeldUntilReleased)
 		{
-			Input.Pad = {Words.Held, Words.Pressed, Words.Repeated};
+			Input.Pad = {Words.Held, Words.Pressed, Words.Repeated, Words.StickHeld, Words.StickX, Words.StickY};
 		}
 		Input.Clock = *Services.Clock;
 		Input.ViewTurn = ViewTurn;

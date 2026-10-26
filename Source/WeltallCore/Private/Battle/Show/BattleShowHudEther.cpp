@@ -175,7 +175,7 @@ namespace Weltall
 			SetEtherCells(Party.ListScroll);
 			ListLoop.DrawnScroll = Party.ListScroll;
 		}
-		DrawListCursor(static_cast<int16>((Cell & 1) != 0 ? 0xAE : 0x2A), static_cast<int16>((Cell >> 1) * EtherRow + 0x38));
+		DrawListCursor(static_cast<int16>((Cell & 1) != 0 ? 0xAE : 0x2A), static_cast<int16>((Cell >> 1) * EtherRow + Resources.Tables.Places.EtherCursorY));
 	}
 
 	void FBattleHud::DrawEtherInfo(uint8 Slot, uint8 Cell, uint8 Row)
@@ -206,7 +206,7 @@ namespace Weltall
 	void FBattleHud::SetEtherCostQuads(uint8 Slot, int32 Entry)
 	{
 		auto& Quads = ListWork->Quads;
-		SetQuad(Quads[FBattleHudListWork::Info][Buffer], 0x20, 0xA4, static_cast<uint8>(Entry % 2 * 0x78 & 0xF8), static_cast<uint8>((Entry >> 1 & 0xF) << 4), 0x60, 0x10);
+		SetQuad(Quads[FBattleHudListWork::Info][Buffer], Resources.Tables.Places.EtherCostX, 0xA4, static_cast<uint8>(Entry % 2 * 0x78 & 0xF8), static_cast<uint8>((Entry >> 1 & 0xF) << 4), 0x60, 0x10);
 		ListWork->FigureCount = 0;
 		if (Battle->PartyCharacters[Slot] != Elly)
 		{
@@ -244,8 +244,8 @@ namespace Weltall
 		const uint16 Targeting = Command->Targeting;
 		const int32 Kind = (Targeting & 0x4000) != 0 ? GearKindLabel : (Targeting & 0x1000) != 0 ? AllKindLabel : OneKindLabel;
 		const int32 Targets = (Targeting & 0xF) == 1 ? AllTargetsLabel : (Targeting & 0xF) == 2 ? PartyTargetLabel : OneTargetLabel;
-		SetLabelQuad(ListWork->Quads[FBattleHudListWork::Labels][Buffer], 0xDA, 0xAA, Kind);
-		SetLabelQuad(ListWork->Quads[FBattleHudListWork::Labels + 1][Buffer], 0xFE, 0xAA, Targets);
+		SetLabelQuad(ListWork->Quads[FBattleHudListWork::Labels][Buffer], Resources.Tables.Places.EtherKindX, 0xAA, Kind);
+		SetLabelQuad(ListWork->Quads[FBattleHudListWork::Labels + 1][Buffer], Resources.Tables.Places.EtherTargetsX, 0xAA, Targets);
 	}
 
 	std::array<int32, 2> FBattleHud::RenderHelpLines(int32 File, int32 Entry)

@@ -49,7 +49,7 @@ namespace Weltall
 
 		/** Whether a file's extension is one the browser offers. */
 		WELTALLCORE_API static bool IsOffered(const std::filesystem::path& File);
-		/** A name in the game's font's characters. */
+		/** A name in the game's font's characters: an underscore as a space, any other character it lacks a question mark. */
 		WELTALLCORE_API static std::string DisplayName(const std::filesystem::path& Name);
 
 	private:

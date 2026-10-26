@@ -210,7 +210,7 @@ namespace
 	public:
 		FFramesRun(const FBattleHudResources& Resources, FMesContext& Text, FBattleContext& InContext, FOracleDigest& InDigest, bool bInMenus)
 			: Context(InContext), Digest(InDigest), Vram(std::make_unique<FVram>()), Hud(std::make_unique<FBattleHud>(Resources, Text, *Vram, &Recorded)),
-			  Names(*Text.Tables), bMenus(bInMenus)
+			  Names(*Text.Tables), Places(Resources.Tables.Places), bMenus(bInMenus)
 		{
 		}
 
@@ -253,6 +253,8 @@ namespace
 		FRecordedUploads Recorded;
 		std::unique_ptr<FBattleHud> Hud;
 		const FMesNameTables& Names;
+		/** Where the program's run routines put the lists' cursors. */
+		const FBattleHudPlaces& Places;
 		bool bMenus = false;
 		/** The lists' work is made (a first build) and not freed since. */
 		bool bListWork = false;
@@ -772,7 +774,7 @@ namespace
 		case 37:
 		{
 			const int32 Cell = static_cast<int32>(G.Next() % 12);
-			Hud->DrawListCursor(static_cast<int16>((Cell & 1) != 0 ? 0xAE : 0x2A), static_cast<int16>((Cell >> 1) * 16 + 0x38));
+			Hud->DrawListCursor(static_cast<int16>((Cell & 1) != 0 ? 0xAE : 0x2A), static_cast<int16>((Cell >> 1) * 16 + Places.EtherCursorY));
 			break;
 		}
 		case 38:
@@ -837,7 +839,7 @@ namespace
 			break;
 		}
 		case 42:
-			Hud->DrawListCursor(0x8C, static_cast<int16>(static_cast<int32>(G.Next() % 4) * 16 + 0x58));
+			Hud->DrawListCursor(Places.SpecialCursorX, static_cast<int16>(static_cast<int32>(G.Next() % 4) * 16 + Places.SpecialCursorY));
 			break;
 		case 43:
 		{
@@ -1068,7 +1070,7 @@ namespace
 		{
 			const int32 Cell = static_cast<int32>(G.Next() % 16);
 			const int32 Odd = Cell & 1;
-			Hud->DrawListCursor(static_cast<int16>(Odd << 7 | (Odd * 2 + 0x2A)), static_cast<int16>((Cell >> 1) * 13 + 99));
+			Hud->DrawListCursor(static_cast<int16>(Odd << 7 | (Odd * 2 + 0x2A)), static_cast<int16>((Cell >> 1) * 13 + Places.ItemCursorY));
 			break;
 		}
 		case 31:
@@ -1571,14 +1573,28 @@ namespace
 	}
 
 	/** A part's cases in turn, each case's digest folded into the part's; returns each case's digest for the failure's report. */
-	std::string RunHudPart(const FIso9660& Disc, uint32 Seed, int32 Cases, bool bMenus, FOracleDigest& Whole)
+	/**
+	 * The French translation's program's own places where Weltall draws its slips as meant: the stored AP's tens left
+	 * 4 above its units, a fallen stat's loss 8 pixels short of its bar's end.
+	 */
+	void KeepFrenchSlips(FBattleHudResources& Resources)
+	{
+		Resources.Tables.Places.ComboTensY = 0x38;
+		Resources.ResultPlaces.FallBarX = 0x78;
+	}
+
+	std::string RunHudPart(const FIso9660& Disc, uint32 Seed, int32 Cases, bool bMenus, FOracleDigest& Whole, bool bFrenchSlips = false)
 	{
 		const auto Executable = ReadBootExecutable(Disc);
 		REQUIRE(Executable);
 		const auto Index = FGameFileIndex::Read(*Executable);
 		REQUIRE(Index);
-		const auto Resources = FBattleHudResources::Load(Disc.Image(), *Index, *Executable);
+		auto Resources = FBattleHudResources::Load(Disc.Image(), *Index, *Executable);
 		REQUIRE(Resources);
+		if (bFrenchSlips)
+		{
+			KeepFrenchSlips(*Resources);
+		}
 		const auto Program = FBattleProgramTables::Load(Disc.Image(), *Index);
 		REQUIRE(Program);
 		const auto Tables = FBattleTables::Load(Disc.Image(), *Index);
@@ -1606,6 +1622,42 @@ namespace
 		}
 		return Each;
 	}
+
+	/** The "result" part's cases in turn, as RunHudPart. */
+	std::string RunResultPart(const FIso9660& Disc, FOracleDigest& Whole, bool bFrenchSlips = false)
+	{
+		const auto Executable = ReadBootExecutable(Disc);
+		REQUIRE(Executable);
+		const auto Index = FGameFileIndex::Read(*Executable);
+		REQUIRE(Index);
+		auto Resources = FBattleHudResources::Load(Disc.Image(), *Index, *Executable);
+		REQUIRE(Resources);
+		if (bFrenchSlips)
+		{
+			KeepFrenchSlips(*Resources);
+		}
+		const auto Growth = FBattleGrowthTable::Load(Disc.Image(), *Index);
+		REQUIRE(Growth);
+		const FMesResident Resident = Testing::LoadMesResident(Disc);
+		FMesContext Text;
+		Text.Font = &Resident.Font;
+		Text.Tables = &Resident.NameTables;
+		Text.ButtonMap = MesKernelButtonMap;
+		FXorShift32 G(0x4D0D0003);
+		std::string Each;
+		for (int32 Case = 0; Case < 120; ++Case)
+		{
+			auto Context = std::make_unique<FBattleContext>();
+			auto State = std::make_unique<FGameState>();
+			Context->GameState = State.get();
+			FOracleDigest One;
+			RunResultCase(*Resources, Text, *Context, *Growth, G, One);
+			const FSha1::FDigest Sum = One.Finish();
+			Whole.Raw(Sum);
+			Each += std::to_string(Case) + " " + FSha1::ToHex(Sum) + '\n';
+		}
+		return Each;
+	}
 }
 
 TEST_CASE("The battle HUD's panels, gauges, icons, flash, boxes and windows draw as the original's, frame by frame", "[Battle][Oracle][Content]")
@@ -1622,33 +1674,8 @@ TEST_CASE("The battle HUD draws the result screen as the original's, frame by fr
 {
 	constexpr const char* OriginalDigest = "ddd89b7505ad0b373c1d31469dd4d18b4e45f6f6";
 	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
-	const auto Executable = ReadBootExecutable(*Disc);
-	REQUIRE(Executable);
-	const auto Index = FGameFileIndex::Read(*Executable);
-	REQUIRE(Index);
-	const auto Resources = FBattleHudResources::Load(Disc->Image(), *Index, *Executable);
-	REQUIRE(Resources);
-	const auto Growth = FBattleGrowthTable::Load(Disc->Image(), *Index);
-	REQUIRE(Growth);
-	const FMesResident Resident = Testing::LoadMesResident(*Disc);
-	FMesContext Text;
-	Text.Font = &Resident.Font;
-	Text.Tables = &Resident.NameTables;
-	Text.ButtonMap = MesKernelButtonMap;
-	FXorShift32 G(0x4D0D0003);
 	FOracleDigest Whole;
-	std::string Each;
-	for (int32 Case = 0; Case < 120; ++Case)
-	{
-		auto Context = std::make_unique<FBattleContext>();
-		auto State = std::make_unique<FGameState>();
-		Context->GameState = State.get();
-		FOracleDigest One;
-		RunResultCase(*Resources, Text, *Context, *Growth, G, One);
-		const FSha1::FDigest Sum = One.Finish();
-		Whole.Raw(Sum);
-		Each += std::to_string(Case) + " " + FSha1::ToHex(Sum) + '\n';
-	}
+	const std::string Each = RunResultPart(*Disc, Whole);
 	INFO(Each);
 	CHECK(Whole.Hex() == OriginalDigest);
 }
@@ -1661,4 +1688,34 @@ TEST_CASE("The battle HUD's command ring, arrows and Deathblow hints draw as the
 	const std::string Each = RunHudPart(*Disc, 0x4D0D0002, 200, true, Whole);
 	INFO(Each);
 	CHECK(Whole.Hex() == OriginalDigest);
+}
+
+TEST_CASE("French translation: the battle HUD's panels, gauges, icons, flash, boxes and windows draw as its program's", "[Battle][Oracle][Content]")
+{
+	constexpr const char* FrenchDigest = "499888b4eee68165bff6a0aeab6b605c1ef4fe99";
+	REQUIRE_PATCHED_DISC(Disc, EDiscRelease::UsaDisc1);
+	FOracleDigest Whole;
+	const std::string Each = RunHudPart(*Disc, 0x4D0D0001, 200, false, Whole);
+	INFO(Each);
+	CHECK(Whole.Hex() == FrenchDigest);
+}
+
+TEST_CASE("French translation: the battle HUD's command ring, lists and Deathblow hints draw as its program's", "[Battle][Oracle][Content]")
+{
+	constexpr const char* FrenchDigest = "a2ed1413ad3a73b569d7767a4142013726be2083";
+	REQUIRE_PATCHED_DISC(Disc, EDiscRelease::UsaDisc1);
+	FOracleDigest Whole;
+	const std::string Each = RunHudPart(*Disc, 0x4D0D0002, 200, true, Whole, true);
+	INFO(Each);
+	CHECK(Whole.Hex() == FrenchDigest);
+}
+
+TEST_CASE("French translation: the battle HUD draws the result screen as its program's", "[Battle][Oracle][Content]")
+{
+	constexpr const char* FrenchDigest = "5124604c9a56163de2e62656f5f93f52768e8818";
+	REQUIRE_PATCHED_DISC(Disc, EDiscRelease::UsaDisc1);
+	FOracleDigest Whole;
+	const std::string Each = RunResultPart(*Disc, Whole, true);
+	INFO(Each);
+	CHECK(Whole.Hex() == FrenchDigest);
 }

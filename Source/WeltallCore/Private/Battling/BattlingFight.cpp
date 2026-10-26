@@ -290,9 +290,9 @@ namespace Weltall
 			return HpAbove(Two.Hp, Two.MaxHp, 0x10) ? 0x81 : 0x87;
 		}
 
-		std::string FormatRound(int32 Round)
+		std::string FormatRound(const FBattlingTexts& Texts, int32 Round)
 		{
-			return std::string(BattlingLabelTexts::Round) + std::to_string(Round);
+			return FormatBattlingText(Texts.RoundFormat, {std::to_string(Round)});
 		}
 
 		/**
@@ -310,12 +310,13 @@ namespace Weltall
 			const bool bEther = Info.Move == FBattlingPracticeInfo::EtherShown;
 			// Ether's name is narrowed to fit before the strength.
 			Labels.SetScale(bEther ? 0xE7 : FBattlingLabels::OwnSize);
-			Labels.Print(bEther ? BattlingLabelTexts::Ether : BattlingLabelTexts::MoveNames[Info.Move], Buffer);
+			const FBattlingTexts& Texts = Fight.Tables.Texts;
+			Labels.Print(bEther ? BattlingLabelTexts::Ether : std::string_view(Texts.MoveNames[Info.Move]), Buffer);
 			Labels.SetScale(FBattlingLabels::OwnSize);
 			Labels.SetPosition(Left + 0x34, Top);
-			Labels.Print(std::string(BattlingLabelTexts::Strength) + std::to_string(Info.Power), Buffer);
+			Labels.Print(FormatBattlingText(Texts.StrengthFormat, {std::to_string(Info.Power)}), Buffer);
 			Labels.SetPosition(Left, Top + FBattlingLabels::LineHeight);
-			Labels.Print(std::string(BattlingLabelTexts::Frames) + std::to_string(Info.FirstFrame >> 4) + "-" + std::to_string(Info.LastFrame >> 4), Buffer);
+			Labels.Print(FormatBattlingText(Texts.FramesFormat, {std::to_string(Info.FirstFrame >> 4), std::to_string(Info.LastFrame >> 4)}), Buffer);
 		}
 
 		void CheckRound(FBattlingFight& Fight)
@@ -373,13 +374,14 @@ namespace Weltall
 				{
 					SetState(Fight, Fight.Winner == 2 ? StateBetweenRounds : StateReplay);
 				}
-				Labels.PrintCentered(Fight.Winner == 2 ? BattlingLabelTexts::DrawGame : std::string_view(Fight.Tables.KnockOutLabel), Buffer);
+				Labels.PrintCentered(Fight.Winner == 2 ? Fight.Tables.Texts.DrawGame : Fight.Tables.Texts.KnockOut, Buffer);
 			}
 			if (Fight.IntroCounter != 0)
 			{
 				// The intro's labels: none in the tutorial, practice's own words, and the rubber band's line below.
 				const bool bPractice = Fight.Settings.Mode == EBattlingMode::Practice;
 				const bool bLabelled = Fight.State != StateTutorial;
+				const FBattlingTexts& Texts = Fight.Tables.Texts;
 				const auto PrintBand = [&](std::string_view Band) {
 					if (Fight.Settings.bRubberBand)
 					{
@@ -391,20 +393,20 @@ namespace Weltall
 				{
 					if (bLabelled && !bPractice)
 					{
-						Labels.PrintCentered(BattlingLabelTexts::Fight, Buffer);
+						Labels.PrintCentered(Texts.Fight, Buffer);
 					}
 					Fight.bFightStarted = true;
 				}
 				else if (bLabelled && Fight.IntroCounter < ReadyTick)
 				{
-					Labels.PrintCentered(bPractice ? BattlingLabelTexts::Start : BattlingLabelTexts::Ready, Buffer);
-					PrintBand(bPractice ? BattlingLabelTexts::RubberBandMode : BattlingLabelTexts::RubberBandBattle);
+					Labels.PrintCentered(bPractice ? Texts.Start : Texts.Ready, Buffer);
+					PrintBand(bPractice ? Texts.RubberBandMode : Texts.RubberBandBattle);
 				}
 				else if (bLabelled)
 				{
-					const std::string Round = bPractice ? std::string(BattlingLabelTexts::Practice) : FormatRound(Fight.Round);
+					const std::string Round = bPractice ? Texts.Practice : FormatRound(Texts, Fight.Round);
 					Labels.PrintCentered(Round, Buffer);
-					PrintBand(bPractice ? BattlingLabelTexts::RubberBandMode : BattlingLabelTexts::RubberBandBattle);
+					PrintBand(bPractice ? Texts.RubberBandMode : Texts.RubberBandBattle);
 				}
 				--Fight.IntroCounter;
 			}

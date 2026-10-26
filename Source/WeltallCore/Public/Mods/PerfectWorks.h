@@ -81,6 +81,10 @@ namespace Weltall
 	public:
 		/** The release in Folder (its README beside the gamefiles folder its patcher reads), or none. */
 		WELTALLCORE_API static std::optional<FPerfectWorksRelease> Find(const std::filesystem::path& Folder);
+		/** Whether Folder holds a release: the gamefiles folder its patcher reads, with its bug fixes' and its script's folders. */
+		WELTALLCORE_API static bool IsRelease(const std::filesystem::path& Folder);
+		/** The version the README in Folder names, empty where it names none. */
+		WELTALLCORE_API static std::string VersionIn(const std::filesystem::path& Folder);
 
 		/** The version its README names, empty where it names none. */
 		const std::string& Version() const { return VersionName; }

@@ -5,6 +5,7 @@
 #include "Input/ButtonGlyphSubsystem.h"
 #include "Input/KeyListenerSubsystem.h"
 #include "Input/PadPortsSubsystem.h"
+#include "Input/TouchControlsSubsystem.h"
 #include "Input/WeltallPlayerController.h"
 #include "Presentation/ScreenLayout.h"
 #include "Rendering/CrtRendering.h"
@@ -103,7 +104,11 @@ void UGameScreenSubsystem::Tick(float DeltaTime)
 	}
 	Screen->SetPads(Pads);
 	Weltall::FPadState Held = Controller ? Controller->HeldPad() : Weltall::FPadState{};
-	// A gamepad in use is a DualShock in analog mode to the game; the keyboard is a digital pad.
+	if (UTouchControlsSubsystem* Touch = GetGameInstance()->GetSubsystem<UTouchControlsSubsystem>())
+	{
+		Held.Buttons |= Touch->TakeHeld().Buttons;
+	}
+	// A gamepad in use is a DualShock in analog mode to the game; the keyboard and the touch screen's pad are digital pads.
 	Held.bAnalog = Glyphs != nullptr && Glyphs->GamepadInUse().IsValid();
 	if (UKeyListenerSubsystem* Keys = GetGameInstance()->GetSubsystem<UKeyListenerSubsystem>())
 	{

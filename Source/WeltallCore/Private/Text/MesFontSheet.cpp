@@ -168,7 +168,7 @@ namespace Weltall
 		for (const FMesSheetGlyph& Glyph : Glyphs)
 		{
 			const auto Used = Uses.find(static_cast<uint16>(Glyph.Code.Lead << 8 | Glyph.Code.Code));
-			Text += CodeName(Glyph.Code) + "\t" + std::to_string(Glyph.Cell) + "\t" + std::to_string(Font.WidthUnits(Glyph.Code) * 4) + "\t" + Glyph.Character
+			Text += CodeName(Glyph.Code) + "\t" + std::to_string(Glyph.Cell) + "\t" + std::to_string(Font.WidthUnits(Glyph.Code) * Font.UnitPixels()) + "\t" + Glyph.Character
 				+ "\t" + std::to_string(Used != Uses.end() ? Used->second : 0) + "\n";
 		}
 		return Text;
@@ -276,7 +276,7 @@ namespace Weltall
 		}
 		for (const auto& [Key, Units] : OwnWidths)
 		{
-			Font.SetWidthUnits({static_cast<uint8>(Key >> 8), static_cast<uint8>(Key)}, Units);
+			Font.SetWidthUnits({static_cast<uint8>(Key >> 8), static_cast<uint8>(Key)}, Units * 4 / Font.UnitPixels());
 		}
 	}
 }

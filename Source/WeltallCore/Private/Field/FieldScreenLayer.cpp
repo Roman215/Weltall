@@ -8,6 +8,7 @@
 #include "Presentation/DrawList.h"
 #include "Text/MesButtonCells.h"
 #include "Text/MesFont.h"
+#include "Text/MesRender.h"
 
 #include <algorithm>
 
@@ -244,7 +245,11 @@ namespace Weltall
 				Layer.Primitives.push_back(Quad);
 			}
 
-			/** Each line as the kernel draws it: one sprite of its typed width from the window's text, a second past a page's width; the highlighted line modulated by the window's colour. */
+			/**
+			 * Each line as the kernel draws it: one sprite of its typed width from the window's text, a second past a page's
+			 * width; the highlighted line modulated by the window's colour. (The French translation's program makes the second
+			 * 128 pixels too wide, which would show what lies past the line.)
+			 */
 			void Text(const FFieldMessageWindow& Window, int32 Index)
 			{
 				const FMesWindow& Text = *Window.Text;
@@ -253,9 +258,10 @@ namespace Weltall
 				const int32 PageY = Place[1] & ~0xFF;
 				const uint8 U = static_cast<uint8>((Place[0] & (PageUnits - 1)) * UnitPixels);
 				const std::array<uint8, 3>& Highlight = Text.HighlightColor();
+				const FMesFont* Font = Context.Messages.Text.Font;
 				for (int32 Row = 0; Row < Text.Lines(); ++Row)
 				{
-					const int32 Width = Text.Row(Row).WidthUnits;
+					const int32 Width = Text.Row(Row).WidthUnits * (Font != nullptr ? Font->UnitPixels() : UnitPixels);
 					if (Width == 0)
 					{
 						continue;
@@ -267,7 +273,7 @@ namespace Weltall
 					const std::size_t FirstCell = Buttons != nullptr ? Buttons->size() : 0;
 					for (int32 Half = 0; Half < 2; ++Half)
 					{
-						const int32 Pixels = Half == 0 ? std::min(Width * UnitPixels, PagePixels) : (Width - PageUnits) * UnitPixels;
+						const int32 Pixels = Half == 0 ? std::min(Width, PagePixels) : Width - PagePixels;
 						if (Pixels <= 0)
 						{
 							continue;
@@ -378,6 +384,11 @@ namespace Weltall
 				{
 					for (const FMesPlacedGlyph& Glyph : Text.Row(2 * Strip + Plane).Glyphs)
 					{
+						if (Font.IsVariableWidth())
+						{
+							DrawMesGlyph(&Font, Glyph.Code, Scratch.Units, Pitch, Glyph.XUnits, Plane, Glyph.StepBudget);
+							continue;
+						}
 						const FMesFont::FCell Cell = Font.Cell(Glyph.Code);
 						const int32 Left = Glyph.XUnits * UnitPixels;
 						for (int32 Y = 0; Y < FMesFont::CellHeight; ++Y)

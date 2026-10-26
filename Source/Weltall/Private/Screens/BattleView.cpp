@@ -177,6 +177,10 @@ TSharedPtr<const IScreenFrame> FBattleView::Capture(const Weltall::FBattleGamePr
 	BuildBattleFrameDraw(Frame, bBlends ? &Blend : nullptr, Options, Next->Draw, Kinds);
 	HudFrame.Primitives.assign(Frame.Hud.Primitives.begin(), Frame.Hud.Primitives.end());
 	HudFrame.TextButtons.assign(Frame.Hud.TextButtons.begin(), Frame.Hud.TextButtons.end());
+	if (Glyphs != nullptr)
+	{
+		Icons.PlacePrompt(HudFrame.Primitives, *Glyphs);
+	}
 	HudFrame.Number = Frame.Step + 1;
 	HudBuilder.Build(HudFrame, nullptr, 1.0f, Next->Draw.Hud);
 	if (Glyphs != nullptr && (!HudBuilder.Icons.empty() || !HudBuilder.TextCells.empty()))

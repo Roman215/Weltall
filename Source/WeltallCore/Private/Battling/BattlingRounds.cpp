@@ -195,31 +195,32 @@ namespace Weltall::BattlingFightOps
 		/** The winner screen's text: its headings, then the gear's name, the computer's level, the set's score and its time. */
 		void PrintWinnerText(FBattlingFight& Fight, const FBattlingFighter& Fighter)
 		{
-			using namespace BattlingLabelTexts;
+			const FBattlingTexts& Texts = Fight.Tables.Texts;
 			const uint32 Buffer = Fight.Pass & 1;
 			const bool bLevel = Fight.Settings.Mode != EBattlingMode::TwoPlayers && Fight.Settings.Mode != EBattlingMode::ComputerVersusComputer;
 			const int32 Top = bLevel ? WinnerTextTop : WinnerTextTopWithoutLevel;
 			FBattlingLabels& Labels = Fight.Labels;
 			Labels.SetScale(WinnerTextScale);
 			Labels.SetPosition(WinnerHeadingsX, Top);
-			Labels.Print(BattlingLabelTexts::Winner, Buffer);
+			Labels.Print(Texts.Winner, Buffer);
 			if (bLevel)
 			{
-				Labels.Print(Level, Buffer);
+				Labels.Print(Texts.Level, Buffer);
 			}
-			Labels.Print(Matches, Buffer);
-			Labels.Print(Time, Buffer);
+			Labels.Print(Texts.Matches, Buffer);
+			Labels.Print(Texts.Time, Buffer);
 			Labels.SetPosition(WinnerValuesX, Top);
 			Labels.Print(Fight.Tables.GearNames[Fighter.Gear], Buffer);
 			if (bLevel)
 			{
-				Labels.Print(LevelNames[std::min<std::size_t>(Fight.Settings.Level, LevelNames.size() - 1)], Buffer);
+				Labels.Print(Texts.LevelNames[std::min<std::size_t>(Fight.Settings.Level, Texts.LevelNames.size() - 1)], Buffer);
 			}
 			const FBattlingFighter& Opponent = Fight.Fighters[Fighter.SideIndex() == 0 ? 1 : 0];
-			Labels.Print(std::to_string(Fighter.RoundsWon) + "/" + std::to_string(Fight.Round) + std::string(Versus) + Fight.Tables.GearNames[Opponent.Gear], Buffer);
+			Labels.Print(FormatBattlingText(Texts.ScoreFormat, {std::to_string(Fighter.RoundsWon), std::to_string(Fight.Round), Fight.Tables.GearNames[Opponent.Gear]}),
+				Buffer);
 			const int32 Ticks = Fight.SetTime;
-			Labels.Print(TwoDigits(Ticks / TicksPerMinute) + std::string(Minutes) + TwoDigits(Ticks % TicksPerMinute / TicksPerSecond) + std::string(Seconds)
-					+ TwoDigits(Ticks % TicksPerSecond * 99 / TicksPerSecond),
+			Labels.Print(FormatBattlingText(Texts.TimeFormat, {TwoDigits(Ticks / TicksPerMinute), TwoDigits(Ticks % TicksPerMinute / TicksPerSecond),
+							 TwoDigits(Ticks % TicksPerSecond * 99 / TicksPerSecond)}),
 				Buffer);
 		}
 
@@ -383,7 +384,7 @@ namespace Weltall::BattlingFightOps
 		if ((Fight.Pass & 8) != 0)
 		{
 			Fight.Labels.SetPosition(0x10, 0x10);
-			Fight.Labels.Print(BattlingLabelTexts::Replay, Fight.Pass & 1);
+			Fight.Labels.Print(Fight.Tables.Texts.Replay, Fight.Pass & 1);
 		}
 		UpdateProjectiles(Fight, One);
 		UpdateProjectiles(Fight, Two);
@@ -469,22 +470,23 @@ namespace Weltall::BattlingFightOps
 		FBattlingLabels& Labels = Fight.Labels;
 		const uint32 Buffer = Fight.Pass & 1;
 		const EBattlingMode Mode = Fight.Settings.Mode;
+		const FBattlingTexts& Texts = Fight.Tables.Texts;
 		Labels.SetPosition(0xA0, 0xA0);
 		if (Fight.Winner == 1)
 		{
 			ResultCamera(Fight, Two);
 			if (Mode == EBattlingMode::TwoPlayers)
 			{
-				Labels.PrintCentered(BattlingLabelTexts::PlayerTwoVictory, Buffer);
+				Labels.PrintCentered(Texts.PlayerTwoVictory, Buffer);
 			}
 			else if (Mode == EBattlingMode::VersusComputer)
 			{
-				Labels.PrintCentered(BattlingLabelTexts::YouWereDefeated, Buffer);
-				Labels.PrintCentered(std::string(BattlingLabelTexts::By) + Fight.Tables.GearNames[Two.Gear], Buffer);
+				Labels.PrintCentered(Texts.YouWereDefeated, Buffer);
+				Labels.PrintCentered(FormatBattlingText(Texts.ByFormat, {Fight.Tables.GearNames[Two.Gear]}), Buffer);
 			}
 			else if (Mode == EBattlingMode::ComputerVersusComputer)
 			{
-				Labels.PrintCentered(BattlingLabelTexts::ComputerTwoVictory, Buffer);
+				Labels.PrintCentered(Texts.ComputerTwoVictory, Buffer);
 			}
 		}
 		else if (Fight.Winner == 0)
@@ -492,20 +494,20 @@ namespace Weltall::BattlingFightOps
 			ResultCamera(Fight, One);
 			if (Mode == EBattlingMode::TwoPlayers)
 			{
-				Labels.PrintCentered(BattlingLabelTexts::PlayerOneVictory, Buffer);
+				Labels.PrintCentered(Texts.PlayerOneVictory, Buffer);
 			}
 			else if (Mode == EBattlingMode::VersusComputer)
 			{
-				Labels.PrintCentered(BattlingLabelTexts::YouWereVictorious, Buffer);
+				Labels.PrintCentered(Texts.YouWereVictorious, Buffer);
 			}
 			else if (Mode == EBattlingMode::ComputerVersusComputer)
 			{
-				Labels.PrintCentered(BattlingLabelTexts::ComputerOneVictory, Buffer);
+				Labels.PrintCentered(Texts.ComputerOneVictory, Buffer);
 			}
 		}
 		else if (Fight.Winner == 2)
 		{
-			Labels.PrintCentered(BattlingLabelTexts::DrawGame, Buffer);
+			Labels.PrintCentered(Texts.DrawGame, Buffer);
 		}
 		const int32 Ground = TerrainHeight(Fight, Fight.Eye, false);
 		if (Ground - Fight.ResultEyeHeight < Fight.Eye[1])

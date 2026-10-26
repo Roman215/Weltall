@@ -2,6 +2,7 @@
 
 #include "Field/FieldArchive.h"
 #include "Field/FieldWalkmesh.h"
+#include "Field/FieldZone.h"
 #include "Foundation/Result.h"
 #include "Graphics/MdlModel.h"
 #include "Graphics/Vram.h"
@@ -17,16 +18,6 @@ namespace Weltall
 	class FGameFileIndex;
 
 	inline constexpr int32 FieldMapCount = 730;
-
-	/**
-	 * A quadrilateral on the ground that scripts test actors against (exits, doors, area events): a
-	 * point is inside when it lies on the inner side of all four edges, seen from above. The corners'
-	 * heights are not tested.
-	 */
-	struct FFieldZone
-	{
-		std::array<FGteVector, 4> Corners{};
-	};
 
 	/** The bounding sphere the field culls a model by: the centre of its box, twice its longest side. */
 	struct FFieldModelBounds

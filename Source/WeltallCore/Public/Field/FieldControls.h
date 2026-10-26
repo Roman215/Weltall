@@ -1,16 +1,25 @@
 #pragma once
 
 #include "Foundation/Types.h"
+#include "Input/AnalogStick.h"
 
 #include <array>
+#include <optional>
 
 namespace Weltall
 {
 	struct FEventActorState;
 	struct FEventContext;
+	class FSprite;
 
 	/** The field's run button, in its logical words: the leader runs while it is held. */
 	inline constexpr uint16 FieldRunButton = 0x40;
+
+	/**
+	 * Analog movement's slowing of a walk when the stick is pushed lightly: a factor on the sprite's time scale (larger
+	 * is slower), which stretches its animation's steps and divides its speed alike; this is none.
+	 */
+	inline constexpr uint16 FieldUnslowed = 0x100;
 
 	/**
 	 * The controller as the kernel hands it to the field: its logical button words (the US release's
@@ -19,10 +28,17 @@ namespace Weltall
 	 */
 	struct FFieldPadWords
 	{
+		/** The stick's report at rest. */
+		static constexpr uint8 StickCentre = 0x80;
+
 		uint16 Held = 0;
 		uint16 Pressed = 0;
 		/** Pressed, or held long enough to repeat. */
 		uint16 Repeated = 0;
+		/** The directions among Held that only the stick holds, and the stick as the last frame left it (0 left or up, 0xFF right or down). */
+		uint16 StickHeld = 0;
+		uint8 StickX = StickCentre;
+		uint8 StickY = StickCentre;
 	};
 
 	/** One step of the leader, kept for the party's other members to replay. */
@@ -42,6 +58,8 @@ namespace Weltall
 		std::array<int32, 3> FloorNormal{};
 		uint32 FloorAttributes = 0;
 		uint8 Layer = 0;
+		/** How far analog movement slowed the leader's walk (FFieldControls::LeaderSlow), which its followers' steps take too. */
+		uint16 Slow = FieldUnslowed;
 	};
 
 	/**
@@ -67,6 +85,17 @@ namespace Weltall
 		int16 StuckTicks = 0;
 		/** The d-pad walks the opposite way. */
 		bool bReversed = false;
+		/** Analog movement (FEventContext::bAnalogMovement): the stick this tick, none when it does not walk the leader. */
+		std::optional<FAnalogStick> Stick;
+		/** The slowing analog movement put on the leader's walk this tick (FieldUnslowed none), which its step in the trail keeps. */
+		uint16 LeaderSlow = FieldUnslowed;
+		/** The sprites slowed this tick (the leader's and its followers'), by actor (-1 none), with the time scales they had. */
+		struct FSlowedSprite
+		{
+			int32 Actor = -1;
+			uint32 TimeScale = 0;
+		};
+		std::array<FSlowedSprite, 3> Slowed{};
 		/** The scripts have walked the party into place: the other members do not follow the leader. */
 		bool bPartyPlaced = false;
 		/**
@@ -117,12 +146,27 @@ namespace Weltall
 
 	/**
 	 * One tick of the pad's control over an actor, as the scripts' instructions 0C and A7 run it. The
-	 * leader (the actor the pad controls) walks where the d-pad points, measured from the camera, and
-	 * jumps; while it walks it rolls toward encounters. Any other actor running it is marked to follow
+	 * leader (the actor the pad controls) walks where the d-pad points (under analog movement, where the
+	 * stick points: StickWalks), measured from the camera, and jumps; while it walks it rolls toward encounters. Any other actor running it is marked to follow
 	 * the leader this tick. Nothing moves while the scripts hold the player or a message offers a
 	 * choice. False when an encounter's schedule cannot be drawn (RollFieldEncounter).
 	 */
 	WELTALLCORE_API bool ControlByPad(FEventContext& Context, FEventActorState& Actor);
+
+	/** Whether the stick walks this actor this tick (analog movement): the actor under the pad's control. */
+	WELTALLCORE_API bool StickWalks(const FEventContext& Context, const FEventActorState& Actor);
+
+	/** Whether the actor runs unless the run button is held: Always run, and under analog movement a firm push of the stick. */
+	WELTALLCORE_API bool RunsUnheld(const FEventContext& Context, const FEventActorState& Actor);
+
+	/**
+	 * Slows an actor's sprite for the rest of the tick by Slow (FieldUnslowed: not at all): its time scale multiplied, its
+	 * own kept for RestoreSlowedSprites.
+	 */
+	WELTALLCORE_API void SlowActorSprite(FEventContext& Context, int32 Actor, FSprite& Sprite, uint16 Slow);
+
+	/** Gives the sprites slowed this tick their own time scales back, once their animations and moves have run. */
+	WELTALLCORE_API void RestoreSlowedSprites(FEventContext& Context);
 
 	/**
 	 * One step of the leader toward a random encounter, as its control step takes one each tick the

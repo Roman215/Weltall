@@ -187,6 +187,15 @@ TEST_CASE("The settings' text lists every setting and reads back the same", "[Se
 	CHECK(ValueOf(Defaults, "camera.steady_follow") == "true");
 	CHECK(ValueOf(Defaults, "controls.always_run") == "true");
 	CHECK_FALSE(ReadPlayerSettings("controls.always_run = false\n").Controls.bAlwaysRun);
+	CHECK(ValueOf(Defaults, "controls.analog_movement") == "true");
+	CHECK_FALSE(ReadPlayerSettings("controls.analog_movement = false\n").Controls.bAnalogMovement);
+	CHECK(ValueOf(Defaults, "controls.touch_movement") == "cross");
+	CHECK(ReadPlayerSettings("controls.touch_movement = stick\n").Controls.TouchMovement == ETouchMovement::Stick);
+	CHECK(ValueOf(Defaults, "controls.touch_opacity") == "10");
+	CHECK(ReadPlayerSettings("controls.touch_opacity = 1\n").Controls.TouchOpacity == LowestTouchOpacity);
+	CHECK(ReadPlayerSettings("controls.touch_opacity = 4\n").Controls.TouchOpacity == 4);
+	CHECK(ValueOf(Defaults, "controls.touch_vibration") == "true");
+	CHECK_FALSE(ReadPlayerSettings("controls.touch_vibration = false\n").Controls.bTouchVibration);
 	CHECK(ValueOf(Defaults, "controls.walk_into_doors") == "true");
 	CHECK_FALSE(ReadPlayerSettings("controls.walk_into_doors = false\n").Controls.bWalkIntoDoors);
 	CHECK(ValueOf(Defaults, "controls.original_button_icons") == "false");
@@ -296,6 +305,22 @@ TEST_CASE("Settings a text lacks or cannot read take their defaults, and unknown
 	CHECK(Settings.Controls.Keys(EControlAction::Select).empty());
 	CHECK(Settings.Controls.Keys(EControlAction::Start) == FControlBindings::Defaults().Keys(EControlAction::Start));
 	CheckSame(ReadPlayerSettings(""), FPlayerSettings{});
+}
+
+TEST_CASE("A setting's number is read whole as std::to_chars writes it, in any locale", "[Settings]")
+{
+	const float Default = FPlayerSettings{}.Camera.Zoom;
+	const auto ZoomOf = [](const char* Text) { return ReadPlayerSettings(std::string("camera.zoom = ") + Text + "\n").Camera.Zoom; };
+	CHECK(ZoomOf("1.5") == 1.5f);
+	CHECK(ZoomOf("0.75") == 0.75f);
+	CHECK(ZoomOf("1e0") == 1.0f);
+	CHECK(ZoomOf("1e+00") == 1.0f);
+	CHECK(ZoomOf("-0") == FFieldCameraOffsets::MinZoom);
+	for (const char* Unread : {"+1.5", "1,5", "1.5x", "x1.5", "inf", "nan", "0x1p0", ".", "-"})
+	{
+		INFO(Unread);
+		CHECK(ZoomOf(Unread) == Default);
+	}
 }
 
 TEST_CASE("A key the text binds to two actions stays with the last, and over a default", "[Settings]")

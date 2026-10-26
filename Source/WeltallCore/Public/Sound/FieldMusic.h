@@ -89,6 +89,8 @@ namespace Weltall
 		WELTALLCORE_API TResult<bool> StartBattleSong(int32 Song);
 		/** Stops the music and unloads its bank. */
 		WELTALLCORE_API void Stop();
+		/** Stops the music and loads Song from its start, whatever played: the French translation's credits' own song. */
+		WELTALLCORE_API TResult<bool> PlayAnew(int32 Song);
 		/** Loads the battle themes' bank again if a song took its room, stopping the music (the field does it before the world map). */
 		WELTALLCORE_API TResult<bool> RestoreBattleThemes();
 

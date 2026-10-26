@@ -96,6 +96,22 @@ TEST_CASE("A field song plays at full volume with its bank, or silent until the 
 	CHECK(Peak(Field.Render(Second)) < Quiet);
 }
 
+TEST_CASE("A song played anew loads again from its start, even the song playing", "[Sound][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	FFieldSound Field(*Disc);
+	REQUIRE(Field.Music().ChangeSong(8, EFieldSongStart::FullVolume));
+	Field.Render(2 * Second);
+	CHECK_FALSE(*Field.Music().ChangeSong(8, EFieldSongStart::FullVolume));
+	const auto Again = Field.Music().PlayAnew(8);
+	REQUIRE(Again);
+	CHECK(*Again);
+	CHECK(Field.Music().Song() == 8);
+	CHECK(Field.Music().IsLoaded());
+	REQUIRE(Field.Music().Sequence() != nullptr);
+	CHECK(Peak(Field.Render(Second)) > Playing);
+}
+
 TEST_CASE("Asking silently for the song already playing leaves the next song silent only in the original", "[Sound][Content]")
 {
 	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);

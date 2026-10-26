@@ -5,6 +5,7 @@
 #include "Menu/MenuSpriteSheet.h"
 
 #include <algorithm>
+#include <limits>
 
 namespace Weltall
 {
@@ -65,17 +66,10 @@ namespace Weltall
 		/** The glyph-cache key of the directional buttons named in text. */
 		constexpr uint16 TextDirectionsKey = TextButtonKey + 0x100;
 
-		/**
-		 * The PlayStation icon the text shows a button as: the font's symbol of a face button, a shoulder button's name, the
-		 * D-pad for the directional buttons, and the original Start and Select names.
-		 */
-		std::string_view WrittenIcon(const FTextButtonCell& Cell)
+		/** A button's icon on the PlayStation's controller: a face button's symbol, a shoulder button's name, Start and Select. */
+		std::string_view PlayStationIcon(EPadButton Button)
 		{
-			if (Cell.bDirections)
-			{
-				return "DPad";
-			}
-			switch (Cell.Button)
+			switch (Button)
 			{
 			case EPadButton::Circle:
 				return "Circle";
@@ -100,6 +94,35 @@ namespace Weltall
 			default:
 				return {};
 			}
+		}
+
+		/** The PlayStation icon the text shows a button as, the D-pad for the directional buttons. */
+		std::string_view WrittenIcon(const FTextButtonCell& Cell)
+		{
+			return Cell.bDirections ? "DPad" : PlayStationIcon(Cell.Button);
+		}
+
+		/** Whether two polygons' boxes cover one another, each moved across and down by its own way. */
+		bool Covers(const FMenuPrimitive& First, std::array<int32, 2> FirstMove, const FMenuPrimitive& Second, std::array<int32, 2> SecondMove)
+		{
+			if (!First.IsPolygon() || !Second.IsPolygon())
+			{
+				return false;
+			}
+			const auto Box = [](const FMenuPrimitive& Primitive, std::array<int32, 2> Move) {
+				constexpr int32 Most = std::numeric_limits<int32>::max();
+				std::array<int32, 4> Edges{Most, Most, -Most, -Most};
+				for (int32 Corner = 0; Corner < Primitive.PolygonCorners(); ++Corner)
+				{
+					const FMenuCorner& At = Primitive.Corners[static_cast<std::size_t>(Corner)];
+					Edges = {std::min(Edges[0], At.X + Move[0]), std::min(Edges[1], At.Y + Move[1]), std::max(Edges[2], At.X + Move[0]),
+						std::max(Edges[3], At.Y + Move[1])};
+				}
+				return Edges;
+			};
+			const std::array<int32, 4> A = Box(First, FirstMove);
+			const std::array<int32, 4> B = Box(Second, SecondMove);
+			return A[0] < B[2] && B[0] < A[2] && A[1] < B[3] && B[1] < A[3];
 		}
 
 		/** Shifts a primitive across the screen. */
@@ -353,6 +376,84 @@ namespace Weltall
 			if (Mark != nullptr && *Mark > Cell.Primitive)
 			{
 				*Mark += static_cast<uint32>(Added);
+			}
+		}
+	}
+
+	void FMenuButtonIcons::PlacePrompt(std::span<FMenuPrimitive> Primitives, const IButtonGlyphs& Glyphs)
+	{
+		// The prompt's buttons by the places the game draws them at: each picture's symbol's place on the pad.
+		constexpr std::size_t Places = 4;
+		std::array<uint16, Places> Buttons{};
+		std::array<FMenuCorner, Places> Drawn{};
+		for (const FMenuPrimitive& Primitive : Primitives)
+		{
+			if (Primitive.PromptRole != 0 && Primitive.ButtonRole == Primitive.PromptRole && Primitive.ButtonSlot == EMenuIconSlot::FaceButton)
+			{
+				const EFaceButtonPlace Place = FaceButtonPlace(EButtonIconSet::PlayStation, PlayStationIcon(MenuRoleButton(Primitive.PromptRole)));
+				if (Place == EFaceButtonPlace::None)
+				{
+					return;
+				}
+				Buttons[static_cast<std::size_t>(Place) - 1] = Primitive.PromptRole;
+				Drawn[static_cast<std::size_t>(Place) - 1] = Primitive.Corners[0];
+			}
+		}
+		// Each to the game's place of the face button the player's lies at, when every one lies at a place of its own.
+		std::array<std::array<int32, 2>, Places> Moves{};
+		std::array<bool, Places> Taken{};
+		bool bMoved = false;
+		for (std::size_t From = 0; From < Places; ++From)
+		{
+			if (Buttons[From] == 0)
+			{
+				continue;
+			}
+			const FRoleGlyph& Glyph = GlyphOf(Buttons[From], Glyphs);
+			const EFaceButtonPlace Place = FaceButtonPlace(Glyph.Set, Glyph.Icon);
+			const std::size_t To = static_cast<std::size_t>(Place) - 1;
+			if (Place == EFaceButtonPlace::None || Buttons[To] == 0 || Taken[To])
+			{
+				return;
+			}
+			Taken[To] = true;
+			Moves[From] = {Drawn[To].X - Drawn[From].X, Drawn[To].Y - Drawn[From].Y};
+			bMoved |= To != From;
+		}
+		if (!bMoved)
+		{
+			return;
+		}
+		const auto ButtonOf = [&Buttons](const FMenuPrimitive& Primitive) {
+			return Primitive.PromptRole == 0 ? Places : static_cast<std::size_t>(std::find(Buttons.begin(), Buttons.end(), Primitive.PromptRole) - Buttons.begin());
+		};
+		// Nor where a button's words would cover another button or its words, as a long one would at the left place.
+		for (std::size_t First = 0; First < Primitives.size(); ++First)
+		{
+			const std::size_t FirstButton = ButtonOf(Primitives[First]);
+			for (std::size_t Second = First + 1; FirstButton < Places && Second < Primitives.size(); ++Second)
+			{
+				const std::size_t SecondButton = ButtonOf(Primitives[Second]);
+				if (SecondButton < Places && SecondButton != FirstButton
+					&& Covers(Primitives[First], Moves[FirstButton], Primitives[Second], Moves[SecondButton])
+					&& !Covers(Primitives[First], {}, Primitives[Second], {}))
+				{
+					return;
+				}
+			}
+		}
+		for (FMenuPrimitive& Primitive : Primitives)
+		{
+			const std::size_t From = ButtonOf(Primitive);
+			if (From == Places)
+			{
+				continue;
+			}
+			const auto [Across, Down] = Moves[From];
+			for (FMenuCorner& Corner : Primitive.Corners)
+			{
+				Corner.X = static_cast<int16>(Corner.X + Across);
+				Corner.Y = static_cast<int16>(Corner.Y + Down);
 			}
 		}
 	}

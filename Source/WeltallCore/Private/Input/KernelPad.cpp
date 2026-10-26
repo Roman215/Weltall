@@ -77,6 +77,10 @@ namespace Weltall
 			Merged.Held |= Words.Held;
 			Merged.Pressed |= Words.Pressed;
 			Merged.Repeated |= Words.Repeated;
+			Merged.StickHeld |= Words.StickHeld;
+			Merged.StickX = Words.StickX;
+			Merged.StickY = Words.StickY;
+			Merged.bAnalog = Words.bAnalog;
 		}
 		First = 0;
 		Count = 0;

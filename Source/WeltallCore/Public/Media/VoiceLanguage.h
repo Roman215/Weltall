@@ -15,7 +15,7 @@ namespace Weltall
 	/** When movies show subtitles, which the supported undub's discs and Perfect Works Build carry. */
 	enum class EMovieSubtitles : uint8
 	{
-		/** With the movies' Japanese sound (the undub's), as the undub shows them. */
+		/** With the movies' Japanese sound (the undub's), as the undub shows them; a translation's with its own sound. */
 		Automatic,
 		/** Also over the USA's English sound, whose pictures are the same. */
 		On,
@@ -44,8 +44,10 @@ namespace Weltall
 		bool bPerfectWorksSubtitles = false;
 		/** The game plays with Perfect Works Build, whose subtitles Auto then shows before the undub's. */
 		bool bPerfectWorksInUse = false;
+		/** A translation's discs with the English voices subtitle their own movies (the French translation's). */
+		bool bTranslationSubtitles = false;
 
-		bool HasSubtitles() const { return bUndub || bPerfectWorksSubtitles; }
+		bool HasSubtitles() const { return bUndub || bPerfectWorksSubtitles || bTranslationSubtitles; }
 		bool operator==(const FSoundSources&) const = default;
 	};
 }

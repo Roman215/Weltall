@@ -13,6 +13,7 @@ namespace Weltall
 		{
 			return false;
 		}
+		bCueRead = bCueRead || Record == Cue;
 		TResult<std::vector<uint8>> Sectors = ReadFileSectors(*Image, *Record);
 		if (!Sectors)
 		{

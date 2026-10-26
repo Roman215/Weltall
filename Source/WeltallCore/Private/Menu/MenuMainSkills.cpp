@@ -299,7 +299,8 @@ namespace Weltall
 		Name.Clut = MenuGpu::Clut((Name_ & 1) != 0 ? OddClutX : 0, TextClutY);
 		const uint8 U = static_cast<uint8>((Tables.NameStripX[Strip] & 0x3F) << 2);
 		const uint8 V = static_cast<uint8>(Tables.NameStripY[Strip]);
-		const int32 X = Tables.MemberNameX[static_cast<std::size_t>(Place)] - Width / 2;
+		// The French translation's program centres a gear's name as if it were a member's.
+		const int32 X = Tables.MemberNameX[static_cast<std::size_t>(Place)] - (Resources.IsFrench() ? NameWidth : Width) / 2;
 		const int32 Y = Tables.MemberNameY[static_cast<std::size_t>(Place)];
 		Name.Corners[0] = {static_cast<int16>(X), static_cast<int16>(Y), U, V, {0x80, 0x80, 0x80}};
 		Name.Corners[1] = {static_cast<int16>(X + Width), static_cast<int16>(Y), static_cast<uint8>(U + Width), V, {}};

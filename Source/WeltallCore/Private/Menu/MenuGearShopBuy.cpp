@@ -197,7 +197,8 @@ namespace Weltall
 				FMenuLabel& Heading = ArcLabels[HeadingIndex];
 				RecordLabel(Heading);
 				const int16 X = HeadingX[HeadingIndex];
-				const int16 Right = static_cast<int16>(X + ArcLabels[0].Width);
+				// The game's program gives both headings the first's width; the French translation's each its own.
+				const int16 Right = static_cast<int16>(X + ArcLabels[Resources.IsFrench() ? HeadingIndex : 0].Width);
 				Heading.Quad.Corners[0].X = X;
 				Heading.Quad.Corners[0].Y = HeadingTop;
 				Heading.Quad.Corners[1].X = Right;
@@ -271,7 +272,7 @@ namespace Weltall
 				std::optional<uint8> SecondText;
 				if (!bTuning)
 				{
-					DrawTotal(Total, TotalX, TotalY);
+					DrawTotal(Total, TotalX, TotalY - (Resources.IsFrench() ? 1 : 0));
 				}
 				else if (IsUpgrade(static_cast<int32>(Index)))
 				{

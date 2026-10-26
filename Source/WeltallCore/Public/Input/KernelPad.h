@@ -58,7 +58,10 @@ namespace Weltall
 		 */
 		WELTALLCORE_API void Vblank(FPadState Held, uint32 VblankCount, FPadState SecondHeld = {});
 
-		/** Every queued vertical blank's words of the first port ORed, the queue emptied: how the field reads it each tick. */
+		/**
+		 * Every queued vertical blank's words of the first port ORed, the queue emptied: how the field reads it each tick.
+		 * The stick is where the last of them left it.
+		 */
 		WELTALLCORE_API FKernelPadWords TakeMerged();
 
 		/** The oldest queued vertical blank's words of the first port, taken off the queue: how the menus read it, one at a time. */

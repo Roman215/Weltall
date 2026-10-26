@@ -32,7 +32,7 @@ public:
 
 	virtual bool HandleKeyDownEvent(FSlateApplication& Application, const FKeyEvent& Event) override
 	{
-		if (!Event.IsRepeat())
+		if (!Event.IsRepeat() && !UButtonGlyphSubsystem::IsPhoneButton(Event.GetKey()))
 		{
 			Hear(Event.GetKey(), 0);
 		}

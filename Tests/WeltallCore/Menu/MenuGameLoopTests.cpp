@@ -4,10 +4,15 @@
 #include "Game/SaveStore.h"
 #include "Game/SaveWrite.h"
 #include "Game/WorldMapProgram.h"
+#include "Game/PlayerSettings.h"
+#include "Menu/MenuDeviceFiles.h"
 #include "Menu/MenuGameMenus.h"
 #include "Menu/MenuProgram.h"
+#include "Menu/OptionsText.h"
 #include "Support/GameDiscs.h"
 #include "Support/GameLoopSession.h"
+#include "Support/GameText.h"
+#include "Text/MesGlyphs.h"
 
 #include <catch_amalgamated.hpp>
 
@@ -396,6 +401,112 @@ TEST_CASE("A disc 2 not yet found keeps INSERT DISC 2 up at each confirmation un
 	CHECK(Drive.Asked == std::vector<int32>{1, 1});
 	CHECK(Game->Session->DiscNumber() == 1);
 	CHECK(Runtime.Context().Disc == 2);
+}
+
+TEST_CASE("Where discs come through the device's picker, INSERT DISC 2's Confirm picks the missing disc there and then", "[Menu][Content]")
+{
+	REQUIRE_DISC(First, EDiscRelease::UsaDisc1);
+	REQUIRE_DISC(Second, EDiscRelease::UsaDisc2);
+	auto Game = Testing::FGameLoopSession::Start(*First);
+	FMenuGameMenus Menus(*Game->Executable);
+	Menus.SetSettingsKept([](const FPlayerSettings&) {});
+	/** The device's picker as the test plays it: the player picks, then the copy runs and ends as the test says. */
+	class FPicker final : public IMenuDeviceFiles
+	{
+	public:
+		FTransferStatus Status() const override { return Shown; }
+		bool Start(EDeviceTransfer Kind, const std::filesystem::path& = {}) override
+		{
+			Started.push_back(Kind);
+			Set(ETransferState::Picking);
+			return true;
+		}
+		void Set(ETransferState State, uint64 Copied = 0)
+		{
+			Shown.State = State;
+			Shown.Copied = Copied;
+			Shown.Total = 100;
+			++Shown.Revision;
+		}
+		FTransferStatus Shown;
+		std::vector<EDeviceTransfer> Started;
+	} Picker;
+	Menus.SetDeviceFiles(&Picker);
+	Game->Session->SetMenus(&Menus);
+	FLateDrive Drive(*Game, *Second);
+	Game->Session->SetDiscDrive(&Drive);
+	Game->EnterField(VillageMap);
+	FFieldProgram* Field = Game->Loop->Field();
+	REQUIRE(Field != nullptr);
+	FFieldRuntime& Runtime = Field->Runtime();
+	Game->RunUntil([&] { return Runtime.Context().bFieldRunning; }, 100);
+	Runtime.Context().MenuRequest = static_cast<uint32>(EMenuMode::DiscChange);
+	Game->RunUntil([&] { return Menus.Running() != nullptr; }, 100);
+	REQUIRE(Menus.Running() != nullptr);
+	const std::array<std::pair<FPadState, int32>, 7> Presses{
+		{{NoButtons, 50}, {CircleHeld, 2}, {NoButtons, 30}, {LeftHeld, 2}, {NoButtons, 6}, {CrossHeld, 2}, {NoButtons, 200}}};
+	for (const auto& [Held, Frames] : Presses)
+	{
+		for (int32 Frame = 0; Frame < Frames; ++Frame)
+		{
+			REQUIRE_FALSE(Game->Frame(Held));
+		}
+	}
+	const auto Run = [&](FPadState Held, int32 Frames)
+	{
+		for (int32 Frame = 0; Frame < Frames; ++Frame)
+		{
+			REQUIRE_FALSE(Game->Frame(Held));
+		}
+	};
+
+	// Confirmed with disc 2 missing: looked for, then picked; the message stays while the copy runs.
+	Run(CrossHeld, 2);
+	Run(NoButtons, 30);
+	CHECK(Drive.Asked == std::vector<int32>{1});
+	REQUIRE(Picker.Started == std::vector<EDeviceTransfer>{EDeviceTransfer::Discs});
+	Picker.Set(ETransferState::Copying, 50);
+	Run(NoButtons, 30);
+	REQUIRE(Menus.Running() != nullptr);
+	// The files picked held no disc 2: looked for again as the copy ended, the message still up.
+	Picker.Set(ETransferState::Done, 100);
+	Run(NoButtons, 30);
+	CHECK(Drive.Asked == std::vector<int32>{1, 1});
+	REQUIRE(Menus.Running() != nullptr);
+	CHECK(Game->Session->DiscNumber() == 0);
+
+	// Confirm again picks again; this copy brings disc 2, and the game goes on on it.
+	Run(CrossHeld, 2);
+	Run(NoButtons, 10);
+	CHECK(Picker.Started.size() == 2);
+	Drive.bThere = true;
+	Picker.Set(ETransferState::Done, 100);
+	Game->RunUntil([&] { return Menus.Running() == nullptr; }, 200);
+	REQUIRE(Menus.Running() == nullptr);
+	CHECK(Game->Session->DiscNumber() == 1);
+	CHECK(Runtime.Context().Disc == 2);
+}
+
+TEST_CASE("The disc prompts' own lines fit under the message", "[Menu][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const FMesResident Text = Testing::LoadMesResident(*Disc);
+	// The message window's inside, from its lines' start to its frame, in pixels.
+	constexpr int32 LinesRoom = 0x7A + 0xBC - 0x84 - 8;
+	namespace Discs = OptionsText::Discs;
+	for (const std::string& Line : {std::string(Discs::NotFound), OptionsText::Fill(Discs::PromptCopying, {"100"}), std::string(Discs::PromptNotPicked),
+			 std::string(Discs::PromptNotCopied), std::string(Discs::PromptPickAgain)})
+	{
+		INFO(Line);
+		int32 Units = 0;
+		for (const char Character : Line)
+		{
+			const std::optional<FMesCode> Code = MesCodeOfCharacter(Character);
+			REQUIRE(Code);
+			Units += Text.Font.WidthUnits(*Code);
+		}
+		CHECK(Units * 4 <= LinesRoom);
+	}
 }
 
 TEST_CASE("Powered on with disc 2 alone, New Game asks for disc 1 and the game goes on from disc 1's files", "[Menu][Content]")

@@ -84,6 +84,18 @@ void UGameAssetsSubsystem::Refresh()
 	FollowSettings();
 }
 
+void UGameAssetsSubsystem::ReloadReplacements()
+{
+	const auto& Settings = GetGameInstance()->GetSubsystem<UPlayerSettingsSubsystem>()->Settings();
+	if (!Settings.bExternalAssets)
+	{
+		return;
+	}
+	FTextureModLibrary::Configure(TexturesFolder(), false, Settings.bCaptureTextures);
+	bMusicFound = false;
+	FollowSettings();
+}
+
 void UGameAssetsSubsystem::FollowSettings()
 {
 	const auto& Settings = GetGameInstance()->GetSubsystem<UPlayerSettingsSubsystem>()->Settings();

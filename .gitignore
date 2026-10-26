@@ -16,9 +16,16 @@ __pycache__/
 /Plugins/**/Intermediate/
 *_BuiltData.uasset
 
-# Standalone build output
+# Standalone build output, and what the engine writes into the project's Build folder; its icons are the project's own
 /out/
-/build/
+/build/*
+/Build/*
+!/Build/Windows/
+/Build/Windows/*
+!/Build/Windows/Application.ico
+!/Build/Android/
+/Build/Android/*
+!/Build/Android/res/
 
 # IDE and generated project files
 .vs/

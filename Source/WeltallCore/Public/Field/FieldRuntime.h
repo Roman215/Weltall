@@ -68,6 +68,11 @@ namespace Weltall
 		FUnreachedCases* Unreached = nullptr;
 		/** The disc the game plays from, numbered as its directory table numbers it (1 or 2): FE CD reads it. */
 		uint8 Disc = 1;
+		/**
+		 * A record of Index whose read the kernel shows a screen of its own before, the field standing still: the French
+		 * translation's credits before the picture that ends the game. None on other discs.
+		 */
+		const FIndexRecord* TranslationCreditsCue = nullptr;
 	};
 
 	/**
@@ -175,6 +180,12 @@ namespace Weltall
 			bAlwaysRun = bRuns;
 			FieldContext.bAlwaysRun = bRuns;
 		}
+		/** Whether the stick walks the leader in any direction and at its pace, from now on (the running map included). */
+		void SetAnalogMovement(bool bAnalog)
+		{
+			bAnalogMovement = bAnalog;
+			FieldContext.bAnalogMovement = bAnalog;
+		}
 		/** Whether doors open when the leader walks into them, from now on (the running map included). */
 		void SetWalkIntoDoors(bool bOpens)
 		{
@@ -224,6 +235,9 @@ namespace Weltall
 
 		/** The player has skipped the movie the field plays: its sound fades through the next frame, which shows no new picture, and it ends. */
 		bool IsMovieSkipped() const { return Phase == EPhase::MovieSkipFade; }
+
+		/** Whether the field read the translation's credits' cue (FFieldServices::TranslationCreditsCue) since last asked. */
+		bool TakeTranslationCredits() { return DiscFiles.TakeCueRead(); }
 
 		/**
 		 * The field goes on after the menu or a movie it stopped at has done its work on the field: its
@@ -373,6 +387,7 @@ namespace Weltall
 		FFieldServices Services;
 		int16 ViewTurn = 0;
 		bool bAlwaysRun = false;
+		bool bAnalogMovement = false;
 		bool bWalkIntoDoors = false;
 		FFieldDiscFiles DiscFiles;
 		std::unique_ptr<FFieldMap> MapData;

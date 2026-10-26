@@ -1,5 +1,8 @@
 #include "Menu/MenuMain.h"
+#include "Menu/MenuDeviceFiles.h"
 #include "Menu/OptionsText.h"
+
+#include <string>
 
 namespace Weltall
 {
@@ -169,6 +172,42 @@ namespace Weltall
 		constexpr uint8 BuzzerEffect = 4;
 		PlaySound(BuzzerEffect);
 		RenderPromptLines(MessageLines, FirstText, LinesX, LinesY, OptionsText::Discs::NotFound);
+	}
+
+	TMenuTask<bool> FMenuMain::AddDiscThroughPicker(int32 Disc, uint8 FirstText)
+	{
+		namespace Text = OptionsText::Discs;
+		IMenuDeviceFiles* Picker = Services.Settings != nullptr ? Services.Settings->DeviceFiles() : nullptr;
+		if (Picker == nullptr || !Picker->Start(EDeviceTransfer::Discs))
+		{
+			SayDiscNotFound(FirstText);
+			co_return false;
+		}
+		uint64 Told = 0;
+		FTransferStatus Status = Picker->Status();
+		for (; Status.Running(); Status = Picker->Status())
+		{
+			if (Status.State == ETransferState::Copying && Status.Revision != Told)
+			{
+				Told = Status.Revision;
+				RenderPromptLines(MessageLines, FirstText, LinesX, LinesY, OptionsText::Fill(Text::PromptCopying, {std::to_string(Status.Percent())}));
+			}
+			co_await Frame();
+		}
+		if (Services.Discs->HasDisc(Disc))
+		{
+			co_return true;
+		}
+		// Picked and copied but not the disc asked for, or not copied: the buzzer; closed with nothing picked: Confirm again.
+		std::string_view Line = Text::PromptPickAgain;
+		if (Status.State == ETransferState::Done || Status.State == ETransferState::Failed)
+		{
+			constexpr uint8 BuzzerEffect = 4;
+			PlaySound(BuzzerEffect);
+			Line = Status.State == ETransferState::Done ? Text::PromptNotPicked : Text::PromptNotCopied;
+		}
+		RenderPromptLines(MessageLines, FirstText, LinesX, LinesY, Line);
+		co_return false;
 	}
 
 	TMenuTask<> FMenuMain::CloseMessage()
