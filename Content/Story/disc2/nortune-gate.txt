@@ -1,0 +1,303 @@
+; Nortune's A Block east gate under curfew, played: the map the original's narration of the rising plays over
+; (map 198), on the night the party comes for the Central District, with the Imperial Guard holding the gate.
+; Rico, the Battling Champion and the Kaiser's son, gets the party through.
+map 745 from 198
+
+message Halt
+{
+Imperial Guard
+"Halt!{wait 0A} The capital is
+under curfew.{page}No one passes this gate
+tonight. Not with that
+thing in the sky."
+}
+
+message Open
+{
+Rico
+"Open it."
+}
+
+message Champ
+{
+Imperial Guard
+"...The Champ!?{page}Y-yes, sir!{wait 0A} Open the gate!{page}...Sir, the Kaiser is
+seeing no one tonight."
+}
+
+message SeeMe
+{
+Rico
+"He'll see me."
+}
+
+message FirstName
+{
+Bart
+"Big guy...{wait 0A} you're on
+first-name terms with
+the Kaiser of Kislev?"
+}
+
+message Father
+{
+Rico
+"...He's my father.{page}Don't make a thing
+of it."
+}
+
+message Mentioned
+{
+Bart
+"Your father.{wait 0A} The Kaiser.{page}You might've mentioned
+that back on the ship."
+}
+
+message Thanks
+{
+Fei
+"Rico...{wait 0A} thanks."
+}
+
+message Watch
+{
+Imperial Guard
+"Curfew.{wait 0A} Go home.{page}The sky over Aveh lit
+up last night.{wait 0A} They say
+it was Solaris."
+}
+
+message Post
+{
+Imperial Guard
+"Every Gear in the
+capital is up on the
+walls.{page}And every man knows
+it won't be enough."
+}
+
+actors 18
+unsigned 00A-00E 016-01C 026-02A 030 036 1C0-1CC 1FC-224 240-250 400 41A-41C
+entrances
+; From the south of A Block, where the party comes in.
+entrance x -142 z -731 layer 0 camera 0 facing 0
+; A step before the gate (the tests' way in).
+entrance x 395 z -182 layer 0 camera 0 facing 2
+
+define Scene var[402]
+actor 0 script 0:
+    SetHiddenModel
+    DisableTalk
+    MusicLoad #58
+    End
+
+; The party: Fei, Bart, Rico.
+actor 1 script 0:
+    SetPartyCharacter #0
+    SetMessageFace #0
+    End
+actor 2 script 0:
+    SetPartyCharacter #1
+    SetMessageFace #1
+    End
+actor 3 script 0:
+    SetPartyCharacter #2
+    SetMessageFace #2
+    End
+actor 4 script 0:
+    SetPartyCharacter #3
+    SetMessageFace #3
+    End
+actor 5 script 0:
+    SetPartyCharacter #4
+    SetMessageFace #4
+    End
+actor 6 script 0:
+    SetPartyCharacter #5
+    SetMessageFace #5
+    End
+actor 7 script 0:
+    SetPartyCharacter #6
+    SetMessageFace #6
+    End
+actor 8 script 0:
+    SetPartyCharacter #7
+    SetMessageFace #7
+    End
+actor 9 script 0:
+    SetPartyCharacter #8
+    SetMessageFace #8
+    End
+actor 10 script 0:
+    SetPartyCharacter #9
+    SetMessageFace #9
+    End
+actor 11 script 0:
+    SetPartyCharacter #10
+    SetMessageFace #10
+    End
+actor 1 script 1:
+actor 2 script 1:
+actor 3 script 1:
+actor 4 script 1:
+actor 5 script 1:
+actor 6 script 1:
+actor 7 script 1:
+actor 8 script 1:
+actor 9 script 1:
+actor 10 script 1:
+actor 11 script 1:
+    If Scene == #0 else Held
+    PlayerControlStep
+    End
+Held:
+    Stop
+    End
+
+; At the gate: the guard's scene begins when the party reaches it (a touch trigger has no DisableTalk).
+actor 12 script 0:
+    SetHiddenModel
+    SetPosition #425 #-182
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 20 10 100 0
+    SetCollisionFlags #1
+    End
+actor 12 script 3:
+    If Scene == #0 else Begun
+    SetVarTrue Scene
+    StartScript actor13 script4@3
+Begun:
+    End
+
+; The guard's scene (a script no actor runs by itself: script 1 would run at the map's start).
+actor 13 script 0:
+    SetHiddenModel
+    DisableTalk
+    End
+actor 13 script 4:
+    DisablePlayer
+    Wait #20
+    MessageAtActor actor14 Halt 0
+    WaitMessageClosed
+    Wait #20
+    MessageAtActorPortrait actor6 Open 5
+    WaitMessageClosed
+    MessageAtActor actor14 Champ 0
+    WaitMessageClosed
+    MessageAtActorPortrait actor6 SeeMe 5
+    WaitMessageClosed
+    MessageAtActorPortrait actor4 FirstName 3
+    WaitMessageClosed
+    MessageAtActorPortrait actor6 Father 5
+    WaitMessageClosed
+    MessageAtActorPortrait actor4 Mentioned 3
+    WaitMessageClosed
+    MessageAtActorPortrait actor1 Thanks 0
+    WaitMessageClosed
+    Wait #20
+    ScreenFade #1 #0 #0 #0 #30
+    Wait #30
+    ChangeMap #746 #0
+    StopAndHalt
+
+; The gate's guards, where the map has them.
+actor 14 script 0:
+    SetModel #0
+    SetPosition #334 #-184
+    SetFacingCode 3
+    SetStateFlags 0 0x2000
+    SetCollisionSize 40 40 150 0
+    End
+actor 14 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Halt 0
+    WaitMessageClosed
+    EnableControls
+    End
+actor 15 script 0:
+    SetModel #5
+    SetPosition #314 #-188
+    SetFacingCode 3
+    SetStateFlags 0 0x2000
+    SetCollisionSize 20 20 150 0
+    End
+actor 15 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Post 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+; The watch on the street.
+actor 16 script 0:
+    SetModel #0
+    SetPosition #-19 #-207
+    SetFacingCode 2
+    SetStateFlags 0 0x2000
+    SetCollisionSize 20 20 150 0
+    End
+actor 16 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Watch 0
+    WaitMessageClosed
+    EnableControls
+    End
+actor 17 script 0:
+    SetModel #0
+    SetPosition #-148 #-450
+    SetFacingCode 0
+    SetStateFlags 0 0x2000
+    SetCollisionSize 20 20 150 0
+    End
+actor 17 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Post 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+; What an actor does not do.
+actor 0 script 1:
+actor 0 script 2:
+actor 0 script 3:
+actor 1 script 2:
+actor 1 script 3:
+actor 2 script 2:
+actor 2 script 3:
+actor 3 script 2:
+actor 3 script 3:
+actor 4 script 2:
+actor 4 script 3:
+actor 5 script 2:
+actor 5 script 3:
+actor 6 script 2:
+actor 6 script 3:
+actor 7 script 2:
+actor 7 script 3:
+actor 8 script 2:
+actor 8 script 3:
+actor 9 script 2:
+actor 9 script 3:
+actor 10 script 2:
+actor 10 script 3:
+actor 11 script 2:
+actor 11 script 3:
+actor 12 script 1:
+actor 12 script 2:
+actor 13 script 1:
+actor 13 script 2:
+actor 13 script 3:
+actor 14 script 1:
+actor 14 script 3:
+actor 15 script 1:
+actor 15 script 3:
+actor 16 script 1:
+actor 16 script 3:
+actor 17 script 1:
+actor 17 script 3:
+    End

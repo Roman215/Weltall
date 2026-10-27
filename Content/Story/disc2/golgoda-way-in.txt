@@ -1,0 +1,12 @@
+; Elly's leaving for Golgoda, played. The chair's fifth session (map 617, entrance 5) tells of her climb to Shevat and
+; Krelian's call in two pages, then plays her unit's farewell in the hangar over stills (actor 31's script 15), then
+; shows the hangar itself as a camera's flight (map 657) and goes to the chair session that plays Golgoda (map 619,
+; entrance 3: Krelian's offer, the battle). The expanded second disc leaves the chair before the stills for the
+; hangar's floor, a map of its own, with Elly alone and the story at her decision's value, and from there goes to
+; the same Golgoda session with the story back at the original's value.
+map 617
+detour @0x099A to Hangar SetVar var[400] #1
+Hangar:
+    SetVar var[000] #292
+    ChangeMap #751 #0
+    StopAndHalt

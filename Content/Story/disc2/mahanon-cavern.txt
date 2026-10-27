@@ -1,0 +1,290 @@
+; Razael's cavern, played: the floor of the original's scene (map 655), walked from the cavern's edge toward the two
+; lights at its centre, with what the narration says of the cavern and the Tree ("We came to an enormous cavern...")
+; said on the way, in the disc's words. At the centre the original's scene begins, past those pages.
+map 750 from 655
+
+message Cavern from map 655 message 6
+message Glow from map 655 message 7
+message Tree from map 655 message 8
+
+message Swallow
+{
+Bart
+"Big enough to swallow
+Bledavik whole...{page}and Nortune after it."
+}
+
+message Lights
+{
+Citan
+"There.{wait 0A} In the centre.{page}Two lights.{wait 0A} That is what
+the Ministry has been
+digging for."
+}
+
+message Beautiful
+{
+Fei
+"Razael's Tree.{page}...It's beautiful.{wait 0A}
+Why does that scare me?"
+}
+
+actors 31
+unsigned 00A-00E 026-02A 030 036 0C0-0CC
+entrances
+; The cavern's edge, far from the lights.
+entrance x 0 z -4500 layer 0 camera keep facing 0
+; A step before the centre (the tests' way in).
+entrance x 0 z -1360 layer 0 camera keep facing 0
+
+define Scene var[402]
+actor 0 script 0:
+    SetHiddenModel
+    CameraSet #255 #20 #384
+    CameraZoom #5120 0
+    DisableTalk
+    MusicLoad #56
+    End
+
+; The party, whoever the depths leave in it.
+actor 1 script 0:
+    SetPartyCharacter #0
+    SetMessageFace #0
+    End
+actor 2 script 0:
+    SetPartyCharacter #1
+    SetMessageFace #1
+    End
+actor 3 script 0:
+    SetPartyCharacter #2
+    SetMessageFace #2
+    End
+actor 4 script 0:
+    SetPartyCharacter #3
+    SetMessageFace #3
+    End
+actor 5 script 0:
+    SetPartyCharacter #4
+    SetMessageFace #4
+    End
+actor 6 script 0:
+    SetPartyCharacter #5
+    SetMessageFace #5
+    End
+actor 7 script 0:
+    SetPartyCharacter #6
+    SetMessageFace #6
+    End
+actor 8 script 0:
+    SetPartyCharacter #7
+    SetMessageFace #7
+    End
+actor 9 script 0:
+    SetPartyCharacter #8
+    SetMessageFace #8
+    End
+actor 10 script 0:
+    SetPartyCharacter #9
+    SetMessageFace #9
+    End
+actor 11 script 0:
+    SetPartyCharacter #10
+    SetMessageFace #10
+    End
+actor 1 script 1:
+actor 2 script 1:
+actor 3 script 1:
+actor 4 script 1:
+actor 5 script 1:
+actor 6 script 1:
+actor 7 script 1:
+actor 8 script 1:
+actor 9 script 1:
+actor 10 script 1:
+actor 11 script 1:
+    If Scene == #0 else Held
+    PlayerControlStep
+    End
+Held:
+    Stop
+    End
+
+; The centre: the narration's pages, then the original's scene.
+actor 12 script 0:
+    SetHiddenModel
+    SetPosition #0 #-1300
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 250 10 20 0
+    SetCollisionFlags #1
+    End
+actor 12 script 3:
+    If Scene == #0 else Begun
+    SetVarTrue Scene
+    DisablePlayer
+    SetWindowLayoutVar #30 #70 #0 #0 #321
+    MessageCentered Cavern 83
+    WaitMessageClosed
+    SetWindowLayoutVar #0 #0 #0 #0 #0
+    MessageAtActorPortrait actor4 Swallow 3
+    WaitMessageClosed
+    SetWindowLayoutVar #30 #70 #0 #0 #321
+    MessageCentered Glow 83
+    WaitMessageClosed
+    SetWindowLayoutVar #0 #0 #0 #0 #0
+    MessageAtActorPortrait actor10 Lights 9
+    WaitMessageClosed
+    SetWindowLayoutVar #30 #70 #0 #0 #321
+    MessageCentered Tree 83
+    WaitMessageClosed
+    SetWindowLayoutVar #0 #0 #0 #0 #0
+    MessageAtActorPortrait actor1 Beautiful 0
+    WaitMessageClosed
+    Wait #20
+    ScreenFade #1 #255 #255 #255 #30
+    Wait #30
+    SetVar var[000] #291
+    ChangeMap #655 #0
+    StopAndHalt
+Begun:
+    End
+
+; The scene's own actors, not here: the cavern is empty until the scene.
+actor 13 script 0:
+    RemoveActor self
+    End
+actor 14 script 0:
+    RemoveActor self
+    End
+actor 15 script 0:
+    RemoveActor self
+    End
+actor 16 script 0:
+    RemoveActor self
+    End
+actor 17 script 0:
+    RemoveActor self
+    End
+actor 18 script 0:
+    RemoveActor self
+    End
+actor 19 script 0:
+    RemoveActor self
+    End
+actor 20 script 0:
+    RemoveActor self
+    End
+actor 21 script 0:
+    RemoveActor self
+    End
+actor 22 script 0:
+    RemoveActor self
+    End
+actor 23 script 0:
+    RemoveActor self
+    End
+actor 24 script 0:
+    RemoveActor self
+    End
+actor 25 script 0:
+    RemoveActor self
+    End
+actor 26 script 0:
+    RemoveActor self
+    End
+actor 27 script 0:
+    RemoveActor self
+    End
+actor 28 script 0:
+    RemoveActor self
+    End
+actor 29 script 0:
+    RemoveActor self
+    End
+actor 30 script 0:
+    RemoveActor self
+    End
+
+; What an actor does not do.
+actor 0 script 1:
+actor 0 script 2:
+actor 0 script 3:
+actor 1 script 2:
+actor 1 script 3:
+actor 2 script 2:
+actor 2 script 3:
+actor 3 script 2:
+actor 3 script 3:
+actor 4 script 2:
+actor 4 script 3:
+actor 5 script 2:
+actor 5 script 3:
+actor 6 script 2:
+actor 6 script 3:
+actor 7 script 2:
+actor 7 script 3:
+actor 8 script 2:
+actor 8 script 3:
+actor 9 script 2:
+actor 9 script 3:
+actor 10 script 2:
+actor 10 script 3:
+actor 11 script 2:
+actor 11 script 3:
+actor 12 script 1:
+actor 12 script 2:
+actor 13 script 1:
+actor 13 script 2:
+actor 13 script 3:
+actor 14 script 1:
+actor 14 script 2:
+actor 14 script 3:
+actor 15 script 1:
+actor 15 script 2:
+actor 15 script 3:
+actor 16 script 1:
+actor 16 script 2:
+actor 16 script 3:
+actor 17 script 1:
+actor 17 script 2:
+actor 17 script 3:
+actor 18 script 1:
+actor 18 script 2:
+actor 18 script 3:
+actor 19 script 1:
+actor 19 script 2:
+actor 19 script 3:
+actor 20 script 1:
+actor 20 script 2:
+actor 20 script 3:
+actor 21 script 1:
+actor 21 script 2:
+actor 21 script 3:
+actor 22 script 1:
+actor 22 script 2:
+actor 22 script 3:
+actor 23 script 1:
+actor 23 script 2:
+actor 23 script 3:
+actor 24 script 1:
+actor 24 script 2:
+actor 24 script 3:
+actor 25 script 1:
+actor 25 script 2:
+actor 25 script 3:
+actor 26 script 1:
+actor 26 script 2:
+actor 26 script 3:
+actor 27 script 1:
+actor 27 script 2:
+actor 27 script 3:
+actor 28 script 1:
+actor 28 script 2:
+actor 28 script 3:
+actor 29 script 1:
+actor 29 script 2:
+actor 29 script 3:
+actor 30 script 1:
+actor 30 script 2:
+actor 30 script 3:
+    End

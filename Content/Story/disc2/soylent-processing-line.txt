@@ -1,0 +1,376 @@
+; The facility's processing line, played: the Sufal Mass's room (map 622) before the original's scene in it, with
+; the mutated queued for the tank as that scene lines them up, and the party walking in where the scene walks them
+; in. What Elly narrates there ("Then suddenly the System went out of control! The 'Sufal Mass'... broke through the
+; barrier of the life-support facilities and stood before us") happens: the Sufal Mass breaks out as the original's
+; own script breaks it out, and the game goes on to the original's room by its fight entrance, where the fight, Elly's
+; blood and her words to the mutated are the original's, and the story is the original's.
+map 744 from 622
+
+message Next
+{
+Wel
+"Next...{wait 0A} I'm next...{page}The pain ends when
+you go in.{wait 0A}
+They promised."
+}
+
+message Tank
+{
+Fei
+"Into that!?{page}That tank...that's where
+the people are going?"
+}
+
+message Merged
+{
+Citan
+"Divided and merged on a
+molecular level.{page}One body made of many.
+The Ministry's 'weapon'...
+This is the 'M Plan'."
+}
+
+message StopIt
+{
+Elly
+"Everyone, stop!{wait 0A}
+Don't go in!{page}You are still human!
+Come away from there!"
+}
+
+message OutOfControl
+{
+Elly
+"!?{wait 0A}
+The System...{wait 0A}
+it's out of control!"
+}
+
+message OnceHuman
+{
+Citan
+"That thing...{wait 0A}
+it was once human.{page}It is still being made,
+and it is loose!"
+}
+
+message GetBack
+{
+Fei
+"It's eating them!{wait 0A}
+Elly, get back!"
+}
+
+actors 25
+unsigned 00A-00E 026-02A 030 036
+entrances
+; From the holding hall: where the original's scene enters.
+entrance x -885 z -136 layer 0 camera keep facing 2
+; A step before the queue, where the outbreak begins (the tests' way in).
+entrance x -460 z -250 layer 0 camera keep facing 2
+
+define Scene var[402]
+define Broken var[404]
+actor 0 script 0:
+    SetHiddenModel
+    DisableTalk
+    CameraSet #255 #30 #768
+    End
+
+; The party: Fei, Elly, Citan.
+actor 1 script 0:
+    SetPartyCharacter #0
+    SetMessageFace #0
+    End
+actor 2 script 0:
+    SetPartyCharacter #1
+    SetMessageFace #1
+    End
+actor 3 script 0:
+    SetPartyCharacter #2
+    SetMessageFace #2
+    End
+actor 4 script 0:
+    SetPartyCharacter #3
+    SetMessageFace #3
+    End
+actor 5 script 0:
+    SetPartyCharacter #4
+    SetMessageFace #4
+    End
+actor 6 script 0:
+    SetPartyCharacter #5
+    SetMessageFace #5
+    End
+actor 7 script 0:
+    SetPartyCharacter #6
+    SetMessageFace #6
+    End
+actor 8 script 0:
+    SetPartyCharacter #7
+    SetMessageFace #7
+    End
+actor 9 script 0:
+    SetPartyCharacter #8
+    SetMessageFace #8
+    End
+actor 10 script 0:
+    SetPartyCharacter #9
+    SetMessageFace #9
+    End
+actor 11 script 0:
+    SetPartyCharacter #10
+    SetMessageFace #10
+    End
+actor 1 script 1:
+actor 2 script 1:
+actor 3 script 1:
+actor 4 script 1:
+actor 5 script 1:
+actor 6 script 1:
+actor 7 script 1:
+actor 8 script 1:
+actor 9 script 1:
+actor 10 script 1:
+actor 11 script 1:
+    If Scene == #0 else Held
+    PlayerControlStep
+    End
+Held:
+    Stop
+    End
+
+; Before the queue: the outbreak's scene begins when the party reaches it.
+actor 12 script 0:
+    SetHiddenModel
+    SetPosition #-400 #-250
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 40 10 250 0
+    SetCollisionFlags #1
+    End
+actor 12 script 3:
+    If Scene == #0 else Begun
+    SetVarTrue Scene
+    StartScript actor13 script4@3
+Begun:
+    End
+
+actor 13 script 0:
+    SetHiddenModel
+    DisableTalk
+    End
+actor 13 script 4:
+    DisablePlayer
+    Wait #20
+    MessageAtActor actor15 Next 0
+    WaitMessageClosed
+    MessageAtActorPortrait actor1 Tank 0
+    WaitMessageClosed
+    MessageAtActorPortrait actor10 Merged 9
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 StopIt 1
+    WaitMessageClosed
+    Wait #30
+    ; The System goes out of control: the Sufal Mass breaks out as the original's script breaks it out.
+    MusicLoad #20
+    StartScript actor14 script4@3
+    Wait #30
+    MessageAtActorPortrait actor2 OutOfControl 1
+    WaitMessageClosed
+WaitBroken:
+    If Broken != #1 else Loose
+    Wait #0
+    Jump WaitBroken
+Loose:
+    StartScript actor14 script5@3
+    MessageAtActorPortrait actor10 OnceHuman 9
+    WaitMessageClosed
+    MessageAtActorPortrait actor1 GetBack 0
+    WaitMessageClosed
+    ScreenFade #2 #255 #255 #255 #16
+    Wait #16
+    SetVar var[000] #258
+    ChangeMap #622 #1
+    StopAndHalt
+
+; The Sufal Mass, the original scene's actor with its scripts: hidden until it breaks out.
+actor 14 script 0:
+    SetGearModel #65
+    SetPositionXYZ #140 #20 #-80
+    SetLightDirection #0 #504 #2083 #-504
+    SetAmbientColor #50 #50 #50
+    SetLightColor #0 #2048 #2048 #2560
+    SetScale #4096
+    Hide
+    DisableTalk
+    End
+actor 14 script 4:
+    SetPositionXYZ #140 #20 #-80
+    SetFacingCode 6
+    Show
+    ScreenFade #1 #200 #200 #200 #1
+    CameraShake #10 #10 #0 #0
+    SetMoveAnimation 21
+    Wait #3
+    ScreenFade #0 #0 #0 #0 #16
+    CameraShake #0 #0 #0 #0
+    SetMoveAnimation 22
+    Wait #40
+    SetMoveAnimation 19
+    Wait #20
+    SetMoveAnimation 18
+    JumpTo 2 #235 #-320 #-300 #0
+    JumpTo 143
+    Wait #1
+    JumpTo 15
+    SetMoveAnimation 23
+    JumpTo 2 #330 #-660 #0 #0
+    JumpTo 143
+    Wait #1
+    JumpTo 15
+    SetPosition #330 #-660
+    CameraShake #30 #30 #40 #0
+    Wait #10
+    CameraShake #0 #0 #0 #0
+    Wait #20
+    SetMoveAnimation 22
+    Wait #30
+    SetMoveAnimation 19
+    SetFacingCode 2
+    SetVarTrue Broken
+    End
+actor 14 script 5:
+    SetSpeed #64
+    SetMoveAnimation 18
+    MoveTo 0 #100 #-660 #0
+    MoveTo 1
+    SetPosition #100 #-660
+    Stop
+    SetMoveAnimation 23
+    End
+
+; The mutated, queued for the tank as the original's scene lines them up.
+actor 15 script 0:
+    SetModel #0
+    SetPosition #0 #-260
+    SetFacingCode 0
+    End
+actor 16 script 0:
+    SetModel #1
+    SetPosition #10 #-300
+    SetFacingCode 0
+    End
+actor 17 script 0:
+    SetModel #2
+    SetPosition #-10 #-340
+    SetMoveAnimation 1
+    SetFacingCode 0
+    End
+actor 18 script 0:
+    SetModel #3
+    SetPosition #-20 #-380
+    SetFacingCode 0
+    End
+actor 19 script 0:
+    SetModel #4
+    SetPosition #15 #-420
+    SetFacingCode 0
+    End
+actor 20 script 0:
+    SetModel #5
+    SetPosition #0 #-460
+    SetFacingCode 0
+    End
+actor 21 script 0:
+    SetModel #6
+    SetPosition #10 #-500
+    SetFacingCode 0
+    End
+actor 22 script 0:
+    SetModel #7
+    SetPosition #-20 #-540
+    SetFacingCode 0
+    End
+actor 23 script 0:
+    SetModel #8
+    SetPosition #10 #-580
+    SetFacingCode 0
+    End
+actor 24 script 0:
+    SetModel #0
+    SetPosition #0 #-620
+    SetFacingCode 0
+    End
+actor 15 script 2:
+actor 16 script 2:
+actor 17 script 2:
+actor 18 script 2:
+actor 19 script 2:
+actor 20 script 2:
+actor 21 script 2:
+actor 22 script 2:
+actor 23 script 2:
+actor 24 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Next 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+; What an actor does not do.
+actor 0 script 1:
+actor 0 script 2:
+actor 0 script 3:
+actor 1 script 2:
+actor 1 script 3:
+actor 2 script 2:
+actor 2 script 3:
+actor 3 script 2:
+actor 3 script 3:
+actor 4 script 2:
+actor 4 script 3:
+actor 5 script 2:
+actor 5 script 3:
+actor 6 script 2:
+actor 6 script 3:
+actor 7 script 2:
+actor 7 script 3:
+actor 8 script 2:
+actor 8 script 3:
+actor 9 script 2:
+actor 9 script 3:
+actor 10 script 2:
+actor 10 script 3:
+actor 11 script 2:
+actor 11 script 3:
+actor 12 script 1:
+actor 12 script 2:
+actor 13 script 1:
+actor 13 script 2:
+actor 13 script 3:
+actor 14 script 1:
+actor 14 script 2:
+actor 14 script 3:
+actor 15 script 1:
+actor 15 script 3:
+actor 16 script 1:
+actor 16 script 3:
+actor 17 script 1:
+actor 17 script 3:
+actor 18 script 1:
+actor 18 script 3:
+actor 19 script 1:
+actor 19 script 3:
+actor 20 script 1:
+actor 20 script 3:
+actor 21 script 1:
+actor 21 script 3:
+actor 22 script 1:
+actor 22 script 3:
+actor 23 script 1:
+actor 23 script 3:
+actor 24 script 1:
+actor 24 script 3:
+    End

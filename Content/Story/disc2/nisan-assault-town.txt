@@ -1,0 +1,360 @@
+; Nisan's town the night Ramsus comes, played as Elly: the first disc's town (map 93) by its south gate, the
+; people running for the cathedral, Renk's men from Solaris holding the square, and the way up to the cathedral
+; where the assault's scene is. The chair tells this in two pages ("A trembling... There was a sudden explosion
+; in the city of Nisan"); here the explosion is heard and the walk is the player's.
+map 740 from 93
+; Renk's men wear Solaris' uniform: the Shevat hangar's sprite, in the slot of a Nisan sprite this map does not use.
+sprite 9 from map 164 slot 2
+
+message Returned
+{
+Elly
+"Nisan{wait 05}...{wait 0A}
+I don't know why I
+came back.{page}Just{wait 05}...{wait 0A} this stirring
+in my heart.{wait 0A}
+As if some danger were
+waiting here{wait 05}..."
+}
+
+message Tremor
+{
+Elly
+"!?{wait 0A}
+A trembling{wait 05}...{wait 0A}
+An explosion!?"
+}
+
+message Gold
+{
+Elly
+"Within the fire{wait 05}...{wait 0A}
+A gold Omnigear{wait 05}...!{page}That's{wait 05}...{wait 0A}
+Ramsus!?"
+}
+
+message ToCathedral
+{
+Elly
+"Everyone, to the
+cathedral!{wait 0A} Hurry!"
+}
+
+message SisterRun
+{
+Sister
+"Elly! The sick from the
+infirmary are all inside.{page}The sisters are taking
+the children up now!"
+}
+
+message Helmholz
+{
+Helmholz
+"Boss! It's a Gear!{wait 0A}
+A gold one, Omnigear class!{page}It came down out of the
+dark without a sound and
+just started burning
+the lower town!"
+}
+
+message Vance
+{
+Vance
+"Our Gears can't even
+scratch it, boss!{page}The Nisan militia's
+already routed.{wait 0A}
+It's heading for
+the cathedral!"
+}
+
+message Stratski
+{
+Stratski
+"It keeps shouting
+one name.{wait 0A} Fei's!{page}It's looking for Fei...
+Boss, he's not even here!"
+}
+
+message Broyer
+{
+Broyer
+"We'll hold the square
+as long as we can.{page}Go on up, boss.{wait 0A}
+The people in the
+cathedral need you more
+than we do."
+}
+
+message Townsman
+{
+Man
+"My house{wait 05}...{wait 0A}
+it's gone...{page}The sisters said the
+cathedral is safe.{wait 0A}
+Is anywhere safe
+from that thing?"
+}
+
+message Mutant
+{
+Man
+"I only just got my
+own face back{wait 05}...{page}Miss Elly{wait 05}...{wait 0A}
+don't let it take Nisan
+away from us too."
+}
+
+actors 20
+unsigned 00A-00E 026-02A 030 036 100-12E
+entrances
+; The south gate, as the first disc's map has it.
+entrance x 0 z 2002 layer 0 camera keep facing 4
+
+; Elly's night in Nisan: her first words at the gate, then the explosion, then the walk.
+define Seen var[402]
+actor 0 script 0:
+    SetHiddenModel
+    DisableTalk
+    CameraSet #255 #40 #384
+    CameraZoom #4500 0
+    SetClearColor #40 #12 #20
+    MusicLoad #57
+    End
+
+; The party, whoever is in it: Elly alone, as the parting leaves it.
+actor 1 script 0:
+    SetPartyCharacter #0
+    SetMessageFace #0
+    End
+actor 2 script 0:
+    SetPartyCharacter #1
+    SetMessageFace #1
+    End
+actor 3 script 0:
+    SetPartyCharacter #2
+    SetMessageFace #2
+    End
+actor 4 script 0:
+    SetPartyCharacter #3
+    SetMessageFace #3
+    End
+actor 5 script 0:
+    SetPartyCharacter #4
+    SetMessageFace #4
+    End
+actor 6 script 0:
+    SetPartyCharacter #5
+    SetMessageFace #5
+    End
+actor 7 script 0:
+    SetPartyCharacter #6
+    SetMessageFace #6
+    End
+actor 8 script 0:
+    SetPartyCharacter #7
+    SetMessageFace #7
+    End
+actor 9 script 0:
+    SetPartyCharacter #8
+    SetMessageFace #8
+    End
+actor 10 script 0:
+    SetPartyCharacter #9
+    SetMessageFace #9
+    End
+actor 11 script 0:
+    SetPartyCharacter #10
+    SetMessageFace #10
+    End
+actor 1 script 1:
+actor 2 script 1:
+actor 3 script 1:
+actor 4 script 1:
+actor 5 script 1:
+actor 6 script 1:
+actor 7 script 1:
+actor 8 script 1:
+actor 9 script 1:
+actor 10 script 1:
+actor 11 script 1:
+    If Seen == #0 else Held
+    PlayerControlStep
+    End
+Held:
+    Stop
+    End
+
+; The scene at the gate: Elly's thought, the tremor, the gold Gear in the fire; then the player has her.
+actor 12 script 0:
+    SetHiddenModel
+    DisableTalk
+    SetVarTrue Seen
+    End
+actor 12 script 1:
+    DisablePlayer
+    Wait #30
+    MessageAtActorPortrait actor2 Returned 0
+    WaitMessageClosed
+    Wait #20
+    ; The explosion in the lower town.
+    PlaySound #226
+    CameraShake #4 #4 #4 #1
+    ScreenFade #1 #255 #120 #60 #20
+    Wait #40
+    CameraShake #0 #0 #0 #1
+    MessageAtActorPortrait actor2 Tremor 0
+    WaitMessageClosed
+    Wait #10
+    ScreenFade #1 #255 #200 #120 #30
+    Wait #30
+    MessageAtActorPortrait actor2 Gold 0
+    WaitMessageClosed
+    Wait #10
+    MessageAtActorPortrait actor2 ToCathedral 0
+    WaitMessageClosed
+    SetVarFalse Seen
+    EnablePlayer
+    StopAndHalt
+
+; The way up: the first disc's cathedral zone leads on to the assault's scene before the cathedral.
+actor 13 script 0:
+    SetHiddenModel
+    DisableTalk
+    End
+actor 13 script 1:
+    IfLeaderInArea 0 Stay
+    ChangeMap #741 #0
+    StopAndHalt
+Stay:
+    End
+
+; Renk's men from Solaris, holding the square.
+actor 14 script 0:
+    SetModel #9
+    SetWalkmeshLayer 0
+    SetPosition #-174 #1577
+    SetFacingCode 2
+    End
+actor 14 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Helmholz 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+actor 15 script 0:
+    SetModel #9
+    SetWalkmeshLayer 0
+    SetPosition #174 #1439
+    SetFacingCode 6
+    End
+actor 15 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Vance 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+actor 16 script 0:
+    SetModel #9
+    SetWalkmeshLayer 0
+    SetPosition #64 #1024
+    SetFacingCode 4
+    End
+actor 16 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Stratski 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+actor 17 script 0:
+    SetModel #9
+    SetWalkmeshLayer 0
+    SetPosition #-222 #1015
+    SetFacingCode 1
+    End
+actor 17 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Broyer 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+; A sister, and two of the people Nisan took in.
+actor 18 script 0:
+    SetModel #5
+    SetWalkmeshLayer 0
+    SetPosition #239 #1649
+    SetFacingCode 5
+    End
+actor 18 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self SisterRun 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+actor 19 script 0:
+    SetModel #3
+    SetWalkmeshLayer 0
+    SetPosition #-176 #1081
+    SetFacingCode 1
+    End
+actor 19 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Mutant 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+; What an actor does not do.
+actor 0 script 1:
+actor 0 script 2:
+actor 0 script 3:
+actor 1 script 2:
+actor 1 script 3:
+actor 2 script 2:
+actor 2 script 3:
+actor 3 script 2:
+actor 3 script 3:
+actor 4 script 2:
+actor 4 script 3:
+actor 5 script 2:
+actor 5 script 3:
+actor 6 script 2:
+actor 6 script 3:
+actor 7 script 2:
+actor 7 script 3:
+actor 8 script 2:
+actor 8 script 3:
+actor 9 script 2:
+actor 9 script 3:
+actor 10 script 2:
+actor 10 script 3:
+actor 11 script 2:
+actor 11 script 3:
+actor 12 script 2:
+actor 12 script 3:
+actor 13 script 2:
+actor 13 script 3:
+actor 14 script 1:
+actor 14 script 3:
+actor 15 script 1:
+actor 15 script 3:
+actor 16 script 1:
+actor 16 script 3:
+actor 17 script 1:
+actor 17 script 3:
+actor 18 script 1:
+actor 18 script 3:
+actor 19 script 1:
+actor 19 script 3:
+    End

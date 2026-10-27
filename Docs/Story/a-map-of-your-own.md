@@ -64,6 +64,26 @@ The Mass Driver rooms follow this pattern:
 You can enter a new map through `ChangeMap #733 #0` in another map's script, a
 [world map location](the-world-map.md), or a save made there.
 
+### Sprites from another map
+
+A map's sprites are its own: `SetModel #N` takes slot N of the base map's sprite files. A map of its
+own can take a slot from another disc map instead:
+
+```
+map 740 from 93
+sprite 9 from map 164 slot 2
+```
+
+Slot 9 then holds map 164's slot 2: its sprite file and its images, drawn at slot 9's place in
+VRAM with its own palette. `SetModel #9` on any actor shows it. The Nisan assault uses this for
+the Solarian uniforms of Renk's men, which Nisan's maps lack and the Shevat hangar (map 164) has.
+
+- The slot taken must be one the base map has a sprite file for; the other map's slot must take
+  its images from its archive (most do; `WeltallSlotText`, if you build it, or the tests tell you
+  which).
+- Each slot is taken once. `sprite` lines belong to a map of its own only.
+- The images are uploaded after the base map's, so they show whatever the base put there.
+
 ## `over`: keep the base scripts and patch them
 
 ```

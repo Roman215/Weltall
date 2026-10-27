@@ -1,0 +1,15 @@
+; The night before Mahanon, played. The chair's fourth session (map 617, entrance 4), the second time through, tells
+; in three pages what the scouts found (Solaris's whole force on Mahanon, the Solarians turned to weapons, the
+; Ministry at their head) and of the decision to go at dawn, then gives Fei and Elly to the deck of the Yggdrasil
+; (map 303, entrance 3), where the night's scenes play. The expanded second disc passes over the pages and goes,
+; with the same party, to the Yggdrasil's bridge, a map of its own, where that is said, and from the bridge to the
+; same deck with the story back at the original's value.
+map 617
+detour @0x0904 to Told StartScriptWaitEnd actor31 script14@1
+Told:
+    Jump @0x0907
+detour @0x092D to Bridge ChangeMap #303 #3
+Bridge:
+    SetVar var[000] #286
+    ChangeMap #752 #0
+    StopAndHalt

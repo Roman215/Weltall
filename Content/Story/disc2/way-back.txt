@@ -4,3 +4,25 @@ way back
 
 ; Elly on her way to the Mass Driver: the chair's narration of it, before the launch.
 story 253 to map 617 entrance 2 story 252
+
+; Elly in Nisan the night Ramsus comes: the chair's session that tells of it, at Nisan the refuge's value.
+story 269 to map 617 entrance 3 story 268
+
+; The party inside the Soylent System facility: the stills of it, at the value the original tells them at.
+story 259 to map 621 entrance 0 story 258
+
+; The party in Nortune for the Central District: the original's scene at the gate, the rising and the battle, at
+; the value the original plays it at (the chair's session before it has already set its bit by then).
+story 254 to map 198 entrance 8 story 252
+
+; The party inside Mahanon's wreck: the original's flight through it, at the value the original tells it at.
+story 289 to map 653 entrance 0 story 288
+
+; The party on Razael's cavern's floor: the original's scene of the cavern, at the value the original plays it at.
+story 291 to map 655 entrance 0 story 290
+
+; Elly in Shevat's hangar before Golgoda: the chair's session that tells of it, at the value the original plays it at.
+story 292 to map 617 entrance 5 story 290
+
+; Fei on the Yggdrasil's bridge the night before Mahanon: the deck, where the original's night plays, at its value.
+story 286 to map 303 entrance 3 story 285

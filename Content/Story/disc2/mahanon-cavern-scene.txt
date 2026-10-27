@@ -1,0 +1,12 @@
+; Razael's cavern's scene (map 655), entered from the cavern's floor in the expanded second disc: the pages the walk
+; has said (the cavern, the two lights, the Tree) are passed over, and the story goes back to the original's value;
+; the camera's descent, the data, Krelian and Grahf are the original's. Entered any other way, the scene is whole.
+map 655
+detour @0x074B to Said Message msg6 0
+Said:
+    If var[000] == #291 else Tell
+    SetVar var[000] #290
+    Jump @0x0760
+Tell:
+    Message msg6 0
+    Jump @0x074F

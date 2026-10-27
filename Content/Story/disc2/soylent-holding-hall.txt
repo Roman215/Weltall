@@ -1,0 +1,403 @@
+; The facility's holding hall, played: the second disc's still of the mutated (map 620), whose Wels have talk scripts
+; with no words in them, given words. Here the exchange Elly narrates over the Sufal Mass's room ("There were the
+; 'haves' and the 'have-nots'... among them were some of my former friends from Solaris... They asked if a 'have'
+; such as myself could understand their pain... I couldn't answer") is played: a soldier of her Gebler days, mutated,
+; asks it to her face. The east door leads to the processing line.
+map 743 from 620
+
+message Lieutenant
+{
+Gebler Soldier
+"...Elly?{wait 0A}
+Lieutenant Van Houten?{page}...It is you.
+I was in the unit at
+Bledavik. The canteen,
+the night before Aveh."
+}
+
+message LookAtUs
+{
+Gebler Soldier
+"Look at us.{wait 0A}
+Look at what we are.{page}Then look at yourself.
+Clean. Whole.{wait 0A}
+A 'have'."
+}
+
+message Share
+{
+Gebler Soldier
+"You 'haves' should share
+with us 'have-nots'.{page}A little of your blood.
+It eases it.{wait 0A}
+Only for a while...
+but it eases it."
+}
+
+message Understand
+{
+Gebler Soldier
+"Can a 'have' like you
+understand this pain?"
+}
+
+message NoAnswer
+{
+Elly
+"I{wait 05}...{wait 14}"
+}
+
+message FeiElly
+{
+Fei
+"Elly..."
+}
+
+message Conceited
+{
+Elly
+"I couldn't answer him.{page}Whatever I said, it would
+have sounded like a
+conceited 'have'
+speaking..."
+}
+
+message EvenSo
+{
+Elly
+"Even so{wait 05}...{wait 0A}
+I want to relieve their
+anguish. I've decided.{page}Just like the person in
+the memory of my dreams...
+in the distant past..."
+}
+
+message Onward
+{
+Citan
+"The processing line is
+beyond that door.{page}If the ones from Nisan
+are anywhere, they are
+there."
+}
+
+message Mother
+{
+Wel
+"Mother?{wait 0A} Is that you?{page}...No.{wait 0A}
+I came to find my mother.
+She went 'to be saved'.
+They took her through."
+}
+
+message Queue
+{
+Wel
+"They go in one at a time.
+No one comes back out.{page}But no one screams
+in there, either."
+}
+
+message Quieter
+{
+Wel
+"The pain is less when
+I'm near the others.{page}As if we were one body
+already..."
+}
+
+message Haves
+{
+Wel
+"'Haves'...{wait 0A}
+Three of them...{page}Just a little.
+Just a little blood..."
+}
+
+message Teeth
+{
+Wel
+"Yesterday I bit someone.
+I didn't want to.{page}He forgave me.{wait 0A}
+He understood."
+}
+
+actors 21
+unsigned 00A-00E 026-02A 030 036 0C0-0CA
+entrances
+; From the gate hall, by the west door.
+entrance x -300 z 0 layer 0 camera keep facing 2
+; A step before the soldier's scene (the tests' way in).
+entrance x -290 z 0 layer 0 camera keep facing 2
+
+define Scene var[402]
+define Met var[404]
+actor 0 script 0:
+    SetHiddenModel
+    DisableTalk
+    CameraSet #255 #30 #768
+    End
+
+; The party: Fei, Elly, Citan.
+actor 1 script 0:
+    SetPartyCharacter #0
+    SetMessageFace #0
+    End
+actor 2 script 0:
+    SetPartyCharacter #1
+    SetMessageFace #1
+    End
+actor 3 script 0:
+    SetPartyCharacter #2
+    SetMessageFace #2
+    End
+actor 4 script 0:
+    SetPartyCharacter #3
+    SetMessageFace #3
+    End
+actor 5 script 0:
+    SetPartyCharacter #4
+    SetMessageFace #4
+    End
+actor 6 script 0:
+    SetPartyCharacter #5
+    SetMessageFace #5
+    End
+actor 7 script 0:
+    SetPartyCharacter #6
+    SetMessageFace #6
+    End
+actor 8 script 0:
+    SetPartyCharacter #7
+    SetMessageFace #7
+    End
+actor 9 script 0:
+    SetPartyCharacter #8
+    SetMessageFace #8
+    End
+actor 10 script 0:
+    SetPartyCharacter #9
+    SetMessageFace #9
+    End
+actor 11 script 0:
+    SetPartyCharacter #10
+    SetMessageFace #10
+    End
+actor 1 script 1:
+actor 2 script 1:
+actor 3 script 1:
+actor 4 script 1:
+actor 5 script 1:
+actor 6 script 1:
+actor 7 script 1:
+actor 8 script 1:
+actor 9 script 1:
+actor 10 script 1:
+actor 11 script 1:
+    If Scene == #0 else Held
+    PlayerControlStep
+    End
+Held:
+    Stop
+    End
+
+; The soldier's scene, when the party comes in among the mutated: he turns to Elly from where he stands.
+actor 12 script 0:
+    SetHiddenModel
+    SetPosition #-230 #0
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 20 10 200 0
+    SetCollisionFlags #1
+    End
+actor 12 script 3:
+    If Met == #0 else Begun
+    SetVarTrue Met
+    SetVarTrue Scene
+    StartScript actor13 script4@3
+Begun:
+    End
+
+actor 13 script 0:
+    SetHiddenModel
+    DisableTalk
+    End
+actor 13 script 4:
+    DisablePlayer
+    Wait #20
+    StartScriptWaitEnd actor16 script8@3
+    MessageAtActor actor16 Lieutenant 0
+    WaitMessageClosed
+    MessageAtActor actor16 LookAtUs 0
+    WaitMessageClosed
+    MessageAtActor actor16 Share 0
+    WaitMessageClosed
+    MessageAtActor actor16 Understand 0
+    WaitMessageClosed
+    Wait #30
+    MessageAtActorPortrait actor2 NoAnswer 1
+    WaitMessageClosed
+    Wait #40
+    MessageAtActorPortrait actor1 FeiElly 0
+    WaitMessageClosed
+    StartScriptWaitEnd actor16 script9@3
+    MessageAtActorPortrait actor2 Conceited 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 EvenSo 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor10 Onward 9
+    WaitMessageClosed
+    SetVarFalse Scene
+    EnablePlayer
+    End
+
+; The east door, to the processing line.
+actor 14 script 0:
+    SetHiddenModel
+    SetPosition #300 #0
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 20 10 200 0
+    SetCollisionFlags #1
+    End
+actor 14 script 3:
+    ChangeMap #744 #0
+    StopAndHalt
+
+; The mutated, where the still has them; the soldier among them.
+actor 15 script 0:
+    SetModel #0
+    SetPosition #90 #90
+    End
+actor 15 script 1:
+    WanderStep
+    End
+actor 15 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Mother 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+actor 16 script 0:
+    SetModel #2
+    SetPosition #-109 #-13
+    SetMoveAnimation 1
+    End
+actor 16 script 1:
+    End
+actor 16 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Understand 0
+    WaitMessageClosed
+    EnableControls
+    End
+actor 16 script 8:
+    FaceActor party1
+    End
+actor 16 script 9:
+    SetFacingCode 6
+    End
+
+actor 17 script 0:
+    SetModel #3
+    SetPosition #229 #24
+    SetMoveAnimation 1
+    End
+actor 17 script 1:
+    End
+actor 17 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Queue 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+actor 18 script 0:
+    SetModel #4
+    SetPosition #-281 #131
+    SetMoveAnimation 1
+    End
+actor 18 script 1:
+    End
+actor 18 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Quieter 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+actor 19 script 0:
+    SetModel #7
+    SetPosition #-188 #0
+    End
+actor 19 script 1:
+    WanderStep
+    End
+actor 19 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Haves 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+actor 20 script 0:
+    SetModel #8
+    SetPosition #22 #40
+    End
+actor 20 script 1:
+    WanderStep
+    End
+actor 20 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Teeth 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+; What an actor does not do.
+actor 0 script 1:
+actor 0 script 2:
+actor 0 script 3:
+actor 1 script 2:
+actor 1 script 3:
+actor 2 script 2:
+actor 2 script 3:
+actor 3 script 2:
+actor 3 script 3:
+actor 4 script 2:
+actor 4 script 3:
+actor 5 script 2:
+actor 5 script 3:
+actor 6 script 2:
+actor 6 script 3:
+actor 7 script 2:
+actor 7 script 3:
+actor 8 script 2:
+actor 8 script 3:
+actor 9 script 2:
+actor 9 script 3:
+actor 10 script 2:
+actor 10 script 3:
+actor 11 script 2:
+actor 11 script 3:
+actor 12 script 1:
+actor 12 script 2:
+actor 13 script 1:
+actor 13 script 2:
+actor 13 script 3:
+actor 14 script 1:
+actor 14 script 2:
+actor 15 script 3:
+actor 16 script 3:
+actor 17 script 3:
+actor 18 script 3:
+actor 19 script 3:
+actor 20 script 3:
+    End

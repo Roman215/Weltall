@@ -38,3 +38,13 @@ message Met from event 19 message 0 page 1
 
 `Content/Story/disc2/rematch-lead-in.txt` uses this to show the meeting in the sky scene. The original
 text is read from your disc when the map loads.
+
+A field map's message can be named the same way:
+
+```
+message Where from map 617 message 23
+```
+
+The Nisan assault uses this for everything Ramsus and Elly say before the cathedral: the chair's
+own lines (map 617), read from the disc as the map loads, so the scene speaks whichever script the
+game plays with, the original's or Perfect Works Build's, and carries none of the text itself.

@@ -1,0 +1,17 @@
+; Into Nortune, played. The original's first session in Fei's chair (map 618, entrance 0) tells of the Solaris
+; Mobile Surface Supremacy Weapon and of going to Nortune, then goes to Nortune's A Block gate at night (map 198,
+; entrance 8), where the Central District's rising is narrated over the gate and the Yggdrasil IV's battle with the
+; Mobile Weapon is fought, and from there back to the chair's second session. The expanded second disc leaves the
+; chair for the gate under curfew, a map of its own, with Fei, Bart and Rico and the story at the battleship's own
+; value; the Kaiser's hall, the tactical command room and the bridge follow, and from the bridge the game goes on to
+; the original's scene at the gate, the story at the original's value, where the rising and the battle are its own.
+map 618
+detour @0x0740 to Nortune ChangeMap #198 #8
+Nortune:
+    SetVar var[000] #254
+    PartyAdd 3
+    PartyAddWait
+    PartyAdd 5
+    PartyAddWait
+    ChangeMap #745 #0
+    StopAndHalt

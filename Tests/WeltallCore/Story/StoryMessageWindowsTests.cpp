@@ -57,7 +57,7 @@ namespace
 	 * spoken at (MessageAtActorPortrait), a party slot's actor's always. A size a script gives its windows is not
 	 * followed: the port's own windows size themselves.
 	 */
-	std::vector<std::string> MessagesUnheld(const FEventScripts& Scripts, const FMessageTable& Messages, int32 First)
+	std::vector<std::string> MessagesUnheld(const FEventScripts& Scripts, const FMessageTable& Messages, int32 First, const std::set<int32>& OfDisc = {})
 	{
 		const std::span<const uint8> Code(Scripts.Code(), Scripts.CodeSize());
 		std::vector<bool> Faces(static_cast<std::size_t>(Scripts.ActorCount()), false);
@@ -88,7 +88,8 @@ namespace
 		std::vector<std::string> Unheld;
 		for (const FOpening& Opening : Openings)
 		{
-			if (Opening.Message < First || Opening.Message >= Messages.Count())
+			// The messages before First, and those named of the disc's own, are the game's: shown as the game shows them.
+			if (Opening.Message < First || Opening.Message >= Messages.Count() || OfDisc.count(Opening.Message) != 0)
 			{
 				continue;
 			}
@@ -211,6 +212,7 @@ TEST_CASE("Every message the port's story adds opens a window that holds it, bes
 		if (Own != nullptr && !bOverBase)
 		{
 			auto Made = Own->Patch.Build(&DiscText);
+			INFO((Made ? std::string() : Made.Error().Message));
 			REQUIRE(Made);
 			Loaded->EventScripts = std::move(Made->EventScripts);
 			Loaded->Messages = std::move(Made->Messages);
@@ -231,6 +233,13 @@ TEST_CASE("Every message the port's story adds opens a window that holds it, bes
 		REQUIRE_FALSE(Story.ApplyToMap(Map, *Scripts, Loaded->Messages, Options, Document.bExpansion, &DiscText));
 		const auto Messages = FMessageTable::Parse(Loaded->Messages);
 		REQUIRE(Messages);
-		CHECK(MessagesUnheld(*Scripts, *Messages, First) == std::vector<std::string>{});
+		// The disc's own messages a document names are the game's too: those of the map's maker, or of the map's first document.
+		std::set<int32> OfDisc;
+		const FFieldMapPatch& Naming = Own != nullptr && !bOverBase ? Own->Patch : Document.Patch;
+		for (const int32 Named : Naming.DiscMessages())
+		{
+			OfDisc.insert(First + Named);
+		}
+		CHECK(MessagesUnheld(*Scripts, *Messages, First, OfDisc) == std::vector<std::string>{});
 	}
 }

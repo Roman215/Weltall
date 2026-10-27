@@ -1,0 +1,309 @@
+; The Central District's bridge, played: the first disc's map of the Kaiser's bridge (map 234), where Sigmund
+; acknowledges his son before his officers and gives the ship to its new master. What the chair narrates
+; ("Commanded by its 'new master', the secret battleship stood before the Mobile Weapon") begins here, and the
+; game goes on to the original's scene at the gate (map 198, entrance 8): the rising, and the battle.
+map 748 from 234
+
+message HearMe
+{
+Sigmund
+"Officers of Kislev.{wait 0A}
+Hear me.{page}The man beside the
+Fatima prince is
+Ricardo Banderas.{page}The Battling Champion.{wait 1E}{page}My son."
+}
+
+message Gasp
+{
+Officer
+"...!"
+}
+
+message Denied
+{
+Sigmund
+"I denied him for the
+throne's sake.{page}Tonight the throne is a
+ship's deck.{wait 0A} I am done
+denying.{page}Whatever comes down on
+us out of that sky...{page}he stands where I stand."
+}
+
+message OldMan
+{
+Rico
+"...Old man.{page}...Don't make me say
+anything."
+}
+
+message RicoDots
+{
+Fei
+"Rico..."
+}
+
+message WakeHer
+{
+Bart
+"Alright!{wait 0A} Yggdrasil's
+locked into the keel.{page}Sigurd, Maison, all
+hands to stations.{page}Kaiser...{wait 0A} with your
+permission.{page}Let's wake her up."
+}
+
+message Yours
+{
+Sigmund
+"She is yours, Fatima.{page}Raise her."
+}
+
+actors 25
+unsigned 00A-00E 026-02A 030 036 200-224
+entrances
+; From the lift; the Kaiser's scene begins at once.
+entrance x -638 z 1504 layer 0 camera keep facing 2
+
+define Scene var[402]
+actor 0 script 0:
+    SetHiddenModel
+    DisableTalk
+    MusicLoad #21
+    SkyboxParams 0x0 0x0 0x140 0x0 0x0 0x0 0x0
+    SkyboxHorizon #0 #4000 #-1024
+    SkyboxColors #40 #50 #180 #40 #50 #180 #150 #168 #144 #0 #0 #0
+    End
+
+; The party: Fei, Bart, Rico.
+actor 1 script 0:
+    SetPartyCharacter #0
+    SetMessageFace #0
+    SetScale #2500
+    End
+actor 2 script 0:
+    SetPartyCharacter #1
+    SetMessageFace #1
+    SetScale #2500
+    End
+actor 3 script 0:
+    SetPartyCharacter #2
+    SetMessageFace #2
+    SetScale #2500
+    End
+actor 4 script 0:
+    SetPartyCharacter #3
+    SetMessageFace #3
+    SetScale #2500
+    End
+actor 5 script 0:
+    SetPartyCharacter #4
+    SetMessageFace #4
+    SetScale #2500
+    End
+actor 6 script 0:
+    SetPartyCharacter #5
+    SetMessageFace #5
+    SetScale #2500
+    End
+actor 7 script 0:
+    SetPartyCharacter #6
+    SetMessageFace #6
+    SetScale #2500
+    End
+actor 8 script 0:
+    SetPartyCharacter #7
+    SetMessageFace #7
+    SetScale #2500
+    End
+actor 9 script 0:
+    SetPartyCharacter #8
+    SetMessageFace #8
+    SetScale #2500
+    End
+actor 10 script 0:
+    SetPartyCharacter #9
+    SetMessageFace #9
+    SetScale #2500
+    End
+actor 11 script 0:
+    SetPartyCharacter #10
+    SetMessageFace #10
+    SetScale #2500
+    End
+actor 1 script 1:
+actor 2 script 1:
+actor 3 script 1:
+actor 4 script 1:
+actor 5 script 1:
+actor 6 script 1:
+actor 7 script 1:
+actor 8 script 1:
+actor 9 script 1:
+actor 10 script 1:
+actor 11 script 1:
+    If Scene == #0 else Held
+    PlayerControlStep
+    End
+Held:
+    Stop
+    End
+
+; The Kaiser's scene, as the party comes onto the bridge.
+actor 12 script 0:
+    SetHiddenModel
+    DisableTalk
+    SetVarTrue Scene
+    End
+actor 12 script 1:
+    DisablePlayer
+    Wait #40
+    MessageAtActorPortrait actor24 HearMe 76
+    WaitMessageClosed
+    MessageAtActor actor22 Gasp 0
+    WaitMessageClosed
+    MessageAtActorPortrait actor24 Denied 76
+    WaitMessageClosed
+    Wait #30
+    MessageAtActorPortrait actor6 OldMan 5
+    WaitMessageClosed
+    MessageAtActorPortrait actor1 RicoDots 0
+    WaitMessageClosed
+    MessageAtActorPortrait actor4 WakeHer 3
+    WaitMessageClosed
+    MessageAtActorPortrait actor24 Yours 76
+    WaitMessageClosed
+    Wait #30
+    ScreenFade #1 #0 #0 #0 #30
+    Wait #30
+    PartyRemove 3
+    PartyRemove 5
+    SetVar var[000] #252
+    ChangeMap #198 #8
+    StopAndHalt
+
+; What the bridge looks out on: the dock's ship and Gears, as the map has them.
+actor 16 script 0:
+    SetGearModel #62
+    SetScale #6000
+    SetPositionXYZ #10000 #1510 #690
+    SetModelTurnSpeed #2047
+    End
+actor 17 script 0:
+    SetGearModel #8
+    SetScale #2048
+    SetPositionXYZ #1800 #1900 #720
+    End
+actor 18 script 0:
+    SetGearModel #8
+    SetScale #2048
+    SetPositionXYZ #1800 #1100 #720
+    End
+
+; The officers at their stations.
+actor 19 script 0:
+    SetModel #3
+    SetPosition #-39 #1422
+    SetScale #2500
+    SetFacingCode 3
+    End
+actor 20 script 0:
+    SetModel #3
+    SetPosition #-39 #1608
+    SetScale #2500
+    SetFacingCode 3
+    End
+actor 21 script 0:
+    SetModel #3
+    SetPosition #120 #1300
+    SetScale #2500
+    SetFacingCode 3
+    End
+actor 22 script 0:
+    SetModel #4
+    SetPosition #-300 #1554
+    SetScale #2500
+    SetFacingCode 3
+    End
+actor 23 script 0:
+    SetModel #3
+    SetPosition #-94 #1610
+    SetScale #2500
+    SetFacingCode 1
+    End
+
+; Kaiser Sigmund, where the bridge has him.
+actor 24 script 0:
+    SetModel #1
+    SetPosition #-144 #1116
+    SetScale #2500
+    SetMessageFace #76
+    SetFacingCode 3
+    End
+
+; What an actor does not do.
+actor 0 script 1:
+actor 0 script 2:
+actor 0 script 3:
+actor 1 script 2:
+actor 1 script 3:
+actor 2 script 2:
+actor 2 script 3:
+actor 3 script 2:
+actor 3 script 3:
+actor 4 script 2:
+actor 4 script 3:
+actor 5 script 2:
+actor 5 script 3:
+actor 6 script 2:
+actor 6 script 3:
+actor 7 script 2:
+actor 7 script 3:
+actor 8 script 2:
+actor 8 script 3:
+actor 9 script 2:
+actor 9 script 3:
+actor 10 script 2:
+actor 10 script 3:
+actor 11 script 2:
+actor 11 script 3:
+actor 12 script 2:
+actor 12 script 3:
+actor 13 script 0:
+actor 13 script 1:
+actor 13 script 2:
+actor 13 script 3:
+actor 14 script 0:
+actor 14 script 1:
+actor 14 script 2:
+actor 14 script 3:
+actor 15 script 0:
+actor 15 script 1:
+actor 15 script 2:
+actor 15 script 3:
+actor 16 script 1:
+actor 16 script 2:
+actor 16 script 3:
+actor 17 script 1:
+actor 17 script 2:
+actor 17 script 3:
+actor 18 script 1:
+actor 18 script 2:
+actor 18 script 3:
+actor 19 script 1:
+actor 19 script 2:
+actor 19 script 3:
+actor 20 script 1:
+actor 20 script 2:
+actor 20 script 3:
+actor 21 script 1:
+actor 21 script 2:
+actor 21 script 3:
+actor 22 script 1:
+actor 22 script 2:
+actor 22 script 3:
+actor 23 script 1:
+actor 23 script 2:
+actor 23 script 3:
+actor 24 script 1:
+actor 24 script 2:
+actor 24 script 3:
+    End

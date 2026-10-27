@@ -1,0 +1,347 @@
+; The Yggdrasil's bridge on the night before Mahanon, played: the ship's bridge (map 290) with Sigurd, Bart and
+; Citan at the chart, where what the chair's pages tell is said: the scouts' word of the force on Mahanon, what
+; the Solarians have become, and that the ship goes at dawn with everything there is. Fei goes from here to the
+; deck, where the original's night plays: Elly told to stay, the crew's teasing, her door.
+map 752 from 290
+
+message Scouts
+{
+Sigurd
+"The scouts are back from
+the north.{page}Solaris sits on Mahanon.{wait 0A}
+All of it."
+}
+
+message WhatIsLeft
+{
+Citan
+"What is left of it.{page}Not a nation.{wait 0A} Not Gebler.{page}The Gaetia Key turned
+nearly every Solarian
+into a weapon.{page}The Ministry commands
+them now."
+}
+
+message NothingBetween
+{
+Bart
+"So it's the Ministry,
+god's wisdom, and
+nothing in between.{page}Then we go.{wait 0A} All of us.{wait 0A}
+Everything we've got."
+}
+
+message NoWayBack
+{
+Sigurd
+"Nisan's militia, Shevat's
+Gears, the Yggdrasil.{page}It will not be enough to
+promise anyone a way
+back, young master."
+}
+
+message Dawn
+{
+Bart
+"I know.{page}We launch at dawn."
+}
+
+message AtDawn
+{
+Fei
+"At dawn."
+}
+
+message Tonight
+{
+Citan
+"Fei.{wait 0A} Whoever should not
+be aboard tomorrow...{page}tell them tonight.{wait 0A}
+Not at the ramp."
+}
+
+message IKnowWho
+{
+Fei
+"...I know who."
+}
+
+message Sleep
+{
+Sigurd
+"Get some sleep, Fei.{page}Dawn comes whether we
+are ready or not."
+}
+
+message Straight
+{
+Bart
+"Say it to her straight.{page}...Not that I'd know
+how."
+}
+
+message Counted
+{
+Citan
+"The scouts counted the
+Gears on the hull twice.{page}They stopped at a
+thousand."
+}
+
+message Course
+{
+Crewman
+"Course laid in for
+Mahanon, sir.{page}Whatever that means
+for us."
+}
+
+message Letter
+{
+Crewman
+"I wrote my mother
+tonight.{page}Didn't say where."
+}
+
+actors 19
+unsigned 00A-00E 026-02A 030 036 100-12E 180-190 1C0-1CC 1FC-1FE 2C0-2DE
+entrances
+; The bridge's door, where Fei and Elly come in.
+entrance x 0 z 640 layer 0 camera keep facing 4
+; A step before the chart (the tests' way in).
+entrance x 0 z 210 layer 0 camera keep facing 4
+
+define Scene var[402]
+define Briefed var[404]
+actor 0 script 0:
+    SetHiddenModel
+    DisableTalk
+    CameraSet #0 #22 #512
+    End
+
+; The party: Fei and Elly, as the chair leaves it.
+actor 1 script 0:
+    SetPartyCharacter #0
+    SetMessageFace #0
+    End
+actor 2 script 0:
+    SetPartyCharacter #1
+    SetMessageFace #1
+    End
+actor 3 script 0:
+    SetPartyCharacter #2
+    SetMessageFace #2
+    End
+actor 4 script 0:
+    SetPartyCharacter #3
+    SetMessageFace #3
+    End
+actor 5 script 0:
+    SetPartyCharacter #4
+    SetMessageFace #4
+    End
+actor 6 script 0:
+    SetPartyCharacter #5
+    SetMessageFace #5
+    End
+actor 7 script 0:
+    SetPartyCharacter #6
+    SetMessageFace #6
+    End
+actor 8 script 0:
+    SetPartyCharacter #7
+    SetMessageFace #7
+    End
+actor 9 script 0:
+    SetPartyCharacter #8
+    SetMessageFace #8
+    End
+actor 10 script 0:
+    SetPartyCharacter #9
+    SetMessageFace #9
+    End
+actor 11 script 0:
+    SetPartyCharacter #10
+    SetMessageFace #10
+    End
+actor 1 script 1:
+actor 2 script 1:
+actor 3 script 1:
+actor 4 script 1:
+actor 5 script 1:
+actor 6 script 1:
+actor 7 script 1:
+actor 8 script 1:
+actor 9 script 1:
+actor 10 script 1:
+actor 11 script 1:
+    If Scene == #0 else Held
+    PlayerControlStep
+    End
+Held:
+    Stop
+    End
+
+; Sigurd at the chart, Bart and Citan with him, where the bridge has them.
+actor 12 script 0:
+    SetModel #10
+    SetMessageFace #27
+    SetPosition #-8 #8
+    SetFacingCode 0
+    End
+actor 12 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActorPortrait self Sleep 27
+    WaitMessageClosed
+    EnableControls
+    End
+actor 13 script 0:
+    SetModel #7
+    SetMessageFace #3
+    SetPosition #57 #127
+    SetFacingCode 2
+    End
+actor 13 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActorPortrait self Straight 3
+    WaitMessageClosed
+    EnableControls
+    End
+actor 14 script 0:
+    SetModel #11
+    SetMessageFace #2
+    SetPosition #-82 #204
+    SetFacingCode 6
+    End
+actor 14 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActorPortrait self Counted 2
+    WaitMessageClosed
+    EnableControls
+    End
+
+; The crew at the helm.
+actor 15 script 0:
+    SetModel #0
+    SetPosition #-88 #-280
+    SetFacingCode 4
+    End
+actor 15 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Course 0
+    WaitMessageClosed
+    EnableControls
+    End
+actor 16 script 0:
+    SetModel #0
+    SetPosition #20 #-280
+    SetFacingCode 4
+    End
+actor 16 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Letter 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+; At the chart, Sigurd, Bart and Citan in view: the briefing, when Fei reaches it, once (a party standing in the
+; trigger touches it again as soon as the scene ends).
+actor 17 script 0:
+    SetHiddenModel
+    SetPosition #0 #150
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 250 10 20 0
+    SetCollisionFlags #1
+    End
+actor 17 script 3:
+    If Briefed == #0 else Begun
+    SetVarTrue Briefed
+    SetVarTrue Scene
+    DisablePlayer
+    Wait #20
+    MessageAtActorPortrait actor12 Scouts 27
+    WaitMessageClosed
+    MessageAtActorPortrait actor14 WhatIsLeft 2
+    WaitMessageClosed
+    MessageAtActorPortrait actor13 NothingBetween 3
+    WaitMessageClosed
+    MessageAtActorPortrait actor12 NoWayBack 27
+    WaitMessageClosed
+    MessageAtActorPortrait actor13 Dawn 3
+    WaitMessageClosed
+    Wait #20
+    MessageAtActorPortrait actor1 AtDawn 0
+    WaitMessageClosed
+    MessageAtActorPortrait actor14 Tonight 2
+    WaitMessageClosed
+    Wait #30
+    MessageAtActorPortrait actor1 IKnowWho 0
+    WaitMessageClosed
+    SetVarFalse Scene
+    EnablePlayer
+Begun:
+    End
+
+; The door, to the deck and the original's night.
+actor 18 script 0:
+    SetHiddenModel
+    SetPosition #0 #700
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 60 10 20 0
+    SetCollisionFlags #1
+    End
+actor 18 script 3:
+    DisablePlayer
+    ScreenFade #1 #0 #0 #0 #30
+    Wait #30
+    SetVar var[000] #285
+    ChangeMap #303 #3
+    StopAndHalt
+
+; What an actor does not do.
+actor 0 script 1:
+actor 0 script 2:
+actor 0 script 3:
+actor 1 script 2:
+actor 1 script 3:
+actor 2 script 2:
+actor 2 script 3:
+actor 3 script 2:
+actor 3 script 3:
+actor 4 script 2:
+actor 4 script 3:
+actor 5 script 2:
+actor 5 script 3:
+actor 6 script 2:
+actor 6 script 3:
+actor 7 script 2:
+actor 7 script 3:
+actor 8 script 2:
+actor 8 script 3:
+actor 9 script 2:
+actor 9 script 3:
+actor 10 script 2:
+actor 10 script 3:
+actor 11 script 2:
+actor 11 script 3:
+actor 12 script 1:
+actor 12 script 3:
+actor 13 script 1:
+actor 13 script 3:
+actor 14 script 1:
+actor 14 script 3:
+actor 15 script 1:
+actor 15 script 3:
+actor 16 script 1:
+actor 16 script 3:
+actor 17 script 1:
+actor 17 script 2:
+actor 18 script 1:
+actor 18 script 2:
+    End

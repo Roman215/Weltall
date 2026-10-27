@@ -1,0 +1,411 @@
+; Shevat's hangar on the night Elly leaves for Golgoda, played: the hangar map that has her unit's own sprites (map
+; 164, the hangar the story brings her unit to), with them waiting by the last Omnigear. The chair's pages of her
+; climb and Krelian's call are read at her arrival and its page of her departure at the end, from the disc; her
+; unit's farewell is the chair's own scene (map 617's messages 60 to 84), spoken where they stand. From the Omnigear the game goes to Golgoda, the
+; chair's session that plays it (map 619, entrance 3), the story at the original's value.
+map 751 from 164
+
+message Line60 from map 617 message 60
+message Line61 from map 617 message 61
+message Line62 from map 617 message 62
+message Line63 from map 617 message 63
+message Line64 from map 617 message 64
+message Line65 from map 617 message 65
+message Line66 from map 617 message 66
+message Line67 from map 617 message 67
+message Line68 from map 617 message 68
+message Line69 from map 617 message 69
+message Line70 from map 617 message 70
+message Line71 from map 617 message 71
+message Line72 from map 617 message 72
+message Line73 from map 617 message 73
+message Line74 from map 617 message 74
+message Line75 from map 617 message 75
+message Line76 from map 617 message 76
+message Line77 from map 617 message 77
+message Line78 from map 617 message 78
+message Line79 from map 617 message 79
+message Line80 from map 617 message 80
+message Line81 from map 617 message 81
+message Line82 from map 617 message 82
+message Line83 from map 617 message 83
+message Line84 from map 617 message 84
+
+message Ascend from map 617 message 58
+message Depart from map 617 message 59
+
+message RenkIdle
+{
+Renk
+"...Say it again, that
+you're going alone.{page}No.{wait 0A} Don't."
+}
+
+message HelmholzIdle
+{
+Helmholz
+"Her weapons are loaded.{wait 0A}
+All of them.{page}I did it myself.{wait 0A}
+Three times."
+}
+
+message StratskiIdle
+{
+Stratski
+"Golgoda.{wait 0A} It's a hill.{page}Just a hill. Why does
+the name feel like that?"
+}
+
+message VanceIdle
+{
+Vance
+"We ran from Solaris with
+you. We'd fly into it
+with you.{page}...If you'd let us."
+}
+
+message BroyerIdle
+{
+Broyer
+"The others are asleep
+in Nisan.{page}Don't wake them.{wait 0A}
+They'd only try
+to stop you."
+}
+
+message Mechanic
+{
+Shevat Mechanic
+"She's fuelled and the
+seals are checked.{page}The last Omnigear
+in Shevat.{wait 0A} Bring
+her back."
+}
+
+message Watchman
+{
+Shevat Mechanic
+"They've been standing
+there since the call
+came in.{page}Nobody told them to."
+}
+
+actors 21
+unsigned 00A-00E 026-02A 030 036 080-0BE 402-40A
+entrances
+; The hangar's west end, where Elly comes in.
+entrance x -1031 z -268 layer 0 camera keep facing 2
+; A step before her unit (the tests' way in).
+entrance x 540 z -270 layer 0 camera keep facing 2
+
+define Scene var[402]
+actor 0 script 0:
+    SetHiddenModel
+    MusicLoad #56
+    DisableTalk
+    SetVarTrue Scene
+    End
+
+; The party: Elly alone, as the chair leaves it, in the hangar's own order of actors.
+actor 1 script 0:
+    SetPartyCharacter #0
+    SetMessageFace #0
+    End
+actor 2 script 0:
+    SetPartyCharacter #1
+    SetMessageFace #1
+    End
+actor 3 script 0:
+    SetPartyCharacter #2
+    SetMessageFace #2
+    End
+actor 4 script 0:
+    SetPartyCharacter #3
+    SetMessageFace #3
+    End
+actor 5 script 0:
+    SetPartyCharacter #4
+    SetMessageFace #4
+    End
+actor 6 script 0:
+    SetPartyCharacter #5
+    SetMessageFace #5
+    End
+actor 7 script 0:
+    SetPartyCharacter #6
+    SetMessageFace #6
+    End
+actor 8 script 0:
+    SetPartyCharacter #7
+    SetMessageFace #7
+    End
+actor 9 script 0:
+    SetPartyCharacter #8
+    SetMessageFace #8
+    End
+actor 10 script 0:
+    SetPartyCharacter #9
+    SetMessageFace #9
+    End
+actor 11 script 0:
+    SetPartyCharacter #10
+    SetMessageFace #10
+    End
+actor 1 script 1:
+actor 2 script 1:
+actor 3 script 1:
+actor 4 script 1:
+actor 5 script 1:
+actor 6 script 1:
+actor 7 script 1:
+actor 8 script 1:
+actor 9 script 1:
+actor 10 script 1:
+actor 11 script 1:
+    If Scene == #0 else Held
+    PlayerControlStep
+    End
+Held:
+    Stop
+    End
+
+; Renk.
+actor 12 script 0:
+    SetModel #2
+    SetPosition #844 #-240
+    SetFacingCode 6
+    SetMessageFace #65
+    End
+actor 12 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActorPortrait self RenkIdle 65
+    WaitMessageClosed
+    EnableControls
+    End
+; Helmholz.
+actor 13 script 0:
+    SetModel #2
+    SetPosition #785 #-274
+    SetFacingCode 6
+    SetMessageFace #69
+    End
+actor 13 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActorPortrait self HelmholzIdle 69
+    WaitMessageClosed
+    EnableControls
+    End
+; Stratski.
+actor 14 script 0:
+    SetModel #2
+    SetPosition #684 #-266
+    SetFacingCode 6
+    SetMessageFace #67
+    End
+actor 14 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActorPortrait self StratskiIdle 67
+    WaitMessageClosed
+    EnableControls
+    End
+; Vance.
+actor 15 script 0:
+    SetModel #2
+    SetPosition #910 #-140
+    SetFacingCode 6
+    SetMessageFace #68
+    End
+actor 15 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActorPortrait self VanceIdle 68
+    WaitMessageClosed
+    EnableControls
+    End
+; Broyer.
+actor 16 script 0:
+    SetModel #2
+    SetPosition #733 #-251
+    SetFacingCode 6
+    SetMessageFace #66
+    End
+actor 16 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActorPortrait self BroyerIdle 66
+    WaitMessageClosed
+    EnableControls
+    End
+
+; Two of Shevat's own, at the gears.
+actor 17 script 0:
+    SetModel #1
+    SetPosition #305 #600
+    SetFacingCode 4
+    End
+actor 17 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Mechanic 0
+    WaitMessageClosed
+    EnableControls
+    End
+actor 18 script 0:
+    SetModel #3
+    SetPosition #380 #400
+    SetFacingCode 4
+    End
+actor 18 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Watchman 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+; Before her unit: the farewell, the chair's scene, then the departure's page and Golgoda.
+actor 19 script 0:
+    SetHiddenModel
+    SetPosition #600 #-270
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 20 10 120 0
+    SetCollisionFlags #1
+    End
+; Her arrival: the chair's page of the climb and the call, read beside her (a window closes at once when its speaker
+; is off screen, so the page's actor stands where she comes in).
+actor 20 script 0:
+    SetHiddenModel
+    DisableTalk
+    SetPosition #-1031 #-268
+    End
+actor 20 script 1:
+    DisablePlayer
+    Wait #30
+    SetWindowLayoutVar #0 #0 #0 #0 #1
+    MessageCentered Ascend 83
+    WaitMessageClosed
+    SetWindowLayoutVar #0 #0 #0 #0 #0
+    SetVarFalse Scene
+    EnablePlayer
+    StopAndHalt
+actor 19 script 3:
+    If Scene == #0 else Begun
+    SetVarTrue Scene
+    DisablePlayer
+    Wait #20
+    MessageAtActorPortrait actor12 Line60 65
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line61 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line62 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor13 Line63 69
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line64 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor14 Line65 67
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line66 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor12 Line67 65
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line68 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor15 Line69 68
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line70 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line71 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor12 Line72 65
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line73 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor16 Line74 66
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line75 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor13 Line76 69
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line77 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line78 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line79 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor15 Line80 68
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line81 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line82 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor12 Line83 65
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Line84 1
+    WaitMessageClosed
+    Wait #30
+    SetWindowLayoutVar #0 #0 #0 #0 #1
+    MessageCentered Depart 83
+    WaitMessageClosed
+    SetWindowLayoutVar #0 #0 #0 #0 #0
+    ScreenFade #1 #0 #0 #0 #45
+    Wait #45
+    GearMode 1
+    SetSlotInGear #0
+    SetSlotInGear #1
+    SetSlotInGear #2
+    SetVar var[000] #290
+    ChangeMap #619 #3
+    StopAndHalt
+Begun:
+    End
+
+; What an actor does not do.
+actor 0 script 1:
+actor 0 script 2:
+actor 0 script 3:
+actor 1 script 2:
+actor 1 script 3:
+actor 2 script 2:
+actor 2 script 3:
+actor 3 script 2:
+actor 3 script 3:
+actor 4 script 2:
+actor 4 script 3:
+actor 5 script 2:
+actor 5 script 3:
+actor 6 script 2:
+actor 6 script 3:
+actor 7 script 2:
+actor 7 script 3:
+actor 8 script 2:
+actor 8 script 3:
+actor 9 script 2:
+actor 9 script 3:
+actor 10 script 2:
+actor 10 script 3:
+actor 11 script 2:
+actor 11 script 3:
+actor 12 script 1:
+actor 12 script 3:
+actor 13 script 1:
+actor 13 script 3:
+actor 14 script 1:
+actor 14 script 3:
+actor 15 script 1:
+actor 15 script 3:
+actor 16 script 1:
+actor 16 script 3:
+actor 17 script 1:
+actor 17 script 3:
+actor 18 script 1:
+actor 18 script 3:
+actor 19 script 1:
+actor 19 script 2:
+actor 20 script 2:
+actor 20 script 3:
+    End

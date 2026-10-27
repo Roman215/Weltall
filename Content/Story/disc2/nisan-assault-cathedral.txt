@@ -1,0 +1,457 @@
+; Before Nisan's cathedral the night Ramsus comes, played as Elly: the first disc's cathedral front (map 95)
+; by its path from the town. Margie and Renk meet her on the steps; then Vendetta comes down before the
+; cathedral, the gold Omnigear of the first disc's chase, and the words the chair tells in stills are said where
+; they were said. After Ramsus goes, the game is back in the party and the story as the chair's session leaves
+; them, and goes on to the Ministry's scene as the session does.
+map 741 from 95
+; Renk wears Solaris' uniform: the Shevat hangar's sprite, in the slot of a sprite this map does not use.
+sprite 7 from map 164 slot 2
+
+message Margie
+{
+Margie
+"Elly!{wait 0A} You came back!{page}Everyone's inside.{wait 0A}
+The sisters, the sick,
+the children..."
+}
+
+message Renk
+{
+Renk
+"Boss! It's heading
+straight here!{page}We can't stop it.{wait 0A}
+Nothing we have can
+stop that thing!"
+}
+
+message Stand
+{
+Elly
+"Stay behind me.{wait 0A}
+Both of you."
+}
+
+; The chair's words from "I stood before him" on, read from the disc as the map loads: the script the game plays
+; with, the original's or Perfect Works Build's.
+message Where from map 617 message 23
+
+message NotHere from map 617 message 24
+
+message YouWillDo from map 617 message 25
+
+message ComeOut from map 617 message 26
+
+message Hurt from map 617 message 27
+
+message MargieElly from map 617 message 28
+
+message Boss from map 617 message 29
+
+message KeepBack from map 617 message 30
+
+message HaveItYourWay from map 617 message 31
+
+message Cry from map 617 message 32
+
+message CantMove from map 617 message 33
+
+message MargieAgain from map 617 message 34
+
+message Okay from map 617 message 35
+
+message LikesOfYou from map 617 message 36
+
+message Inferior from map 617 message 37
+
+message WhatHappened from map 617 message 38
+
+message WhyFei from map 617 message 39
+
+message Created from map 617 message 40
+
+message Crawled from map 617 message 41
+
+message Intervene from map 617 message 42
+
+message Fixated from map 617 message 43
+
+message Void from map 617 message 44
+
+message Silence from map 617 message 45
+
+message Warmth from map 617 message 46
+
+message NoOne from map 617 message 47
+
+message DontFear from map 617 message 48
+
+message Gone from map 617 message 49
+
+message After
+{
+Elly
+"He was afraid{wait 05}...{page}Afraid of losing the
+place he belonged to.{wait 0A}
+Afraid Fei would take
+it from him.{page}He thought love was
+something you take{wait 05}...{page}He craved it more than
+anyone{wait 05}..."
+}
+
+message GoInside
+{
+Margie
+"Elly{wait 05}...{wait 0A} come inside.{wait 0A}
+Please.{page}You're hurt."
+}
+
+actors 17
+unsigned 00A-00E 026-02A 030 036 100-12E
+entrances
+; From the town's path below the steps.
+entrance x 0 z -1335 layer 0 camera keep facing 0
+; At the steps, where the scene begins at once (the tests' way in; the walk from the town reaches the same place).
+entrance x 0 z -700 layer 0 camera keep facing 0
+
+define Scene var[402]
+actor 0 script 0:
+    SetHiddenModel
+    DisableTalk
+    SetCameraBounds -460 1069 900 2300
+    SetClearColor #0 #0 #0
+    CameraSet #255 #30 #448
+    CameraZoom #4096 0
+    CameraGroundClampOff
+    MusicLoad #57
+    If var[002] == #1 else Walking
+    SetVarTrue Scene
+Walking:
+    End
+
+; The party, whoever is in it: Elly alone until the end.
+actor 1 script 0:
+    SetPartyCharacter #0
+    SetMessageFace #0
+    End
+actor 2 script 0:
+    SetPartyCharacter #1
+    SetMessageFace #1
+    End
+actor 3 script 0:
+    SetPartyCharacter #2
+    SetMessageFace #2
+    End
+actor 4 script 0:
+    SetPartyCharacter #3
+    SetMessageFace #3
+    End
+actor 5 script 0:
+    SetPartyCharacter #4
+    SetMessageFace #4
+    End
+actor 6 script 0:
+    SetPartyCharacter #5
+    SetMessageFace #5
+    End
+actor 7 script 0:
+    SetPartyCharacter #6
+    SetMessageFace #6
+    End
+actor 8 script 0:
+    SetPartyCharacter #7
+    SetMessageFace #7
+    End
+actor 9 script 0:
+    SetPartyCharacter #8
+    SetMessageFace #8
+    End
+actor 10 script 0:
+    SetPartyCharacter #9
+    SetMessageFace #9
+    End
+actor 11 script 0:
+    SetPartyCharacter #10
+    SetMessageFace #10
+    End
+actor 1 script 1:
+actor 2 script 1:
+actor 3 script 1:
+actor 4 script 1:
+actor 5 script 1:
+actor 6 script 1:
+actor 7 script 1:
+actor 8 script 1:
+actor 9 script 1:
+actor 10 script 1:
+actor 11 script 1:
+    If Scene == #0 else Held
+    PlayerControlStep
+    End
+Held:
+    Stop
+    End
+
+; The scene: Margie and Renk down the steps to Elly, the Gear's arrival, the words, and the way back to the story.
+actor 12 script 0:
+    SetHiddenModel
+    DisableTalk
+    If Scene == #1 else Calm
+    End
+Calm:
+    FreezeActor actor12
+    End
+actor 12 script 1:
+    DisablePlayer
+    Wait #20
+    StartScript actor14 script8@3
+    StartScriptWaitEnd actor13 script8@3
+    MessageAtActor actor13 Margie 0
+    WaitMessageClosed
+    MessageAtActor actor14 Renk 0
+    WaitMessageClosed
+    ; The ground shakes: Vendetta comes down before the cathedral.
+    PlaySound #226
+    CameraShake #6 #6 #6 #1
+    ScreenFade #1 #255 #140 #60 #30
+    StartScriptWaitEnd actor16 script8@3
+    Wait #30
+    CameraShake #2 #2 #2 #1
+    TurnToActor actor2 actor16
+    MessageAtActorPortrait actor2 Stand 0
+    WaitMessageClosed
+    StartScriptWaitEnd actor15 script8@3
+    MessageAtActorPortrait actor2 NotHere 17
+    WaitMessageClosed
+    StartScriptWaitEnd actor15 script9@3
+    StartScriptWaitEnd actor15 script10@3
+    ; The Gear's hand closes: Elly held, Margie and Renk helpless.
+    PlaySound #119
+    ScreenFade #1 #255 #60 #60 #10
+    MessageAtActorPortrait actor2 Hurt 17
+    WaitMessageClosed
+    MessageAtActor actor13 MargieElly 17
+    WaitMessageClosed
+    MessageAtActor actor14 Boss 17
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 KeepBack 17
+    WaitMessageClosed
+    StartScriptWaitEnd actor15 script11@3
+    ; Her ether, loosed: the screen goes white and the shaking stops.
+    MessageAtActorPortrait actor2 Cry 17
+    WaitMessageClosed
+    PlaySound #465
+    ScreenFade #1 #255 #255 #255 #10
+    Wait #60
+    CameraShake #0 #0 #0 #1
+    ScreenFade #2 #255 #255 #255 #40
+    Wait #40
+    StartScriptWaitEnd actor15 script12@3
+    MessageAtActor actor13 MargieAgain 17
+    WaitMessageClosed
+    MessageAtActor actor14 Okay 17
+    WaitMessageClosed
+    StartScriptWaitEnd actor15 script13@3
+    StartScriptWaitEnd actor15 script14@3
+    MessageAtActorPortrait actor2 WhatHappened 17
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 WhyFei 17
+    WaitMessageClosed
+    StartScriptWaitEnd actor15 script15@3
+    StartScriptWaitEnd actor15 script16@3
+    StartScriptWaitEnd actor15 script17@3
+    MessageAtActorPortrait actor2 Fixated 17
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Void 17
+    WaitMessageClosed
+    StartScriptWaitEnd actor15 script18@3
+    StartScriptWaitEnd actor15 script19@3
+    MessageAtActorPortrait actor2 NoOne 17
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 DontFear 17
+    WaitMessageClosed
+    StartScriptWaitEnd actor15 script20@3
+    ; Vendetta away into the night.
+    PlaySound #142
+    CameraShake #3 #3 #3 #1
+    StartScriptWaitEnd actor16 script9@3
+    CameraShake #0 #0 #0 #1
+    Wait #30
+    MessageAtActorPortrait actor2 After 0
+    WaitMessageClosed
+    MessageAtActor actor13 GoInside 0
+    WaitMessageClosed
+    ScreenFade #1 #0 #0 #0 #45
+    Wait #45
+    ; As the chair's session leaves the story and the party for the Ministry's scene.
+    SetVar var[000] #268
+    PartyRemove 255
+    PartyRemove 254
+    PartyRemove 253
+    PartyAdd 0
+    PartyAddWait
+    PartyAdd 9
+    PartyAddWait
+    SetCharacterGear #9 #11
+    PartyAdd 1
+    PartyAddWait
+    ChangeMap #273 #12
+    StopAndHalt
+
+; Margie, in her own sprite and face, at the steps; down to Elly for the scene.
+actor 13 script 0:
+    SetModel #1
+    SetMessageFace #18
+    SetWalkmeshLayer 0
+    SetPosition #80 #72
+    SetFacingCode 0
+    End
+actor 13 script 8:
+    WalkTo #60 #-620
+    FaceActor party0
+    End
+
+; Renk, in Solaris' uniform.
+actor 14 script 0:
+    SetModel #7
+    SetWalkmeshLayer 0
+    SetPosition #-80 #217
+    SetFacingCode 0
+    End
+actor 14 script 8:
+    WalkTo #-60 #-600
+    FaceActor party0
+    End
+
+; Where the scene begins for a player walking up from the town: a bar across the path, touched.
+actor 15 script 0:
+    SetHiddenModel
+    SetPosition #0 #-760
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 220 10 100 0
+    SetCollisionFlags #1
+    End
+actor 15 script 3:
+    If Scene == #0 else Begun
+    SetVarTrue Scene
+    StartScript actor12 script1@3
+Begun:
+    End
+
+; Ramsus' words, spoken at his Gear with his own face (the chair's, 26), each from a script of the trigger actor's so
+; that the scene's script can wait on them.
+actor 15 script 8:
+    MessageAtActorPortrait actor16 Where 17
+    WaitMessageClosed
+    End
+actor 15 script 9:
+    MessageAtActorPortrait actor16 YouWillDo 17
+    WaitMessageClosed
+    End
+actor 15 script 10:
+    MessageAtActorPortrait actor16 ComeOut 17
+    WaitMessageClosed
+    End
+actor 15 script 11:
+    MessageAtActorPortrait actor16 HaveItYourWay 17
+    WaitMessageClosed
+    End
+actor 15 script 12:
+    MessageAtActorPortrait actor16 CantMove 17
+    WaitMessageClosed
+    End
+actor 15 script 13:
+    MessageAtActorPortrait actor16 LikesOfYou 17
+    WaitMessageClosed
+    End
+actor 15 script 14:
+    MessageAtActorPortrait actor16 Inferior 17
+    WaitMessageClosed
+    End
+actor 15 script 15:
+    MessageAtActorPortrait actor16 Created 17
+    WaitMessageClosed
+    End
+actor 15 script 16:
+    MessageAtActorPortrait actor16 Crawled 17
+    WaitMessageClosed
+    End
+actor 15 script 17:
+    MessageAtActorPortrait actor16 Intervene 17
+    WaitMessageClosed
+    End
+actor 15 script 18:
+    MessageAtActorPortrait actor16 Silence 17
+    WaitMessageClosed
+    End
+actor 15 script 19:
+    MessageAtActorPortrait actor16 Warmth 17
+    WaitMessageClosed
+    End
+actor 15 script 20:
+    MessageAtActorPortrait actor16 Gone 17
+    WaitMessageClosed
+    End
+
+; Vendetta: the gold Omnigear as the first disc's chase and the Golgoda scene stage a Gear, set down before the
+; cathedral's doors once the scene calls it, and gone again when Ramsus goes.
+actor 16 script 0:
+    SetGearModel #59
+    SetMessageFace #26
+    SetPosition #0 #600
+    SetScale #6144
+    SetNoFloorAlign #1
+    DisableTalk
+    Hide
+    End
+actor 16 script 8:
+    SetMoveAnimation 22
+    SetFacingCode 0
+    Show
+    Wait #30
+    End
+actor 16 script 9:
+    Wait #45
+    Hide
+    End
+
+; What an actor does not do.
+actor 0 script 1:
+actor 0 script 2:
+actor 0 script 3:
+actor 1 script 2:
+actor 1 script 3:
+actor 2 script 2:
+actor 2 script 3:
+actor 3 script 2:
+actor 3 script 3:
+actor 4 script 2:
+actor 4 script 3:
+actor 5 script 2:
+actor 5 script 3:
+actor 6 script 2:
+actor 6 script 3:
+actor 7 script 2:
+actor 7 script 3:
+actor 8 script 2:
+actor 8 script 3:
+actor 9 script 2:
+actor 9 script 3:
+actor 10 script 2:
+actor 10 script 3:
+actor 11 script 2:
+actor 11 script 3:
+actor 12 script 2:
+actor 12 script 3:
+actor 13 script 1:
+actor 13 script 2:
+actor 13 script 3:
+actor 14 script 1:
+actor 14 script 2:
+actor 14 script 3:
+actor 15 script 1:
+actor 15 script 2:
+actor 16 script 1:
+actor 16 script 2:
+actor 16 script 3:
+    End

@@ -1,0 +1,337 @@
+; The Central District's tactical command room, played: the first disc's map of it (map 231), with the three
+; control stations the Kaiser unsealed, which raise the district in any order, and the lift to the bridge, which
+; runs once all three are set. The puzzle the chair narrates past ("Bart activated the secret battleship").
+map 747 from 231
+
+message Keel
+{
+Bart
+"Keel clamps.{wait 0A} Five
+hundred years of rust...{page}...and she still
+answers."
+}
+
+message Engines
+{
+Bart
+"Lift engines.{page}Roni, you crazy
+old man."
+}
+
+message Link
+{
+Bart
+"Bridge link.{wait 0A} The
+Yggdrasil's handshake is
+in the keel's code.{page}The 'Sand Cruiser' was
+always the heart of her."
+}
+
+message One
+{
+Bart
+"That's one."
+}
+
+message Two
+{
+Bart
+"Two."
+}
+
+message AllThree
+{
+Rico
+"That's all three.{page}Feel that?{wait 0A} The whole
+floor's humming."
+}
+
+message LiftLive
+{
+Bart
+"The lift's live.{page}Bridge.{wait 0A} Now."
+}
+
+message Dead
+{
+Fei
+"The lift's dead.{page}The district's power
+is still down."
+}
+
+message Sealed
+{
+Kislev Soldier
+"The Kaiser's order came
+down an hour ago.{page}Doors nobody's opened
+in a hundred years...{page}They opened."
+}
+
+message Hum
+{
+Kislev Soldier
+"You feel that?{wait 0A} Under
+the floor.{page}...The District's never
+made that sound."
+}
+
+actors 19
+unsigned 00A-00E 026-02A 030 036 200-224
+entrances
+; From the Kaiser's hall, by the south door.
+entrance x -84 z -291 layer 0 camera keep facing 0
+; A step before each station (the tests' way in).
+entrance x -440 z -55 layer 0 camera keep facing 4
+entrance x -160 z -55 layer 0 camera keep facing 2
+entrance x 1240 z -155 layer 0 camera keep facing 4
+; A step before the lift's way in with the three stations set (the tests' way in).
+entrance x 397 z -60 layer 0 camera keep facing 4
+
+define Scene var[402]
+define Count var[404]
+define KeelSet var[406]
+define EnginesSet var[408]
+define LinkSet var[40A]
+actor 0 script 0:
+    SetHiddenModel
+    DisableTalk
+    MusicLoad #71
+    End
+
+; The party: Fei, Bart, Rico.
+actor 1 script 0:
+    SetPartyCharacter #0
+    SetMessageFace #0
+    End
+actor 2 script 0:
+    SetPartyCharacter #1
+    SetMessageFace #1
+    End
+actor 3 script 0:
+    SetPartyCharacter #2
+    SetMessageFace #2
+    End
+actor 4 script 0:
+    SetPartyCharacter #3
+    SetMessageFace #3
+    End
+actor 5 script 0:
+    SetPartyCharacter #4
+    SetMessageFace #4
+    End
+actor 6 script 0:
+    SetPartyCharacter #5
+    SetMessageFace #5
+    End
+actor 7 script 0:
+    SetPartyCharacter #6
+    SetMessageFace #6
+    End
+actor 8 script 0:
+    SetPartyCharacter #7
+    SetMessageFace #7
+    End
+actor 9 script 0:
+    SetPartyCharacter #8
+    SetMessageFace #8
+    End
+actor 10 script 0:
+    SetPartyCharacter #9
+    SetMessageFace #9
+    End
+actor 11 script 0:
+    SetPartyCharacter #10
+    SetMessageFace #10
+    End
+actor 1 script 1:
+actor 2 script 1:
+actor 3 script 1:
+actor 4 script 1:
+actor 5 script 1:
+actor 6 script 1:
+actor 7 script 1:
+actor 8 script 1:
+actor 9 script 1:
+actor 10 script 1:
+actor 11 script 1:
+    If Scene == #0 else Held
+    PlayerControlStep
+    End
+Held:
+    Stop
+    End
+
+; The keel station (a touch trigger has no DisableTalk).
+actor 12 script 0:
+    SetHiddenModel
+    SetPosition #-500 #-55
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 30 10 30 0
+    SetCollisionFlags #1
+    End
+actor 12 script 3:
+    If KeelSet == #0 else KeelDone
+    SetVarTrue KeelSet
+    DisablePlayer
+    MessageAtActorPortrait actor4 Keel 3
+    WaitMessageClosed
+    StartScriptWaitEnd actor15 script4@3
+    EnablePlayer
+KeelDone:
+    End
+
+; The lift engines' station.
+actor 13 script 0:
+    SetHiddenModel
+    SetPosition #-100 #-55
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 30 10 30 0
+    SetCollisionFlags #1
+    End
+actor 13 script 3:
+    If EnginesSet == #0 else EnginesDone
+    SetVarTrue EnginesSet
+    DisablePlayer
+    MessageAtActorPortrait actor4 Engines 3
+    WaitMessageClosed
+    StartScriptWaitEnd actor15 script4@3
+    EnablePlayer
+EnginesDone:
+    End
+
+; The bridge link's station.
+actor 14 script 0:
+    SetHiddenModel
+    SetPosition #1300 #-155
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 30 10 30 0
+    SetCollisionFlags #1
+    End
+actor 14 script 3:
+    If LinkSet == #0 else LinkDone
+    SetVarTrue LinkSet
+    DisablePlayer
+    MessageAtActorPortrait actor4 Link 3
+    WaitMessageClosed
+    StartScriptWaitEnd actor15 script4@3
+    EnablePlayer
+LinkDone:
+    End
+
+; The count of stations set, and what is said at each (a script no actor runs by itself).
+actor 15 script 0:
+    SetHiddenModel
+    DisableTalk
+    End
+actor 15 script 4:
+    AddVar Count #1
+    If Count == #1 else NotOne
+    MessageAtActorPortrait actor4 One 3
+    WaitMessageClosed
+    End
+NotOne:
+    If Count == #2 else NotTwo
+    MessageAtActorPortrait actor4 Two 3
+    WaitMessageClosed
+    End
+NotTwo:
+    MessageAtActorPortrait actor6 AllThree 5
+    WaitMessageClosed
+    MessageAtActorPortrait actor4 LiftLive 3
+    WaitMessageClosed
+    End
+
+; The lift to the bridge.
+actor 16 script 0:
+    SetHiddenModel
+    SetPosition #397 #45
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 40 10 30 0
+    SetCollisionFlags #1
+    End
+actor 16 script 3:
+    If Count == #3 else Down
+    ChangeMap #748 #0
+    StopAndHalt
+Down:
+    DisablePlayer
+    MessageAtActorPortrait actor1 Dead 0
+    WaitMessageClosed
+    WalkLeaderTo #397 #-40
+    EnablePlayer
+    End
+
+; The soldier on watch.
+actor 17 script 0:
+    SetModel #2
+    SetPosition #-213 #33
+    SetFacingCode 1
+    End
+actor 17 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Sealed 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+; Before the lift with the three stations set: the tests' way in, which takes the lift at once.
+actor 18 script 0:
+    SetHiddenModel
+    SetPosition #397 #-120
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 40 10 30 0
+    SetCollisionFlags #1
+    End
+actor 18 script 3:
+    SetVar Count #3
+    StartScriptWaitEnd actor16 script3@3
+    End
+
+; What an actor does not do.
+actor 0 script 1:
+actor 0 script 2:
+actor 0 script 3:
+actor 1 script 2:
+actor 1 script 3:
+actor 2 script 2:
+actor 2 script 3:
+actor 3 script 2:
+actor 3 script 3:
+actor 4 script 2:
+actor 4 script 3:
+actor 5 script 2:
+actor 5 script 3:
+actor 6 script 2:
+actor 6 script 3:
+actor 7 script 2:
+actor 7 script 3:
+actor 8 script 2:
+actor 8 script 3:
+actor 9 script 2:
+actor 9 script 3:
+actor 10 script 2:
+actor 10 script 3:
+actor 11 script 2:
+actor 11 script 3:
+actor 12 script 1:
+actor 12 script 2:
+actor 13 script 1:
+actor 13 script 2:
+actor 14 script 1:
+actor 14 script 2:
+actor 15 script 1:
+actor 15 script 2:
+actor 15 script 3:
+actor 16 script 1:
+actor 16 script 2:
+actor 17 script 1:
+actor 17 script 3:
+actor 18 script 1:
+actor 18 script 2:
+    End

@@ -15,6 +15,15 @@ namespace Weltall
 {
 	class IDiscText;
 
+	/** A sprite slot a map of its own takes from another disc map: that map's slot's sprite file and images, in place of its base map's. */
+	struct FSpriteBorrow
+	{
+		int32 Line = 0;
+		int32 Slot = 0;
+		int32 Map = 0;
+		int32 SourceSlot = 0;
+	};
+
 	/** The sections a map of its own has of its own: its script section and its message table. */
 	struct FFieldMapOfItsOwn
 	{
@@ -36,6 +45,7 @@ namespace Weltall
 	 *   { ... }
 	 *   message Met from event 19 message 0 page 1  a message of the disc's own, named and not carried: a battle
 	 *                                               event's message, or one page of it, in a window of its size
+	 *   message Where from map 617 message 23       the same, a field map's message: the script the game plays with
 	 *   expect @0x00B4 If var[2CE] & #-32768 else @0x00C4      the map's own instruction there
 	 *   detour @0x024A to Hands If var[014] == #1 else @0x0329   the same, and the map goes to Hands instead
 	 *   Hands:                                      every other line: event scripts (EventAssembly.h),
@@ -48,6 +58,7 @@ namespace Weltall
 	 *
 	 *   map 1000 from 613                           the disc map whose archive and textures it takes
 	 *   encounters from 273                         another disc map's encounters and formations, when given
+	 *   sprite 9 from map 164 slot 2                another disc map's sprite in one of its slots, when given
 	 *   message Ramsus                              its messages, numbered from 0 in their order
 	 *   { ... }
 	 *   actors 3                                    its whole script section (EventAssembly.h), from address 0
@@ -82,6 +93,10 @@ namespace Weltall
 		bool KeepsBaseScripts() const { return bKeepsBaseScripts; }
 		/** For a map of its own, the disc map whose encounter section it takes; none: its base map's. */
 		std::optional<int32> EncountersFrom() const { return EncountersMap; }
+		/** Which of the text's messages, by their place among them from 0, are the disc's own (named, not carried): the game's text, not the port's. */
+		WELTALLCORE_API std::vector<int32> DiscMessages() const;
+		/** For a map of its own, the sprite slots it takes from other disc maps, in the text's order. */
+		const std::vector<FSpriteBorrow>& SpritesFrom() const { return Borrows; }
 
 		/**
 		 * Adds the patch to a map's scripts and messages, for a map over its base to the base map's: false, changing
@@ -107,11 +122,12 @@ namespace Weltall
 			std::string Label;
 		};
 
-		/** A message of the disc's own: a battle event's message, or one page of it (0: all of them). */
+		/** A message of the disc's own: a battle event's or a field map's message (Map from 0; -1: the event's), or one page of it (0: all of them). */
 		struct FDiscMessage
 		{
 			int32 Line = 0;
 			int32 Event = 0;
+			int32 Map = -1;
 			int32 Message = 0;
 			int32 Page = 0;
 		};
@@ -138,6 +154,7 @@ namespace Weltall
 		std::optional<int32> BaseMap;
 		bool bKeepsBaseScripts = false;
 		std::optional<int32> EncountersMap;
+		std::vector<FSpriteBorrow> Borrows;
 		std::vector<FSite> Sites;
 		std::vector<FNamedMessage> Messages;
 		/** The text's script lines, every other line empty so that an error's line is the text's. */

@@ -1,0 +1,178 @@
+; Inside Mahanon's wreck, played: the floor the original's camera flies over (map 653), walked from the hull's
+; breach up the great hall and around the ring, with what the narration says of the ship ("It was determined, by
+; examining the inside of the wreckage...") read from the ship's own log where it says it, in the disc's words.
+; The way on, past the ring, is the hallway to the depths (map 654), the original's own, entered as the flight enters it.
+map 749 from 653
+
+message Log from map 653 message 0
+message Passengers from map 653 message 1
+message Onward from map 653 message 2
+
+message Terminal
+{
+Citan
+"A log terminal.{wait 0A} Still
+powered, after all
+this time..."
+}
+
+message Waiting
+{
+Fei
+"Ten thousand years...{page}And it's still waiting
+for someone to read it."
+}
+
+message Falls
+{
+Bart
+"A ship this size
+doesn't crash.{wait 0A} It falls.{page}Something inside her
+went wrong first."
+}
+
+message Ribs
+{
+Citan
+"Look at the hull's ribs.{page}They were grown,
+not built.{page}Whoever sailed her
+was not from here."
+}
+
+message WhatWeAre
+{
+Fei
+"...Then that's what
+we are.{page}What's left of
+the passengers."
+}
+
+message Deeper
+{
+Bart
+"The scanner says the
+floor goes on under us.{page}A long way under."
+}
+
+actors 5
+unsigned 00A-00E 026-02A 030 036 0C0-0CC
+entrances
+; The breach in the hull, where the original's camera starts.
+entrance x 1324 z -2400 layer 0 camera keep facing 6
+; A step before the log terminal (the tests' way in).
+entrance x 0 z -1560 layer 0 camera keep facing 0
+; A step before the ring (the tests' way in).
+entrance x 0 z -450 layer 0 camera keep facing 0
+; A step before the way down (the tests' way in).
+entrance x 0 z 770 layer 0 camera keep facing 0
+
+define Scene var[402]
+define Stage var[404]
+actor 0 script 0:
+    SetHiddenModel
+    CameraSet #255 #20 #768
+    SetCameraLockMask #199
+    DisableTalk
+    SetVar var[054] #2
+    End
+
+; The party: Fei, Citan, Bart, as the approach leaves it (map 653 gives it these three actors).
+actor 1 script 0:
+    SetPartyCharacter #0
+    SetMessageFace #0
+    End
+actor 2 script 0:
+    SetPartyCharacter #9
+    SetMessageFace #9
+    End
+actor 3 script 0:
+    SetPartyCharacter #3
+    SetMessageFace #3
+    End
+actor 1 script 1:
+actor 2 script 1:
+actor 3 script 1:
+    If Scene == #0 else Held
+    PlayerControlStep
+    End
+Held:
+    Stop
+    End
+
+; One trigger for the three stops, moved on from each: the log terminal, the ring, the way down. Entered at a
+; later stop's entrance, it waits there.
+actor 4 script 0:
+    SetHiddenModel
+    SetPosition #0 #-1500
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 250 10 20 0
+    SetCollisionFlags #1
+    If var[002] == #2 else NotRing
+    SetVar Stage #1
+    SetPosition #0 #-383
+    End
+NotRing:
+    If var[002] == #3 else NotDown
+    SetVar Stage #2
+    SetPosition #0 #830
+NotDown:
+    End
+actor 4 script 3:
+    If Stage == #0 else NotLog
+    SetVar Stage #1
+    DisablePlayer
+    MessageAtActorPortrait actor2 Terminal 9
+    WaitMessageClosed
+    SetWindowLayoutVar #30 #20 #0 #0 #321
+    MessageCentered Log 83
+    WaitMessageClosed
+    SetWindowLayoutVar #0 #0 #0 #0 #0
+    MessageAtActorPortrait actor1 Waiting 0
+    WaitMessageClosed
+    MessageAtActorPortrait actor3 Falls 3
+    WaitMessageClosed
+    SetPosition #0 #-383
+    EnablePlayer
+    End
+NotLog:
+    If Stage == #1 else Down
+    SetVar Stage #2
+    DisablePlayer
+    MessageAtActorPortrait actor2 Ribs 9
+    WaitMessageClosed
+    SetWindowLayoutVar #30 #70 #0 #0 #321
+    MessageCentered Passengers 83
+    WaitMessageClosed
+    SetWindowLayoutVar #0 #0 #0 #0 #0
+    MessageAtActorPortrait actor1 WhatWeAre 0
+    WaitMessageClosed
+    MessageAtActorPortrait actor3 Deeper 3
+    WaitMessageClosed
+    SetPosition #0 #830
+    EnablePlayer
+    End
+Down:
+    DisablePlayer
+    SetWindowLayoutVar #30 #80 #0 #0 #321
+    MessageCentered Onward 83
+    WaitMessageClosed
+    SetCharacterLocked 0 #0
+    SetCharacterLocked 0 #1
+    SetVar var[000] #288
+    ChangeMapTransition #17038 #0 #0 #32
+    StopAndHalt
+
+; What an actor does not do.
+actor 0 script 1:
+actor 0 script 2:
+actor 0 script 3:
+actor 1 script 2:
+actor 1 script 3:
+actor 2 script 2:
+actor 2 script 3:
+actor 3 script 2:
+actor 3 script 3:
+actor 4 script 1:
+actor 4 script 2:
+    End

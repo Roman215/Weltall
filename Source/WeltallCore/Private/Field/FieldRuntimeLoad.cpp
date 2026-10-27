@@ -11,6 +11,7 @@
 #include "Field/FieldScene.h"
 #include "Field/FieldScriptFixes.h"
 #include "Field/FieldSpriteFiles.h"
+#include "Field/FieldTextures.h"
 #include "Field/FieldSprites.h"
 #include "Game/GameState.h"
 #include "Game/PsxRandom.h"
@@ -40,6 +41,72 @@ namespace Weltall
 		FError LoadError(int32 Number, const std::string& What)
 		{
 			return MakeError("field map " + std::to_string(Number & MapBits) + ": " + What);
+		}
+
+		/** The palettes' rows in VRAM: a sprite slot's is row 480 plus its number, 256 colours wide. */
+		constexpr int16 PaletteRowsTop = 480;
+		constexpr int16 PaletteRowWidth = 256;
+
+		/**
+		 * Slot Borrow.Slot of a map of its own takes slot Borrow.SourceSlot of disc map Borrow.Map: that slot's sprite
+		 * file in place of the base map's, its images at the slot's own place in VRAM and its palette at the slot's own
+		 * row, both uploaded after the base map's so that they show.
+		 */
+		std::optional<FError> BorrowSprite(const FSpriteBorrow& Borrow, FFieldMap& Map, const FCdImage& Image, const FGameFileIndex& Index)
+		{
+			TResult<FFieldArchive> Other = LoadFieldArchive(Image, Index, Borrow.Map);
+			if (!Other)
+			{
+				return Other.Error();
+			}
+			const TResult<std::span<const uint8>> File = FieldSpriteFileBytes(Other->Section(EFieldSection::SpriteSets), static_cast<uint32>(Borrow.SourceSlot));
+			if (!File)
+			{
+				return MakeError("map " + std::to_string(Borrow.Map) + ": " + File.Error().Message);
+			}
+			TResult<std::vector<uint8>> Replaced = ReplaceFieldSpriteFile(Map.SpriteSets, static_cast<uint32>(Borrow.Slot), *File);
+			if (!Replaced)
+			{
+				return MakeError("the base map: " + Replaced.Error().Message);
+			}
+			const FFieldSpriteSlot& At = Map.SpriteSlots[static_cast<std::size_t>(Borrow.Slot)];
+			TResult<std::vector<FVramImage>> Images = ReadFieldSpriteSlotImages(*Other, Borrow.SourceSlot, At);
+			if (!Images)
+			{
+				return MakeError("map " + std::to_string(Borrow.Map) + ": " + Images.Error().Message);
+			}
+			// The palette: the row the other map's uploads leave at its slot's row, moved to this slot's.
+			TResult<FFieldMap> OtherMap = LoadFieldMap(Image, Index, Borrow.Map);
+			if (!OtherMap)
+			{
+				return OtherMap.Error();
+			}
+			const int32 SourceRow = PaletteRowsTop + Borrow.SourceSlot;
+			FVramImage Palette{{0, static_cast<int16>(PaletteRowsTop + Borrow.Slot), PaletteRowWidth, 1}, std::vector<uint16>(static_cast<std::size_t>(PaletteRowWidth))};
+			bool bFound = false;
+			for (const FVramImage& Upload : OtherMap->TextureUploads)
+			{
+				const FVramRect& Rect = Upload.Rect;
+				if (SourceRow < Rect.Y || SourceRow >= Rect.Y + Rect.Height)
+				{
+					continue;
+				}
+				const int32 First = std::max<int32>(Rect.X, 0);
+				const int32 Last = std::min<int32>(Rect.X + Rect.Width, PaletteRowWidth);
+				for (int32 Column = First; Column < Last; ++Column)
+				{
+					Palette.Units[static_cast<std::size_t>(Column)] = Upload.Units[static_cast<std::size_t>((SourceRow - Rect.Y) * Rect.Width + (Column - Rect.X))];
+					bFound = true;
+				}
+			}
+			if (!bFound)
+			{
+				return MakeError("map " + std::to_string(Borrow.Map) + " uploads no palette for its slot " + std::to_string(Borrow.SourceSlot));
+			}
+			Map.SpriteSets = std::move(*Replaced);
+			Map.TextureUploads.insert(Map.TextureUploads.end(), std::make_move_iterator(Images->begin()), std::make_move_iterator(Images->end()));
+			Map.TextureUploads.push_back(std::move(Palette));
+			return std::nullopt;
 		}
 
 		/**
@@ -80,6 +147,14 @@ namespace Weltall
 					return Other.Error();
 				}
 				Map.Encounters = std::move(Other->Section(EFieldSection::Encounters));
+			}
+			for (const FSpriteBorrow& Borrow : Document.Patch.SpritesFrom())
+			{
+				if (const std::optional<FError> Unborrowed = BorrowSprite(Borrow, Map, Image, Index))
+				{
+					return MakeError(Document.Name + ": sprite " + std::to_string(Borrow.Slot) + " from map " + std::to_string(Borrow.Map) + " slot "
+						+ std::to_string(Borrow.SourceSlot) + ": " + Unborrowed->Message);
+				}
 			}
 			return std::nullopt;
 		}

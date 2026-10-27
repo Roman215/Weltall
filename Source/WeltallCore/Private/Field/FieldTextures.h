@@ -14,4 +14,10 @@ namespace Weltall
 	 * side by side 64 units apart.
 	 */
 	TResult<std::vector<FVramImage>> ReadFieldArchiveImages(const FFieldArchive& Archive);
+
+	/**
+	 * The images of section 4 for sprite slot Slot of Archive, placed as for slot At: what another map's slot
+	 * takes from it. An error where the slot's images are not in the archive, or the section lacks the slot.
+	 */
+	TResult<std::vector<FVramImage>> ReadFieldSpriteSlotImages(const FFieldArchive& Archive, int32 Slot, const FFieldSpriteSlot& At);
 }

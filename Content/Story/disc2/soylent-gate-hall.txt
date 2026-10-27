@@ -1,0 +1,324 @@
+; The Soylent System facility's gate hall, played: the second disc's first still of it (map 621), whose floor the
+; original's camera only flies over, with the mutated wandering it as the still has them, and the party walking in
+; from the gate. What Elly narrates over the stills ("A group of facilities formerly created by Solaris...") is said
+; here by those who came, and by Citan at the gate. The far door leads to the holding hall.
+map 742 from 621
+
+message Gate
+{
+Citan
+"So this is one of them.{page}The Soylent System.
+Solaris built these for
+its experiments on the
+body...and on the mind."
+}
+
+message Drawn
+{
+Elly
+"And now the mutated come
+here of their own accord.{page}'Go there, and the
+agony ends.'{wait 0A}
+No one said it aloud.
+Their blood said it."
+}
+
+message Resolve
+{
+Fei
+"The ones who left Nisan
+are in here somewhere.{page}We find them.
+Then we end this place."
+}
+
+message Hungry
+{
+Wel
+"Flesh{wait 05}...{wait 0A}
+Clean flesh...{page}The ones with clean blood
+have so much of it.
+Why won't they share?"
+}
+
+message Stopped
+{
+Wel
+"When I got here, the
+pain stopped.{wait 0A} For a day.{page}Then it came back.
+Worse than before."
+}
+
+message FromNisan
+{
+Wel
+"I came from Nisan.{page}Sister Margie begged me
+not to go.{wait 0A}
+But my blood said go,
+and I went."
+}
+
+message FarDoor
+{
+Wel
+"Through that door they
+keep the ones who came
+first.{page}They're quieter now.{wait 0A}
+Much quieter..."
+}
+
+message Mason
+{
+Wel
+"Don't look at me!{wait 0A}
+Don't...{page}I was a stonemason in
+Aveh.{wait 0A} I had hands.
+I had a face."
+}
+
+message Promise
+{
+Wel
+"They promise a perfect
+body. Everyone's body,
+made into one.{page}Is that what salvation
+looks like?"
+}
+
+actors 20
+unsigned 00A-00E 026-02A 030 036 0C0-0CC
+entrances
+; The gate, where the still's last entrance is.
+entrance x 125 z 0 layer 0 camera keep facing 0
+
+; The hall, lit and scored as the still has it.
+define Seen var[402]
+actor 0 script 0:
+    SetHiddenModel
+    DisableTalk
+    CameraSet #255 #30 #768
+    MusicLoad #56
+    End
+
+; The party, whoever is in it: Fei, Elly and Citan, as the laboratory's scene leaves it.
+actor 1 script 0:
+    SetPartyCharacter #0
+    SetMessageFace #0
+    End
+actor 2 script 0:
+    SetPartyCharacter #1
+    SetMessageFace #1
+    End
+actor 3 script 0:
+    SetPartyCharacter #2
+    SetMessageFace #2
+    End
+actor 4 script 0:
+    SetPartyCharacter #3
+    SetMessageFace #3
+    End
+actor 5 script 0:
+    SetPartyCharacter #4
+    SetMessageFace #4
+    End
+actor 6 script 0:
+    SetPartyCharacter #5
+    SetMessageFace #5
+    End
+actor 7 script 0:
+    SetPartyCharacter #6
+    SetMessageFace #6
+    End
+actor 8 script 0:
+    SetPartyCharacter #7
+    SetMessageFace #7
+    End
+actor 9 script 0:
+    SetPartyCharacter #8
+    SetMessageFace #8
+    End
+actor 10 script 0:
+    SetPartyCharacter #9
+    SetMessageFace #9
+    End
+actor 11 script 0:
+    SetPartyCharacter #10
+    SetMessageFace #10
+    End
+actor 1 script 1:
+actor 2 script 1:
+actor 3 script 1:
+actor 4 script 1:
+actor 5 script 1:
+actor 6 script 1:
+actor 7 script 1:
+actor 8 script 1:
+actor 9 script 1:
+actor 10 script 1:
+actor 11 script 1:
+    If Seen == #0 else Held
+    PlayerControlStep
+    End
+Held:
+    Stop
+    End
+
+; At the gate: Citan names the place, Elly what draws the mutated here, Fei what they came for.
+actor 12 script 0:
+    SetHiddenModel
+    DisableTalk
+    SetVarTrue Seen
+    End
+actor 12 script 1:
+    DisablePlayer
+    Wait #40
+    MessageAtActorPortrait actor10 Gate 9
+    WaitMessageClosed
+    MessageAtActorPortrait actor2 Drawn 1
+    WaitMessageClosed
+    MessageAtActorPortrait actor1 Resolve 0
+    WaitMessageClosed
+    SetVarFalse Seen
+    EnablePlayer
+    StopAndHalt
+
+; The far door, to the holding hall.
+actor 13 script 0:
+    SetHiddenModel
+    SetPosition #870 #1781
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 200 10 60 0
+    SetCollisionFlags #1
+    End
+actor 13 script 3:
+    ChangeMap #743 #0
+    StopAndHalt
+
+; The mutated, where the still has them wander.
+actor 14 script 0:
+    SetModel #0
+    SetPosition #617 #1471
+    End
+actor 14 script 1:
+    WanderStep
+    End
+actor 14 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Hungry 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+actor 15 script 0:
+    SetModel #1
+    SetPosition #1134 #1616
+    End
+actor 15 script 1:
+    WanderStep
+    End
+actor 15 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Stopped 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+actor 16 script 0:
+    SetModel #2
+    SetPosition #1022 #1634
+    End
+actor 16 script 1:
+    WanderStep
+    End
+actor 16 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self FromNisan 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+actor 17 script 0:
+    SetModel #3
+    SetPosition #726 #1799
+    End
+actor 17 script 1:
+    WanderStep
+    End
+actor 17 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self FarDoor 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+actor 18 script 0:
+    SetModel #4
+    SetPosition #882 #1732
+    End
+actor 18 script 1:
+    WanderStep
+    End
+actor 18 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Mason 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+actor 19 script 0:
+    SetModel #5
+    SetPosition #1127 #1414
+    End
+actor 19 script 1:
+    WanderStep
+    End
+actor 19 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Promise 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+; What an actor does not do.
+actor 0 script 1:
+actor 0 script 2:
+actor 0 script 3:
+actor 1 script 2:
+actor 1 script 3:
+actor 2 script 2:
+actor 2 script 3:
+actor 3 script 2:
+actor 3 script 3:
+actor 4 script 2:
+actor 4 script 3:
+actor 5 script 2:
+actor 5 script 3:
+actor 6 script 2:
+actor 6 script 3:
+actor 7 script 2:
+actor 7 script 3:
+actor 8 script 2:
+actor 8 script 3:
+actor 9 script 2:
+actor 9 script 3:
+actor 10 script 2:
+actor 10 script 3:
+actor 11 script 2:
+actor 11 script 3:
+actor 12 script 2:
+actor 12 script 3:
+actor 13 script 1:
+actor 13 script 2:
+actor 14 script 3:
+actor 15 script 3:
+actor 16 script 3:
+actor 17 script 3:
+actor 18 script 3:
+actor 19 script 3:
+    End

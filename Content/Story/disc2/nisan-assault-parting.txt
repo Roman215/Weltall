@@ -1,0 +1,19 @@
+; Ramsus' assault on Nisan, played as Elly. The chair's third session (map 617, entrance 3) tells it in stills
+; over actor 31's script 12: Elly back in Nisan, the explosion, Vendetta before the cathedral, the words between
+; them. The expanded second disc leaves for Nisan's town before that script starts, with Elly alone and the
+; story at the assault's own value, and comes back from the cathedral to the party and the Ministry's scene the
+; session goes on to (map 273, entrance 12).
+map 617
+
+detour @0x0890 to Assault StartScriptWaitEnd actor31 script12@1
+Assault:
+    SetVar var[000] #269
+    PartyRemove 255
+    PartyRemove 254
+    PartyRemove 253
+    PartyAdd 1
+    PartyAddWait
+    ScreenFade #1 #0 #0 #0 #30
+    Wait #30
+    ChangeMap #740 #0
+    StopAndHalt

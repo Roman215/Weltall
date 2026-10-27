@@ -7,11 +7,18 @@ subtitles
 ; Inside "Break the Seal": the front in Ignas and Nortune's battleship; the peace, the outbreak, the first facility.
 story 254 Secret Battleship
 story 258 Soylent System
+story 259 The Howling
 ; Inside "Soul Vessel": Nisan the refuge; the search for the relics.
 story 268 Holy Mother Returns
+story 269 Gold In The Fire
 story 273 Anima Vessel
 ; Inside "The Stars Know": the journey north to the last relic.
 story 282 The Essence of Humans
+; Inside "Above Mahanon": the bridge on the eve.
+story 286 The Night Before
+; Inside "Paradise": the wreck of the ship that was Mahanon; and, inside "Golgoda", the walk to Razael's Tree.
+story 289 The Wreckage
+story 291 Razael's Tree
 ; Inside "Promised Land": Nisan's ward, Shevat and Golgoda.
 story 292 Elly's Decision
 ; Inside "Dreams...": Id's breakout and Bethlehem.

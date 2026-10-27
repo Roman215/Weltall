@@ -1,0 +1,11 @@
+; Into Mahanon's wreck, played. The original goes from the continent's approach (map 652, the Yggdrasil at the hull,
+; the narration of what Mahanon is) to the inside of the wreck as a camera's flight (map 653, three pages of narration
+; and the save prompt), and on to the hallway the party walks to the rotting nucleus (map 654). The expanded second
+; disc goes from the approach to the wreck's hull, a map of its own on map 653's floor, with the story at the wreck's
+; own value, and from its far end to the same hallway, the story back at the original's value.
+map 652
+detour @0x0108 to Wreck ChangeMap #653 #0
+Wreck:
+    SetVar var[000] #289
+    ChangeMap #749 #0
+    StopAndHalt

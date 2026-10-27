@@ -129,6 +129,30 @@ namespace Weltall
 		return Uploads;
 	}
 
+	TResult<std::vector<FVramImage>> ReadFieldSpriteSlotImages(const FFieldArchive& Archive, int32 Slot, const FFieldSpriteSlot& At)
+	{
+		if (Slot < 0 || Slot >= static_cast<int32>(Archive.SpriteSlots.size()) || !Archive.SpriteSlots[static_cast<std::size_t>(Slot)].bImagesInArchive)
+		{
+			return MakeError("sprite slot " + std::to_string(Slot) + " does not take its images from the archive");
+		}
+		TResult<std::vector<std::span<const uint8>>> Sets = ReadEntries(Archive.Section(EFieldSection::SpriteImages));
+		if (!Sets)
+		{
+			return MakeError("sprite image section: " + Sets.Error().Message);
+		}
+		if (static_cast<std::size_t>(Slot) >= Sets->size())
+		{
+			return MakeError("sprite image section has no set for slot " + std::to_string(Slot));
+		}
+		const FFieldSpriteSlot Placed{At.X, At.Y, true};
+		TResult<std::vector<FVramImage>> Images = ReadImageSet((*Sets)[static_cast<std::size_t>(Slot)], Placed);
+		if (!Images)
+		{
+			return MakeError("sprite slot " + std::to_string(Slot) + ": " + Images.Error().Message);
+		}
+		return Images;
+	}
+
 	void UploadFieldTextures(const FFieldMap& Map, FVram& Vram, bool bBrightenPalettes)
 	{
 		UploadFieldArchiveImages(Map, Vram);

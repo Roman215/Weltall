@@ -1,0 +1,12 @@
+; Into the Soylent System facility, played. The original goes from Krelian's laboratory (map 673) to the stills of
+; the facility (maps 621, 620, 623, 624, 626, 625) with Elly narrating, and on to the Sufal Mass's room (map 622),
+; where the party fights it and Elly speaks to the mutated. The expanded second disc goes from the laboratory to the
+; facility's gate hall, a map of its own on the first still's geometry, with the party the laboratory's scene made
+; (Fei, Elly, Citan) and the story at the facility's own value; the rooms lead to the Sufal Mass's room by its
+; fight entrance, with the story back at the original's value.
+map 673
+detour @0x0237 to Facility ChangeMap #621 #0
+Facility:
+    SetVar var[000] #259
+    ChangeMap #742 #0
+    StopAndHalt

@@ -69,6 +69,11 @@ namespace
 		{
 			return Event == 3 ? std::span<const uint8>(Table) : std::span<const uint8>();
 		}
+
+		std::span<const uint8> FieldMapMessages(int32 Map) const override
+		{
+			return Map == 5 ? std::span<const uint8>(Table) : std::span<const uint8>();
+		}
 	};
 
 	/** What applying Text to the small map says, with Disc's text to read when it is given: "applied", "left alone", or the error. */
@@ -218,12 +223,15 @@ TEST_CASE("A map patch names a message of the disc's own, which is read as the p
 	CHECK(Applied("map 12\nmessage Told from event 4 message 0\n", &Disc) == "left alone");
 	CHECK(Applied("map 12\nmessage Told from event 3 message 2\n", &Disc) == "left alone");
 	CHECK(Applied("map 12\nmessage Told from event 3 message 0 page 3\n", &Disc) == "left alone");
+	CHECK(Applied("map 12\nmessage Told from map 5 message 1\n", &Disc) == "applied");
+	CHECK(Applied("map 12\nmessage Told from map 5 message 0 page 2\n", &Disc) == "applied");
+	CHECK(Applied("map 12\nmessage Told from map 6 message 0\n", &Disc) == "left alone");
 
-	const std::string_view Shape = "line 2: a message of the disc's own reads 'message Name from event E message K', or with 'page P' after it";
+	const std::string_view Shape = "line 2: a message of the disc's own reads 'message Name from event E message K' or 'message Name from map M message K', or with 'page P' after it";
 	CHECK(Refused("map 1\nmessage Told from event 3\n") == Shape);
 	CHECK(Refused("map 1\nmessage Told from event 3 message 0 page 0\n") == Shape);
 	CHECK(Refused("map 1\nmessage Told from event 3 message 0 pages 1\n") == Shape);
-	CHECK(Refused("map 1\nmessage Told from map 3 message 0\n") == Shape);
+	CHECK(Refused("map 1\nmessage Told from map 3 msg 0\n") == Shape);
 	CHECK(Refused("map 1\nmessage 1st from event 3 message 0\n") == Shape);
 	CHECK(Refused("map 1\nmessage Told from event 3 message 0\nmessage Told\n{\n}\n") == "line 3: a message named twice");
 

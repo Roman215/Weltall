@@ -1,0 +1,357 @@
+; The Kaiser's hall in Nortune's Imperial Palace, played: the first disc's audience room (map 237), where Sigmund
+; refuses the Fatima prince the Empire's heart and yields it to Kislev's own records, which Rico brings him.
+; What the chair narrates ("Uncovering the truth from some ancient records, Bart activated the secret battleship")
+; is said here. The south door leads to the tactical command room.
+map 746 from 237
+
+message AfterCurfew
+{
+Sigmund
+"The Champ walks into my
+hall after curfew...{page}with the Fatima boy and
+the pilot from Lahan.{page}Say what you came
+to say."
+}
+
+message Ship
+{
+Bart
+"The Central District.{wait 0A}
+It's a ship.{page}My ancestor Roni built
+it after the great war
+with Solaris.{page}That Mobile Weapon is a
+day out from Nisan.{page}Your district is the one
+thing on Ignas that can
+stand up to it."
+}
+
+message FairyTale
+{
+Sigmund
+"A fairy tale.{page}Five hundred years of
+Kislev stand on that
+ground.{page}I will not tear up my
+capital on a pirate's
+word.{wait 0A} Leave."
+}
+
+message NoKislev
+{
+Fei
+"Kaiser.{wait 0A} When that thing
+is done with Nisan...{page}there won't be a Kislev
+left to stand on."
+}
+
+message Silence
+{
+Sigmund
+"..."
+}
+
+message Archive
+{
+Rico
+"Hammer kept people.{wait 0A}
+They still talk to me.{page}The Battling Committee
+has an archive under
+D Block.{page}The founding charter
+is in it.{page}Roni Fatima's name is
+on the keel plate.{wait 0A}
+I've seen it."
+}
+
+message BroughtToMe
+{
+Sigmund
+"...The Committee's
+archive.{page}You went down into the
+dark for your Empire's
+secret...{page}...and you brought it
+to me."
+}
+
+message ToKislev
+{
+Rico
+"I brought it to Kislev."
+}
+
+message Stations
+{
+Sigmund
+"...Then Kislev will
+hear it.{page}Below the tactical
+command are the old
+control stations.{page}Three of them, sealed
+since my grandfather's
+day.{page}Raise my city, Fatima.{wait 0A}
+And pray you are right."
+}
+
+message CountOnIt
+{
+Bart
+"Count on it."
+}
+
+message Go
+{
+Sigmund
+"Three stations.{wait 0A}
+Below the tactical
+command.{page}Go."
+}
+
+message Lift
+{
+Associate
+"The lift to the tactical
+command is through the
+south door, then down."
+}
+
+message InTheHall
+{
+Imperial Guard
+"...!{page}The Champ.{wait 0A} In the
+Kaiser's hall."
+}
+
+actors 25
+unsigned 00A-00E 016-01A 026-02A 030 036 200-224
+entrances
+; From the gate, by the south door; the Kaiser's scene begins at once.
+entrance x 262 z -152 layer 0 camera keep facing 0
+
+define Scene var[402]
+actor 0 script 0:
+    SetHiddenModel
+    DisableTalk
+    MusicLoad #47
+    End
+
+; The party: Fei, Bart, Rico.
+actor 1 script 0:
+    SetPartyCharacter #0
+    SetMessageFace #0
+    End
+actor 2 script 0:
+    SetPartyCharacter #1
+    SetMessageFace #1
+    End
+actor 3 script 0:
+    SetPartyCharacter #2
+    SetMessageFace #2
+    End
+actor 4 script 0:
+    SetPartyCharacter #3
+    SetMessageFace #3
+    End
+actor 5 script 0:
+    SetPartyCharacter #4
+    SetMessageFace #4
+    End
+actor 6 script 0:
+    SetPartyCharacter #5
+    SetMessageFace #5
+    End
+actor 7 script 0:
+    SetPartyCharacter #6
+    SetMessageFace #6
+    End
+actor 8 script 0:
+    SetPartyCharacter #7
+    SetMessageFace #7
+    End
+actor 9 script 0:
+    SetPartyCharacter #8
+    SetMessageFace #8
+    End
+actor 10 script 0:
+    SetPartyCharacter #9
+    SetMessageFace #9
+    End
+actor 11 script 0:
+    SetPartyCharacter #10
+    SetMessageFace #10
+    End
+actor 1 script 1:
+actor 2 script 1:
+actor 3 script 1:
+actor 4 script 1:
+actor 5 script 1:
+actor 6 script 1:
+actor 7 script 1:
+actor 8 script 1:
+actor 9 script 1:
+actor 10 script 1:
+actor 11 script 1:
+    If Scene == #0 else Held
+    PlayerControlStep
+    End
+Held:
+    Stop
+    End
+
+; The Kaiser's scene, as the party comes in.
+actor 12 script 0:
+    SetHiddenModel
+    DisableTalk
+    SetVarTrue Scene
+    End
+actor 12 script 1:
+    DisablePlayer
+    Wait #40
+    MessageAtActorPortrait actor14 AfterCurfew 76
+    WaitMessageClosed
+    MessageAtActorPortrait actor4 Ship 3
+    WaitMessageClosed
+    MessageAtActorPortrait actor14 FairyTale 76
+    WaitMessageClosed
+    MessageAtActorPortrait actor1 NoKislev 0
+    WaitMessageClosed
+    Wait #30
+    MessageAtActorPortrait actor14 Silence 76
+    WaitMessageClosed
+    MessageAtActorPortrait actor6 Archive 5
+    WaitMessageClosed
+    Wait #30
+    MessageAtActorPortrait actor14 BroughtToMe 76
+    WaitMessageClosed
+    MessageAtActorPortrait actor6 ToKislev 5
+    WaitMessageClosed
+    Wait #40
+    MessageAtActorPortrait actor14 Stations 76
+    WaitMessageClosed
+    MessageAtActorPortrait actor4 CountOnIt 3
+    WaitMessageClosed
+    SetVarFalse Scene
+    EnablePlayer
+    StopAndHalt
+
+; The south door, to the tactical command room.
+actor 13 script 0:
+    SetHiddenModel
+    SetPosition #262 #-210
+    SetStateFlags 0 0x2000
+    SetStateFlags 3 0x4
+    SetCollisionSize 40 10 10 0
+    SetCollisionFlags #1
+    End
+actor 13 script 3:
+    ChangeMap #747 #0
+    StopAndHalt
+
+; Kaiser Sigmund, where the audience room has him.
+actor 14 script 0:
+    SetModel #2
+    SetPositionXYZ #-190 #0 #-10
+    SetFacingCode 6
+    SetMessageFace #76
+    End
+actor 14 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActorPortrait self Go 76
+    WaitMessageClosed
+    EnableControls
+    End
+
+; The guard at the hall's side.
+actor 19 script 0:
+    SetModel #1
+    SetPosition #156 #125
+    SetFacingCode 4
+    End
+actor 19 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self InTheHall 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+; The Kaiser's associate.
+actor 24 script 0:
+    SetModel #4
+    SetPosition #-112 #-150
+    SetFacingCode 0
+    End
+actor 24 script 2:
+    DisableControls
+    FaceActor party0
+    MessageAtActor self Lift 0
+    WaitMessageClosed
+    EnableControls
+    End
+
+; What an actor does not do.
+actor 0 script 1:
+actor 0 script 2:
+actor 0 script 3:
+actor 1 script 2:
+actor 1 script 3:
+actor 2 script 2:
+actor 2 script 3:
+actor 3 script 2:
+actor 3 script 3:
+actor 4 script 2:
+actor 4 script 3:
+actor 5 script 2:
+actor 5 script 3:
+actor 6 script 2:
+actor 6 script 3:
+actor 7 script 2:
+actor 7 script 3:
+actor 8 script 2:
+actor 8 script 3:
+actor 9 script 2:
+actor 9 script 3:
+actor 10 script 2:
+actor 10 script 3:
+actor 11 script 2:
+actor 11 script 3:
+actor 12 script 2:
+actor 12 script 3:
+actor 13 script 1:
+actor 13 script 2:
+actor 14 script 1:
+actor 14 script 3:
+actor 15 script 0:
+actor 15 script 1:
+actor 15 script 2:
+actor 15 script 3:
+actor 16 script 0:
+actor 16 script 1:
+actor 16 script 2:
+actor 16 script 3:
+actor 17 script 0:
+actor 17 script 1:
+actor 17 script 2:
+actor 17 script 3:
+actor 18 script 0:
+actor 18 script 1:
+actor 18 script 2:
+actor 18 script 3:
+actor 19 script 1:
+actor 19 script 3:
+actor 20 script 0:
+actor 20 script 1:
+actor 20 script 2:
+actor 20 script 3:
+actor 21 script 0:
+actor 21 script 1:
+actor 21 script 2:
+actor 21 script 3:
+actor 22 script 0:
+actor 22 script 1:
+actor 22 script 2:
+actor 22 script 3:
+actor 23 script 0:
+actor 23 script 1:
+actor 23 script 2:
+actor 23 script 3:
+actor 24 script 1:
+actor 24 script 3:
+    End

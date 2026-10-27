@@ -186,9 +186,14 @@ TEST_CASE("Every subtitle's card of the expanded second disc fits the screen, nu
 			CHECK(List.Primitives[Sprite].Corners[1].X <= 320.0f);
 		}
 	}
-	REQUIRE(Lines.size() == 8);
+	REQUIRE(Lines.size() == 13);
 	CHECK(Lines[0] == "Chapter 57a: Secret Battleship");
 	CHECK(Lines[1] == "Chapter 57b: Soylent System");
+	CHECK(Lines[2] == "Chapter 57c: The Howling");
+	CHECK(Lines[4] == "Chapter 58b: Gold In The Fire");
+	CHECK(Lines[7] == "Chapter 60a: The Night Before");
+	CHECK(Lines[8] == "Chapter 61a: The Wreckage");
+	CHECK(Lines[9] == "Chapter 62a: Razael's Tree");
 }
 
 TEST_CASE("Every subtitle of the expanded second disc lies inside one of the original's chapters, past its first value", "[Story][Content]")

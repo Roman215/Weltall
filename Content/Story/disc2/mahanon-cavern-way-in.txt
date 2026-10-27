@@ -1,0 +1,10 @@
+; From the depths to Razael's cavern, played. The original's hallway (map 654) goes, after the rotting nucleus, to the
+; cavern's scene (map 655): the camera's descent, the narration of the cavern and the Tree, the data, Krelian and
+; Grahf. The expanded second disc goes to the cavern's floor first, a map of its own, with the story at the Tree's
+; own value, and from there into the same scene past the narration the walk has said.
+map 654
+detour @0x5019 to Cavern ChangeMap #655 #0
+Cavern:
+    SetVar var[000] #291
+    ChangeMap #750 #0
+    StopAndHalt
