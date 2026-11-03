@@ -1,8 +1,13 @@
 # Modding
 
-Open Options from the title screen or the in-game menu, press L1 or R1 to reach the Modding page, then choose
-Assets. One export runs at a time. The page shows its progress, and you can cancel it. Everything you export stays
-on your computer. Neither the game nor this repository includes any extracted game content.
+Open Options from the title screen or the in-game menu, then press L1 or R1 to reach **Modding**. Choose **Assets**
+to export game files or turn on replacements. One export runs at a time; the page shows its progress and lets you
+cancel. Exported files stay on your computer. Weltall doesn't include any extracted game content.
+
+- To install a texture pack, see [Texture packs made for Beetle PSX HW](#texture-packs-made-for-beetle-psx-hw).
+- To use Perfect Works Build, see [Perfect Works Build](#perfect-works-build).
+- To add or write a Disc 2 expansion, see [Disc 2 expansions](#disc-2-expansions).
+- On a phone or tablet, follow [On Android](#on-android) first.
 
 ## On Android
 
@@ -12,11 +17,10 @@ adds one from a folder you pick. A `.7z` or `.rar` file has to be unpacked first
 manager that can, before you copy the folder to the device. A zip of a computer's `Mods` and `Assets` folders adds
 everything in them, each file in its place. The mods and packs on the device are listed below with their sizes, and
 you can remove any of them there. Adding a texture pack turns on **External assets**, which loads texture packs and
-other replacements, and Perfect Works is turned on and used from the next time you start Weltall. Making exports and
-editing files is a computer's work, so the Android version has no exports.
+other replacements. Adding Perfect Works turns it on; restart Weltall to use it. To export and edit game files,
+use the Windows or Linux version. Exports aren't available on Android.
 
-Perfect Works Build is read while the game runs, so replacing or removing one the game already has takes effect
-the next time you start Weltall.
+Restart Weltall after replacing or removing Perfect Works Build as well.
 
 ## Voices
 
@@ -52,10 +56,18 @@ program as the USA one. It doesn't need to know the translation. Put the patched
 USA images are there too, the patched ones play. Weltall's own screens, such as Options, stay in English.
 
 Translations that also change the game's program play only when Weltall knows them. The French translation by
-Atelier Traduction (version 1.1) is one: make the images with its patcher, and with its undub step for the
-Japanese voices. Weltall plays its font with letters of different widths, its menus and battle screens as it
-lays them out, its opening logo, the subtitles in its movies and the credits screen it adds at the very end
-of the game. Its version with Japanese command names hasn't been tried.
+Atelier Traduction (version 1.1) is one: use its patcher to make the disc images, including its undub step if you
+want Japanese voices. Weltall supports its font, menus, battle screens, opening logo, subtitled movies and extra
+credits screen. Its version with Japanese command names hasn't been tried.
+
+The Italian translation by SadNES cITy (version 1.2.1) is another, with English or Japanese voices and with the US
+or Japanese commands. You don't need its patcher: put its `.xpt` file in a folder of its own inside `Mods`, keep your
+USA images in `Games` as they are, and turn it on in Options → Modding → Italian, where you also pick the voices and
+the commands. Its subtitled movies come as separate PPF patches, one for each disc, with English or Japanese sound:
+put them in the same folder and pick the sound under Movies. This works on every system. Images patched with the
+team's patcher play too (on current Windows it needs two old Microsoft files, which the translation's page also
+offers; apply the movie patches with any PPF patcher). With the Japanese commands, leave Options → Controls → Button
+layout on USA, because the patch already swaps the buttons.
 
 ## Dumping disc files
 
@@ -192,7 +204,8 @@ every frame, such as scrolling water, and pictures copied from the screen keep t
 Weltall can use texture packs made for Beetle PSX HW, a PlayStation core for RetroArch, without any changes to them.
 Perfect ART Works and the Xenogears HD Portraits Project are two such packs. Put the pack's folder, the one whose name
 ends in `-texture-replacements`, anywhere under `Assets/textures` and turn on External assets. You don't need to
-rename it.
+rename it. Copy the folder in rather than linking it: Weltall doesn't read pictures through a link inside
+`Assets/textures`, so that a mod can't make it read or write files elsewhere.
 
 These packs name each picture after the data the game loads into the PlayStation's video memory and the colors it's
 drawn with, not after the texture on screen. Weltall keeps track of that data the way Beetle PSX HW does, so each of
@@ -206,6 +219,10 @@ with the same name, the game uses the first one by folder name. Perfect ART Work
 replace the portraits, so keep only one of them in `Assets/textures`. If you use Perfect Works Build from `Mods`,
 leave its Portraits and Roni's portrait rows on Original, because the packs' portraits are named after the original
 ones. Perfect ART Works also covers Perfect Works Build's version of the battle screen.
+
+To use only parts of a pack, open **Options → Modding → Assets**. The six **Pack** rows let you turn off its font,
+faces, menus and HUD, characters, scenery, or models and effects. Turning a kind off shows the game's own pictures
+there; the rest of the pack still applies.
 
 A pack picture's transparency works as it does in Beetle PSX HW. Fully transparent pixels aren't drawn, fully
 opaque ones are solid, and anything in between blends with what's behind it where the game draws semi-transparent
@@ -324,6 +341,93 @@ options as `key = value` lines, but it can't add new gameplay rules.
 
 Models are only exported in the game's own formats, with their skeletons, animations and textures in the dumped
 files. You can't replace a Gear with an Unreal skeletal mesh or import glTF or FBX models.
+
+## Disc 2 expansions
+
+A Disc 2 expansion turns narrated parts of Disc 2 into scenes you play, then rejoins the original story. Put an
+expansion's folder inside `Mods`. Its documents go in a `disc2` subfolder, and an optional `mod.txt` names it:
+
+```
+name Elly's errand
+author Your name
+version 1.0
+```
+
+Without a name, Weltall uses the folder's name. When Disc 2 begins, choose **Original** or **Extended**. Extended
+plays the expansion selected on the Modding page; its name appears under that choice. Press Menu at the question
+to choose a different expansion, then close the page to return to the question.
+
+Under **Options → Modding → Disc 2**:
+
+- **Expansions** turns them all on or off. With it off, new games of Disc 2 use the original story without asking.
+  A game already playing an expansion keeps it until you load another save.
+- **Expansion** chooses which expansion Extended plays. Use Left and Right to select one by name.
+- An expansion that can't be played (one with a document Weltall can't read) is listed by name,
+  with the reason in the log. One that changes nothing (an export nobody has edited, below) reads **Unchanged**.
+- **Other disc** means some files don't match your game data. This can happen with a different release, translation
+  or set of mods. The log names the files. Weltall skips those changes and uses the disc's map or battle text instead.
+  A new map that needs assets missing from your disc can't be entered; this can happen when playing with Disc 2 alone.
+- **Export Disc 2** writes your second disc as an expansion to edit, into `Mods/Disc 2 (export)` (below). Files
+  already there are kept, so an export never overwrites your changes. Press Confirm again to stop it.
+- **Make shareable** copies the selected expansion with only your changes, ready to share (below).
+- **Extract example scenes** copies the two examples Weltall comes with into `Mods/Disc 2 examples`. If they're
+  there already, a second Confirm replaces them, and any changes you made to them.
+
+Restart Weltall after adding, exporting, extracting or making a shareable expansion. A save made in an expansion
+also records a fallback point in the original story, provided the author gives it one. The original game loads it
+there. Weltall does the same if the expansion is missing or expansions are off.
+[Writing an expansion](Story/writing-an-expansion.md) takes you from a copy of the
+examples to an expansion of your own, and [the story guides](Story/README.md) explain each kind of document.
+
+### Starting from Export Disc 2
+
+The export holds every map the second disc plays (`disc2/map-617.txt`: its messages, then its scripts) and every
+battle event's text (`disc2/battle-event-019.txt`), each given whole, as your discs and the mods you use hold them.
+Your own files in `Assets` aren't included. Each document begins like this:
+
+```
+map 617 whole
+disc 3f0a...
+exported 91c2...
+```
+
+`disc` is a checksum identifying the map's scripts and messages. If they differ from yours, perhaps because of a
+translation or a change of mods, Weltall uses your disc's map instead and lists the expansion as **Other disc**.
+`exported` identifies the unedited document. Weltall skips unedited documents, so an untouched export changes nothing
+and appears as **Unchanged** on the Modding page.
+
+Edit a document and restart Weltall to play it as an expansion. Extended uses your edited map in place of the disc's.
+You can add fallback save points and chapter subtitles using [the story guides](Story/README.md). Rename the folder and
+the `name` line of its `mod.txt` to make it your own. Delete the documents you didn't change if you like; an export
+started again writes them back without touching yours. The export holds the game's own scripts and words, so don't
+share it as it is: share the copy Make shareable writes.
+
+### Making an expansion shareable
+
+Options → Modding → Disc 2 → **Make shareable** copies the selected expansion into a folder beside it,
+`Mods/<its folder> (shareable)`, with only what you changed or added:
+
+- Documents you left as the export wrote them are left out.
+- Each map you edited becomes a `map N` patch of the disc's map ([Changing a map](Story/changing-a-map.md)): the
+  messages you changed or added (where one is the game's own, it is named rather than copied), the entrances you
+  moved, and only the script code that differs from the disc's. The disc's code reaches yours through a detour and
+  goes on where the two are the same again.
+- Each battle text you edited becomes a `battle event N` document ([A battle's narration](Story/a-battles-narration.md)).
+- Everything else in the folder, your own documents, `mod.txt` and any notes, is copied as it is.
+
+Before writing the copy, Weltall checks that each patch reproduces your edited map's scripts, messages and entrances.
+The row shows progress; press Confirm again to stop. If a document can't be copied, the log names it and explains why.
+If the copy already exists, press Confirm a second time to replace it. Restart Weltall, select the copy on the
+Expansion row and try it before sharing. Its patches need the same game data you exported, identified by the `disc`
+line in each document.
+
+A patch adds one or two jump instructions when it enters your changed code. Each actor runs up to eight instructions
+per game tick, so these extra jumps can delay a busy script by one tick.
+
+Some changes can't be written as a patch, and Make shareable then stops and says which: a map with more or fewer
+script actors or entrances than the disc's, a variable your map no longer reads unsigned, a battle text with more or
+fewer messages than the disc's, or a document that patches a map the folder also gives whole (make its change in that
+map's document instead).
 
 ## Perfect Works Build
 

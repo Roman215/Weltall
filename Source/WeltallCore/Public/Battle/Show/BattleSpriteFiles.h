@@ -59,6 +59,9 @@ namespace Weltall
 		/** Its sound bank is a character's recorded voice: a party attack file's, which the voice track's disc gives. */
 		bool HoldsVoices() const { return bVoices; }
 
+		/** Its sprites' palettes recoloured with Elly's purple hair (EllysHair). */
+		WELTALLCORE_API void RecolourPurpleHair();
+
 	private:
 		friend class FBattleSpriteFiles;
 

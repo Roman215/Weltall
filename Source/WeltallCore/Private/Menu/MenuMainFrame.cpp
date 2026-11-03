@@ -98,7 +98,7 @@ namespace Weltall
 			{
 				DrawNormalMenu();
 			}
-			else if (Request.Mode == EMenuMode::DiscChange)
+			else if (Request.Mode == EMenuMode::DiscChange || Request.Mode == EMenuMode::ClearFile)
 			{
 				DrawDiscChange();
 			}
@@ -204,9 +204,9 @@ namespace Weltall
 				AddProjected(Line.Quad, true, PiecesEntry);
 			}
 		}
-		if (bStoryOfferShown)
+		if (bOfferShown)
 		{
-			for (FMenuLabel& Line : StoryOfferLines)
+			for (FMenuLabel& Line : OfferLines)
 			{
 				AddProjected(Line.Quad, true, PiecesEntry);
 			}

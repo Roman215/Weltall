@@ -4,7 +4,6 @@
 #include "Field/FieldScene.h"
 #include "Game/BattlingGameProgram.h"
 #include "Graphics/Texture.h"
-#include "Presentation/ScreenLayout.h"
 #include "RenderGraphBuilder.h"
 #include "RenderGraphUtils.h"
 #include "RenderingThread.h"
@@ -111,19 +110,20 @@ public:
 	{
 	}
 
-	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override
+	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override
 	{
+		const FScreenArea Rows = Area.Rows(BattlingScreen);
 		if (bTrails && Trails.IsValid())
 		{
 			// Drawn in the painter's order straight over the frame before, as the console draws; the display shows the latest.
-			FRDGTextureRef Latest = Trails->Latest(GraphBuilder, Output, Area, TrailsRun, Pass, [this, &GraphBuilder, &Area](FRDGTextureRef Into)
+			FRDGTextureRef Latest = Trails->Latest(GraphBuilder, Output, Rows, TrailsRun, Pass, [this, &GraphBuilder, &Rows](FRDGTextureRef Into)
 			{
-				AddFieldSceneOverlayPasses(GraphBuilder, *Mesh, *Vram, Draw, Into, Area);
+				AddFieldSceneOverlayPasses(GraphBuilder, *Mesh, *Vram, Draw, Into, Rows);
 			});
 			FRHICopyTextureInfo Copy;
-			Copy.SourcePosition = FIntVector(Area.Min.X, Area.Min.Y, 0);
+			Copy.SourcePosition = FIntVector(Rows.Min.X, Rows.Min.Y, 0);
 			Copy.DestPosition = Copy.SourcePosition;
-			Copy.Size = FIntVector(Area.Width(), Area.Height(), 1);
+			Copy.Size = FIntVector(Rows.Width(), Rows.Height(), 1);
 			AddCopyTexturePass(GraphBuilder, Latest, Output, Copy);
 		}
 		else if (PictureBlurs > 0)
@@ -132,19 +132,19 @@ public:
 			const FRDGTextureDesc Desc = FRDGTextureDesc::Create2D(Output->Desc.Extent, Output->Desc.Format, FClearValueBinding::Black,
 				TexCreate_RenderTargetable | TexCreate_ShaderResource);
 			FRDGTextureRef Source = GraphBuilder.CreateTexture(Desc, TEXT("BattlingPicture"));
-			AddFieldScenePasses(GraphBuilder, *Mesh, *Vram, PictureDraw, Source, Area);
+			AddFieldScenePasses(GraphBuilder, *Mesh, *Vram, PictureDraw, Source, Rows);
 			AddScreenLayer(GraphBuilder, PictureScreen, PictureColumns, Source, Area);
-			const float Step = static_cast<float>(Area.Height()) / static_cast<float>(Weltall::FBattlingFrame::ScreenHeight);
+			const float Step = static_cast<float>(Rows.Height()) / static_cast<float>(Weltall::FBattlingFrame::ScreenHeight);
 			for (int32 Blur = 1; Blur <= PictureBlurs; ++Blur)
 			{
 				FRDGTextureRef Target = Blur == PictureBlurs ? Output : GraphBuilder.CreateTexture(Desc, TEXT("BattlingPictureBlurred"));
-				AddScreenBlurPass(GraphBuilder, Source, Target, Area, Step);
+				AddScreenBlurPass(GraphBuilder, Source, Target, Rows, Step);
 				Source = Target;
 			}
 		}
 		else
 		{
-			AddFieldScenePasses(GraphBuilder, *Mesh, *Vram, Draw, Output, Area);
+			AddFieldScenePasses(GraphBuilder, *Mesh, *Vram, Draw, Output, Rows);
 		}
 		AddScreenLayer(GraphBuilder, Screen, Columns, Output, Area);
 	}
@@ -171,18 +171,14 @@ public:
 	TSharedPtr<FBattlingTrails> Trails;
 
 private:
-	/** A 2D layer fitted to the screen's place in the display's middle: the winner screen's 640 columns span the place of the bout's 320. */
-	void AddScreenLayer(FRDGBuilder& GraphBuilder, const Weltall::FDrawList& Layer, int32 LayerColumns, FRDGTextureRef Output, const FIntRect& Area) const
+	/** A 2D layer on the screen's place in the picture's middle: the winner screen's 640 columns span the place of the bout's 320. */
+	void AddScreenLayer(FRDGBuilder& GraphBuilder, const Weltall::FDrawList& Layer, int32 LayerColumns, FRDGTextureRef Output, const FScreenArea& Area) const
 	{
 		if (Layer.Primitives.empty())
 		{
 			return;
 		}
-		const Weltall::FScreenLayout Layout = Weltall::FScreenLayout::Fit(Area.Width(), Area.Height(), BattlingScreen);
-		const Weltall::FDisplayRect Placed = Layout.ToDisplay({0, 0, static_cast<int16>(BattlingScreen.Width), static_cast<int16>(BattlingScreen.Height)});
-		const FIntPoint Origin = Area.Min + FIntPoint(Placed.X, Placed.Y);
-		AddIconDrawListPasses(GraphBuilder, *Vram, *IconVram, Layer, Output, FIntRect(Origin, Origin + FIntPoint(Placed.Width, Placed.Height)),
-			{LayerColumns, BattlingScreen.Height});
+		AddIconDrawListPasses(GraphBuilder, *Vram, *IconVram, Layer, Output, Area.ScreenRect(BattlingScreen), {LayerColumns, BattlingScreen.Height});
 	}
 
 	TSharedRef<const FFieldSceneMesh> Mesh;

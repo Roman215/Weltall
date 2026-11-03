@@ -382,6 +382,8 @@ namespace Weltall
 		bool IsModel(int32 Slot) const;
 		bool IsHidden(int32 Slot) const;
 		static bool IsResident(const FSprite& Sprite);
+		/** Whether the sprite is a party member's drawn with Id's own battle sprite (Fei as Id). */
+		bool IsDrawnAsId(const FSprite& Sprite) const;
 		/** The heading from Sprite toward Other, or toward its goal (+A0h). */
 		int32 HeadingTo(const FSprite& Sprite, const FSprite& Other) const;
 		int32 HeadingToGoal(const FSprite& Sprite) const;

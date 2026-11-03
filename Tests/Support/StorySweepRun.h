@@ -110,6 +110,18 @@ namespace Weltall::Testing
 		 * that the battles a random pad fights are won and the play goes on past them.
 		 */
 		bool bStrongParty = false;
+		/**
+		 * Elly back in the party in Regurus as a map is entered, in the second slot where she is not in it, the game a
+		 * clear game's (ClearFile.h): the final dungeon played with her there, as a clear file plays it.
+		 */
+		bool bClearGame = false;
+		/**
+		 * The game a Keep Elly game's (KeepElly.h) as a map is entered, its rule holding Elly where it does, and she put
+		 * in the second slot where the rule has her back and she is not in the party: Merkava and on played with her.
+		 */
+		bool bKeepElly = false;
+		/** Fei drawn as Id as a map is entered, the game a New Game+ where it is no clear game: his battles played as Id's. */
+		bool bFeiAsId = false;
 		/** The saved variables changed in every state before its map is entered: a flag as the story has it where the save does not. */
 		std::vector<FStorySweepVariable> Variables;
 	};

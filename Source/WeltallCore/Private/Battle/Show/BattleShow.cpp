@@ -34,6 +34,7 @@ namespace Weltall
 
 	FBattleShow::FBattleShow() : Playback(*this)
 	{
+		Vram.SetUploadKind(EVramUploadKind::ModelsAndEffects);
 		Fade.Sprites = &Sprites;
 		Shake.Sprites = &Sprites;
 		TintFade.Sprites = &Sprites;
@@ -188,7 +189,10 @@ namespace Weltall
 	{
 		const FBattleStageRecord& Record = Stage->Record;
 		Objects.Init(Record);
-		Objects.CreateStage(*Stage);
+		{
+			const FVram::FKindScope SceneryKind(Vram, EVramUploadKind::Scenery);
+			Objects.CreateStage(*Stage);
+		}
 		StageTint.Measure(Stage->Model.Pack.Textures);
 		Backdrop = MakeBattleStageBackdrop(Record);
 		Floor.Reset(Record.FloorVertices(), Record.FloorTriangles());
@@ -330,7 +334,10 @@ namespace Weltall
 		PendingCatchUp = 0;
 
 		// The display: VRAM's queued uploads, the drawing.
-		Sprites.FlushUploads(Vram);
+		{
+			const FVram::FKindScope CharactersKind(Vram, EVramUploadKind::Characters);
+			Sprites.FlushUploads(Vram);
+		}
 		Shown.Vram = &Vram;
 		Shown.VramRevision = Vram.Revision();
 		Shown.bCleared = Battle.Clear[0] != 0 || bCoveredByWave;

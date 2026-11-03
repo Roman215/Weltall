@@ -54,6 +54,8 @@ namespace Weltall::Testing
 		FGte Gte;
 		FPsxRandom Random;
 		FRecordingObjectServices Services;
+		/** The show's fixes on, but Regurus unfinished as the original's: a case drawing it waits for its opening for good. */
+		FBattleShowOptions ShowOptions;
 		FBattleObjects Objects;
 	};
 

@@ -268,6 +268,8 @@ namespace Weltall
 		uint8 Deathblow = 0;
 		/** The hit just made ends the combo (a Deathblow, or the target's on-hit script asked). */
 		bool bHitEndsCombo = false;
+		/** Fei drawn as Id: the press that performs one of his whole combos (Nothing for none). */
+		uint8 IdsPress = BattleMenuEvents::Nothing;
 		/** The ability, item or gear Special chosen, and the targets an item was used on. */
 		uint8 Choice = 0;
 		uint16 UsedTargets = 0;

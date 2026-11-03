@@ -145,10 +145,16 @@ namespace Weltall
 			}
 		}
 
+		namespace Italian
+		{
+			enum : int32 { Notice, Enabled, Voices, Commands, Movies, Count };
+			constexpr int32 MovieChoices = 3;
+		}
+
 		namespace Display
 		{
-			enum : int32 { FullScreen, WindowSize, Aspect, Sorting, SceneryFilter, SpriteFilter, MovieFilter, Crt, AntiAliasing, Culling, Pilots, Gears, ChapterCards, TextSpeed, BattleSpeed,
-				BattleFlashes, BackgroundPause, Count };
+			enum : int32 { FullScreen, WindowSize, Aspect, IntegerScaling, Sorting, SceneryFilter, SpriteFilter, MovieFilter, Crt, AntiAliasing, Culling, Pilots, Gears, ChapterCards, TextSpeed, AutoAdvance,
+				BattleSpeed, BattleFlashes, BackgroundPause, Count };
 
 			/** The window's rows (full screen, its size) are not there where the game has no window of its own: the rows after them move up. */
 			int32 Hidden(const FDisplayModes& Modes)
@@ -235,6 +241,8 @@ namespace Weltall
 			return OptionsText::Titles::Modding;
 		case ESettingsPage::PerfectWorks:
 			return OptionsText::Titles::PerfectWorks;
+		case ESettingsPage::Italian:
+			return OptionsText::Titles::Italian;
 		}
 		return {};
 	}
@@ -259,6 +267,8 @@ namespace Weltall
 			return Modding::Count;
 		case ESettingsPage::PerfectWorks:
 			return PerfectWorks::Count;
+		case ESettingsPage::Italian:
+			return Italian::Count;
 		}
 		return 0;
 	}
@@ -281,6 +291,8 @@ namespace Weltall
 			}
 			case Display::Aspect:
 				return Shown(Text::Display::Aspect, ChoiceName(Settings.Display.Aspect, Text::Display::AspectValues));
+			case Display::IntegerScaling:
+				return Shown(Text::Display::IntegerScaling, OnOff(Settings.Display.bIntegerScaling));
 			case Display::Sorting:
 				return Shown(Text::Display::Sorting, ChoiceName(Settings.Field.Sorting, Text::Display::SortingValues));
 			case Display::SceneryFilter:
@@ -303,6 +315,8 @@ namespace Weltall
 				return Shown(Text::Display::ChapterCards, OnOff(Settings.bChapterCards));
 			case Display::TextSpeed:
 				return Shown(Text::Display::TextSpeed, ChoiceName(Settings.TextSpeed, Text::Display::TextSpeedValues));
+			case Display::AutoAdvance:
+				return Shown(Text::Display::AutoAdvance, ChoiceName(Settings.AutoAdvance, Text::Display::AutoAdvanceValues));
 			case Display::BattleSpeed:
 				return Shown(Text::Display::BattleSpeed, ChoiceName(Settings.BattleSpeed, Text::Display::BattleSpeedValues));
 			case Display::BattleFlashes:
@@ -370,6 +384,29 @@ namespace Weltall
 				return Shown(Words::Emeralda, PerfectWorks::Taken(Mod.bEmeraldaCafe, Words::FixValues));
 			default:
 				return Shown(Words::TitleScreen, PerfectWorks::Taken(Mod.bTitleScreen, Words::ModValues));
+			}
+		}
+		case ESettingsPage::Italian:
+		{
+			namespace Words = Text::Italian;
+			const FItalianOptions& Mod = Settings.Italian;
+			switch (Row)
+			{
+			case Italian::Notice:
+			{
+				FSettingsRow Notice;
+				Notice.Label = std::string(Words::Notice);
+				Notice.bReadOnly = true;
+				return Notice;
+			}
+			case Italian::Enabled:
+				return Shown(Words::Enabled, OnOff(Mod.bEnabled));
+			case Italian::Voices:
+				return Shown(Words::Voices, std::string(Words::VoiceValues[Mod.bJapaneseVoices ? 1 : 0]));
+			case Italian::Commands:
+				return Shown(Words::Commands, std::string(Words::CommandValues[Mod.bJapaneseCommands ? 1 : 0]));
+			default:
+				return Shown(Words::Movies, ChoiceName(Mod.Movies, Words::MovieValues));
 			}
 		}
 		case ESettingsPage::Sound:
@@ -460,6 +497,9 @@ namespace Weltall
 			}
 			case Display::Aspect:
 				return StepChoice(Settings.Display.Aspect, Direction, 3);
+			case Display::IntegerScaling:
+				Settings.Display.bIntegerScaling = !Settings.Display.bIntegerScaling;
+				return true;
 			case Display::Sorting:
 				return StepChoice(Settings.Field.Sorting, Direction, 3);
 			case Display::SceneryFilter:
@@ -484,6 +524,8 @@ namespace Weltall
 				return true;
 			case Display::TextSpeed:
 				return StepChoice(Settings.TextSpeed, Direction, 4);
+			case Display::AutoAdvance:
+				return StepChoice(Settings.AutoAdvance, Direction, 4);
 			case Display::BattleSpeed:
 				return StepChoice(Settings.BattleSpeed, Direction, BattleSpeedCount);
 			case Display::BattleFlashes:
@@ -547,6 +589,26 @@ namespace Weltall
 				return Toggle(Mod.bEmeraldaCafe);
 			case PerfectWorks::TitleScreen:
 				return Toggle(Mod.bTitleScreen);
+			default:
+				return false;
+			}
+		}
+		case ESettingsPage::Italian:
+		{
+			FItalianOptions& Mod = Settings.Italian;
+			switch (Row)
+			{
+			case Italian::Enabled:
+				Mod.bEnabled = !Mod.bEnabled;
+				return true;
+			case Italian::Voices:
+				Mod.bJapaneseVoices = !Mod.bJapaneseVoices;
+				return true;
+			case Italian::Commands:
+				Mod.bJapaneseCommands = !Mod.bJapaneseCommands;
+				return true;
+			case Italian::Movies:
+				return StepChoice(Mod.Movies, Direction, Italian::MovieChoices);
 			default:
 				return false;
 			}

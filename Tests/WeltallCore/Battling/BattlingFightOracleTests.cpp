@@ -274,80 +274,107 @@ namespace
 		uint8 Result = 0;
 	};
 
-	/** Runs a case: its digest over every tick's parts, the ticks run, and how it ended. EachPass sees the bout after each pass, of at most PassLimit. */
-	FCaseRun RunCase(const FBattlingDisc& Disc, const FFightCase& Case, const std::function<void(const FBattlingFight&)>& EachPass = {}, int32 PassLimit = -1)
+	/** The state a case's fight runs in: the menus' demonstration runs in its own. */
+	uint8 FightStateOf(const FFightCase& Case)
+	{
+		return Case.Mode == EBattlingMode::Demonstration ? 5 : 1;
+	}
+
+	/** A case's fight and what it reads, kept beside it: the fight holds their places, so this stays where it was made. */
+	struct FCaseFight
 	{
 		std::array<FBattlingGearFile, 2> Files;
+		FPsxRandom Random{0};
+		FBattlingSoundRecorder Recorder;
+		FMesContext Text;
+		std::unique_ptr<FBattlingFight> Fight;
+	};
+
+	/**
+	 * Starts a case's fight in Run as the harness starts the original's: its gears loaded, its settings, the tutorial's
+	 * script for a tutorial, its round started and its gears placed; AutoAdvance is the player's auto-advancing text.
+	 */
+	void StartCase(FCaseFight& Run, const FBattlingDisc& Disc, const FFightCase& Case, EMesAutoAdvance AutoAdvance = EMesAutoAdvance::Off)
+	{
 		std::array<FMdlModel, 2> Models;
 		for (std::size_t Side = 0; Side < 2; ++Side)
 		{
 			auto File = FBattlingGearFile::Read(Disc.Disc->Image(), *Disc.Index, Case.Gears[Side]);
 			REQUIRE(File);
-			Files[Side] = std::move(*File);
-			auto Model = ParseMdlModel(std::span<const uint8>(Files[Side].Bytes).subspan(Files[Side].Model));
+			Run.Files[Side] = std::move(*File);
+			auto Model = ParseMdlModel(std::span<const uint8>(Run.Files[Side].Bytes).subspan(Run.Files[Side].Model));
 			REQUIRE(Model);
 			Models[Side] = std::move(*Model);
 		}
 		// The harness loads the effects' pictures before it sets the sparks up, both from a cleared seed; the case's seed comes after.
-		FPsxRandom Random(0);
-		FBattlingSoundRecorder Recorder;
-		auto Fight = std::make_unique<FBattlingFight>(Disc.Tables, Disc.Terrain, Random, Recorder);
-		Fight->InitSplashTiles();
-		Fight->InitSparkTiles();
-		Random = FPsxRandom(Case.Seed);
-		Fight->Settings.Rules = Disc.Rules;
-		Fight->Settings.Mode = Case.Mode;
-		Fight->Settings.Level = Case.Level;
-		Fight->Settings.Computer = Case.Computer;
-		Fight->Settings.PracticeStyle = Case.Style;
-		Fight->Settings.bRubberBand = Case.bRubberBand;
-		Fight->Settings.bRangedMovesByOwnState = false;
-		Fight->Settings.bPracticeComputerAtStyleLevel = false;
-		Fight->Settings.bPracticeFrameRateAsLabelled = false;
+		Run.Fight = std::make_unique<FBattlingFight>(Disc.Tables, Disc.Terrain, Run.Random, Run.Recorder);
+		FBattlingFight& Fight = *Run.Fight;
+		Fight.InitSplashTiles();
+		Fight.InitSparkTiles();
+		Run.Random = FPsxRandom(Case.Seed);
+		Fight.Settings.Rules = Disc.Rules;
+		Fight.Settings.Mode = Case.Mode;
+		Fight.Settings.Level = Case.Level;
+		Fight.Settings.Computer = Case.Computer;
+		Fight.Settings.PracticeStyle = Case.Style;
+		Fight.Settings.bRubberBand = Case.bRubberBand;
+		Fight.Settings.bRangedMovesByOwnState = false;
+		Fight.Settings.bPracticeComputerAtStyleLevel = false;
+		Fight.Settings.bPracticeFrameRateAsLabelled = false;
 		const bool bRounds = Case.WinsPerSet >= 0;
-		Fight->Settings.WinsPerSet = static_cast<uint8>(bRounds ? Case.WinsPerSet : 0);
+		Fight.Settings.WinsPerSet = static_cast<uint8>(bRounds ? Case.WinsPerSet : 0);
 		const bool bTutorial = Case.Mode == EBattlingMode::Tutorial;
-		const bool bScript = bTutorial || Case.bScripted;
-		// The menus' demonstration runs in its own state.
-		const uint8 FightState = Case.Mode == EBattlingMode::Demonstration ? 5 : 1;
-		FMesContext Text;
-		Text.Font = &Disc.Text.Font;
-		Text.Tables = &Disc.Text.NameTables;
-		Text.ButtonMap = MesKernelButtonMap;
-		Fight->Text = &Text;
-		Fight->Messages = &Disc.Messages.Table();
-		Fight->Settings.bScripted = Case.bScripted;
+		Run.Text.Font = &Disc.Text.Font;
+		Run.Text.Tables = &Disc.Text.NameTables;
+		Run.Text.ButtonMap = MesKernelButtonMap;
+		Run.Text.AutoAdvance = AutoAdvance;
+		Fight.Text = &Run.Text;
+		Fight.Messages = &Disc.Messages.Table();
+		Fight.Settings.bScripted = Case.bScripted;
 		if (bTutorial)
 		{
-			Fight->StartTutorial();
+			Fight.StartTutorial();
 		}
 		for (std::size_t Side = 0; Side < 2; ++Side)
 		{
-			Fight->LoadFighter(static_cast<int32>(Side), Case.Gears[Side], Files[Side], Disc.GearTable.Gears[static_cast<std::size_t>(Case.Gears[Side])],
+			Fight.LoadFighter(static_cast<int32>(Side), Case.Gears[Side], Run.Files[Side], Disc.GearTable.Gears[static_cast<std::size_t>(Case.Gears[Side])],
 				std::move(Models[Side]));
 		}
 		if (Case.bFire)
 		{
-			Fight->LightFire();
-			Fight->StartFadeIn();
+			Fight.LightFire();
+			Fight.StartFadeIn();
 		}
-		Fight->StartRound();
+		Fight.StartRound();
 		for (std::size_t Side = 0; Side < 2; ++Side)
 		{
-			Fight->Fighters[Side].Position = {Case.Start[Side][0], 0, Case.Start[Side][1]};
+			Fight.Fighters[Side].Position = {Case.Start[Side][0], 0, Case.Start[Side][1]};
 		}
 		for (std::size_t Side = 0; Side < 2; ++Side)
 		{
 			const int32 Hp = Side == 0 ? Case.Hp : Case.Hp2;
 			if (Hp >= 0)
 			{
-				Fight->Fighters[Side].Hp = static_cast<int16>(Fight->Fighters[Side].MaxHp * Hp / 0xFF);
+				Fight.Fighters[Side].Hp = static_cast<int16>(Fight.Fighters[Side].MaxHp * Hp / 0xFF);
 			}
 		}
 		if (!bTutorial)
 		{
-			Fight->State = FightState;
+			Fight.State = FightStateOf(Case);
 		}
+	}
+
+	/** Runs a case: its digest over every tick's parts, the ticks run, and how it ended. EachPass sees the bout after each pass, of at most PassLimit. */
+	FCaseRun RunCase(const FBattlingDisc& Disc, const FFightCase& Case, const std::function<void(const FBattlingFight&)>& EachPass = {}, int32 PassLimit = -1)
+	{
+		FCaseFight Run;
+		StartCase(Run, Disc, Case);
+		const std::unique_ptr<FBattlingFight>& Fight = Run.Fight;
+		FBattlingSoundRecorder& Recorder = Run.Recorder;
+		const bool bRounds = Case.WinsPerSet >= 0;
+		const bool bTutorial = Case.Mode == EBattlingMode::Tutorial;
+		const bool bScript = bTutorial || Case.bScripted;
+		const uint8 FightState = FightStateOf(Case);
 
 		FXorShift32 Pads(Case.Pads);
 		FSha1 Total;
@@ -1283,5 +1310,69 @@ TEST_CASE("Battling's arena menus match the original pass for pass", "[Content][
 		CHECK(Passes == Case.PassesRun);
 		CHECK(Ending == Case.Ending);
 		CHECK(Digest == Case.Digest);
+	}
+}
+
+TEST_CASE("Auto-advancing text turns the tutorial's lesson pages and leaves the lesson menu's prompt to the menu", "[Content][Battling]")
+{
+	REQUIRE_DISC(Iso, EDiscRelease::UsaDisc1);
+	FBattlingDisc Disc;
+	ReadDisc(Disc, Iso);
+	const FFightCase Tutorial{{0, 28}, EBattlingMode::Tutorial, 0, false, 0x00707070, 0, 0, {false, false}, 0, Marks, "", 0};
+
+	// Passes with no button down, each as many vertical blanks as the pass before waited for.
+	const auto RunQuietPass = [](FBattlingFight& Fight) {
+		std::array<std::array<FBattlingPad, 2>, 2> Blanks{};
+		for (std::array<FBattlingPad, 2>& Blank : Blanks)
+		{
+			for (FBattlingPad& Pad : Blank)
+			{
+				Pad.Type = 4;
+				Pad.LeftX = 0x80;
+				Pad.LeftY = 0x80;
+			}
+		}
+		FBattlingTickInput Input;
+		Input.Blanks = std::span(Blanks).first(std::min(static_cast<std::size_t>(Fight.PassBlanks), Blanks.size()));
+		Fight.RunPass(Input);
+		REQUIRE(Fight.Fault == EBattlingFault::None);
+	};
+	// The tutorial opens on its welcome, a message and a wait for the button, then the lesson menu: the passes until the
+	// menu opens (-1 if not within Limit), and the run, there.
+	const auto PassesToMenu = [&](FCaseFight& Run, EMesAutoAdvance Pace, int32 Limit) {
+		StartCase(Run, Disc, Tutorial, Pace);
+		for (int32 Pass = 1; Pass <= Limit; ++Pass)
+		{
+			RunQuietPass(*Run.Fight);
+			if (Run.Fight->Tutorial.bMenuOpen)
+			{
+				return Pass;
+			}
+		}
+		return -1;
+	};
+
+	FCaseFight Waiting;
+	CHECK(PassesToMenu(Waiting, EMesAutoAdvance::Off, 3000) == -1);
+	FCaseFight Slow;
+	const int32 SlowPasses = PassesToMenu(Slow, EMesAutoAdvance::Slow, 3000);
+	FCaseFight Fast;
+	const int32 FastPasses = PassesToMenu(Fast, EMesAutoAdvance::Fast, 3000);
+	INFO("slow " << SlowPasses << ", fast " << FastPasses);
+	REQUIRE(FastPasses > 0);
+	CHECK(SlowPasses > FastPasses);
+
+	// The prompt waits for the menu's own confirm: the script stays on its wait, with no lesson started.
+	FBattlingFight& Menu = *Fast.Fight;
+	for (int32 Pass = 0; Pass < 10; ++Pass)
+	{
+		RunQuietPass(Menu);
+	}
+	const uint16 PromptWait = Menu.Tutorial.Script;
+	for (int32 Pass = 0; Pass < 1200; ++Pass)
+	{
+		RunQuietPass(Menu);
+		REQUIRE(Menu.Tutorial.bMenuOpen);
+		REQUIRE(Menu.Tutorial.Script == PromptWait);
 	}
 }

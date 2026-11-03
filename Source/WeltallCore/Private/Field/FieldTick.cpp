@@ -27,6 +27,9 @@ namespace Weltall
 {
 	namespace
 	{
+		/** A frame's vertical blanks before the scripts' delay (D6) adds its own. */
+		constexpr int32 FrameVblanks = 2;
+
 		/** A sprite's signal that its jump has landed. */
 		constexpr uint16 LandedSignal = 1;
 
@@ -196,7 +199,7 @@ namespace Weltall
 			return Error;
 		}
 		Context.Messages.Tick();
-		UpdateFieldMessages(Context, Context.Controls.Pressed, Context.Controls.Repeated);
+		UpdateFieldMessages(Context, Context.Controls.Pressed, Context.Controls.Repeated, FrameVblanks + Context.FrameDelay);
 		Context.Render.TickLineScrolls(Context.Options.bScrollsWrapWithinWidth);
 		// The scripts' faded CLUT rows go back into VRAM after the sprites' uploads and the scrollers' copies.
 		Context.Render.ClutFade.bLoaded = std::exchange(Context.Render.ClutFade.bLoadPending, false);

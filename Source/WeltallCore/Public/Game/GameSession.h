@@ -23,6 +23,7 @@
 #include <memory>
 #include <span>
 #include <string>
+#include <utility>
 
 namespace Weltall
 {
@@ -32,10 +33,20 @@ namespace Weltall
 	struct FBattleGameFiles;
 	struct FBattlingGameFiles;
 	class FPsxExecutable;
+	class FMessageLog;
 	class FSaveStore;
 	class IButtonGlyphs;
 	class IGameMenus;
+	class FStoryLibrary;
 	class FStoryPacks;
+	struct FExpansionMod;
+
+	/** A line told to the player over the game (the host's corner, as a save state's are), and for the log why. */
+	struct FToldLine
+	{
+		std::string Line;
+		std::string Why;
+	};
 
 	/** A disc of the game as the session reads it: its image and its file index. */
 	struct FGameDisc
@@ -66,12 +77,13 @@ namespace Weltall
 	{
 	public:
 		/**
-		 * The console powered on with a disc of the given release (its kernel the executable), the game's
+		 * The console powered on with a disc of the given identity (its kernel the executable), the game's
 		 * sound Sound: the kernel's resident data read, a new game's state loaded and the kernel's globals
-		 * set as its start-up leaves them. The disc, its index and the sound must outlive the session.
+		 * set as its start-up leaves them, its pad reading the buttons as the disc's kernel does. The disc, its
+		 * index and the sound must outlive the session.
 		 */
 		WELTALLCORE_API static TResult<std::unique_ptr<FGameSession>> PowerOn(const FCdImage& Image, const FGameFileIndex& Index,
-			const FPsxExecutable& Executable, EDiscRelease Release, FGameSoundSession& Sound);
+			const FPsxExecutable& Executable, const FDiscIdentity& Identity, FGameSoundSession& Sound);
 
 		FGameSession(const FGameSession&) = delete;
 		FGameSession& operator=(const FGameSession&) = delete;
@@ -140,9 +152,27 @@ namespace Weltall
 		IGameMenus* Menus() const { return GameMenus; }
 		void SetMenus(IGameMenus* InMenus) { GameMenus = InMenus; }
 
-		/** The port's own documents, which the field adds to the maps they are written for; none: nothing is added. It must outlive the session. */
-		const FStoryPacks* Story() const { return StoryPacks; }
-		void SetStory(const FStoryPacks* InStory) { StoryPacks = InStory; }
+		/**
+		 * The port's own documents as the game plays them, which the field adds to the maps they are written for; none:
+		 * nothing is added. From a library, a game of the expanded second disc has its expansion's, even with expansions
+		 * turned off since (they apply to the games offered or loaded after), and any other the one the second disc's
+		 * question offers (FStoryLibrary::Offered): the original's second disc reads none of either.
+		 */
+		WELTALLCORE_API const FStoryPacks* Story() const;
+		/** A story every game plays (a tool's, a test's), in place of a library. It must outlive the session. */
+		void SetStory(const FStoryPacks* InStory) { StoryPacks = InStory; Library = nullptr; }
+		/** The library each game takes its story from by the expansion it plays. It must outlive the session. */
+		void SetStoryLibrary(const FStoryLibrary* InLibrary) { Library = InLibrary; StoryPacks = nullptr; }
+		const FStoryLibrary* StoryLibrary() const { return Library; }
+		/** The Disc 2 expansion the second disc's question offers with the player's settings; none without a library. */
+		WELTALLCORE_API const FExpansionMod* OfferedExpansion() const;
+		/** Whether a game of the expanded second disc that plays the expansion of mod folder Folder, loaded now, would have its story. */
+		WELTALLCORE_API bool PlaysExpansion(std::string_view Folder) const;
+
+		/** Tells the player a line over the game, in place of one not yet taken. */
+		void TellPlayer(FToldLine Told) { ToldLine = std::move(Told); }
+		/** The line told since the host last took one; an empty line where none was. */
+		FToldLine TakeTold() { return std::exchange(ToldLine, {}); }
 
 		/** The player's settings (their defaults until the host gives its own). */
 		const FPlayerSettings& Settings() const { return PlayerSettings; }
@@ -185,6 +215,10 @@ namespace Weltall
 		/** How the game's PlayStation buttons are shown right now; none: the host shows none. */
 		const IButtonGlyphs* ButtonGlyphs() const { return Glyphs; }
 		void SetButtonGlyphs(const IButtonGlyphs* InGlyphs) { Glyphs = InGlyphs; }
+
+		/** Where the dialogue the player is shown is recorded (the message log); none: nothing is. */
+		FMessageLog* MessageLog() const { return Log; }
+		void SetMessageLog(FMessageLog* InLog) { Log = InLog; }
 
 		/**
 		 * One of the console's vertical blanks with Held down on the first controller: the play time counted, the pads
@@ -249,12 +283,15 @@ namespace Weltall
 		FKernelState KernelGlobals;
 		IGameMenus* GameMenus = nullptr;
 		const FStoryPacks* StoryPacks = nullptr;
+		const FStoryLibrary* Library = nullptr;
+		FToldLine ToldLine;
 		IGameDiscDrive* DiscDrive = nullptr;
 		FPlayerSettings PlayerSettings;
 		uint32 SettingsSet = 0;
 		FUnreachedCases UnreachedCases;
 		const IButtonGlyphs* Glyphs = nullptr;
 		FSaveStore* SaveStore = nullptr;
+		FMessageLog* Log = nullptr;
 		FChapterTitles ChapterList;
 		FChapterCard Card;
 	};

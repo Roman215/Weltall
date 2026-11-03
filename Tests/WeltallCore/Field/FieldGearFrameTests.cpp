@@ -135,6 +135,41 @@ TEST_CASE("A played map's gears' textures reach the field's VRAM at their slots'
 	CHECK(Vram.At(X + Block.Width - 1, Y + Block.Height - 1) == Block.Pixels.back());
 }
 
+TEST_CASE("A played map that sets no gear lights of its own lights its gears with the load's one white light", "[Field][Gears][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	auto Session = Testing::EnterFieldMap(*Disc, MountainPathMap);
+	Session->Run(40);
+	const FFieldGearLights& Lights = Session->Play->Field().Context().Render.GearLights;
+	for (int32 Channel = 0; Channel < 3; ++Channel)
+	{
+		INFO("channel " << Channel);
+		CHECK(Lights.Words[static_cast<std::size_t>(FFieldGearLights::ColorWord(0, Channel))] == 0x800);
+		CHECK(Lights.Words[static_cast<std::size_t>(FFieldGearLights::ColorWord(1, Channel))] == 0);
+		CHECK(Lights.Words[static_cast<std::size_t>(FFieldGearLights::ColorWord(2, Channel))] == 0);
+	}
+	// The mountain path's gears are grey, so a white light leaves every drawn corner grey.
+	const FFieldGearsFrame& Gears = Session->Frame.Gears;
+	int32 Corners = 0;
+	for (const FFieldGearLayoutItem& Item : Gears.Items)
+	{
+		for (uint32 Polygon = Item.FirstPolygon; Item.Packets != nullptr && Polygon < Item.FirstPolygon + Item.PolygonCount; ++Polygon)
+		{
+			if (!Gears.Polygons[Polygon].bDrawn)
+			{
+				continue;
+			}
+			for (const FMdlColor& Color : Gears.Polygons[Polygon].Colors)
+			{
+				CHECK(Color.R == Color.G);
+				CHECK(Color.G == Color.B);
+				++Corners;
+			}
+		}
+	}
+	CHECK(Corners > 0);
+}
+
 TEST_CASE("A played map's point light fades its gears' light by how far its actor stands from its place", "[Field][Gears][Content]")
 {
 	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);

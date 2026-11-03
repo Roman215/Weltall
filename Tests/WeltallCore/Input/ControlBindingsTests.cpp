@@ -46,7 +46,9 @@ TEST_CASE("The default bindings put a key on one action and every button on both
 		{
 			continue;
 		}
-		CHECK_FALSE(Bindings.FirstKey(Each, EInputFamily::Gamepad).empty());
+		// A controller's every button already has its part in the game: the save states are the keyboard's alone, and the
+		// message log takes the left stick's press, which has none.
+		CHECK(Bindings.FirstKey(Each, EInputFamily::Gamepad).empty() == (IsPortAction(Each) && Each != EControlAction::MessageLog));
 		CHECK_FALSE(Bindings.FirstKey(Each, EInputFamily::KeyboardAndMouse).empty());
 		for (const std::string& Key : Bindings.Keys(Each))
 		{
@@ -68,6 +70,17 @@ TEST_CASE("The default bindings put a key on one action and every button on both
 	CHECK(Bindings.FirstKey(EControlAction::R1, EInputFamily::KeyboardAndMouse) == "R");
 	CHECK(Bindings.FirstKey(EControlAction::L2, EInputFamily::KeyboardAndMouse) == "One");
 	CHECK(Bindings.FirstKey(EControlAction::R2, EInputFamily::KeyboardAndMouse) == "Four");
+	CHECK(Bindings.Keys(EControlAction::SaveState) == std::vector<std::string>{"F5"});
+	CHECK(Bindings.Keys(EControlAction::LoadState) == std::vector<std::string>{"F9"});
+	CHECK(Bindings.Keys(EControlAction::NextStateSlot) == std::vector<std::string>{"F7"});
+	CHECK(Bindings.Keys(EControlAction::PreviousStateSlot) == std::vector<std::string>{"F6"});
+	CHECK(Bindings.Keys(EControlAction::MessageLog) == std::vector<std::string>{"L", "Gamepad_LeftThumbstick"});
+	CHECK_FALSE(PadButtonOf(EControlAction::SaveState).has_value());
+	CHECK_FALSE(PadButtonOf(EControlAction::MessageLog).has_value());
+	CHECK(IsPortAction(EControlAction::SaveState));
+	CHECK(IsPortAction(EControlAction::MessageLog));
+	CHECK_FALSE(IsPortAction(EControlAction::ViewReset));
+	CHECK_FALSE(IsViewAxis(EControlAction::LoadState));
 }
 
 TEST_CASE("Binding a key replaces its family's slot and takes it off other actions", "[Input]")

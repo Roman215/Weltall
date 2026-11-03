@@ -83,11 +83,11 @@ namespace Weltall
 		 * The button an element of a prompt goes with: the group's face button that names the same command (the
 		 * attack modes' words and costs beside the attack buttons) or none (cancel's); 0 in a group of no face buttons.
 		 */
-		uint16 PromptRole(std::span<const FBattleHudIconElement> Group, const FBattleHudIconElement& Element)
+		uint16 PromptRole(std::span<const FBattleHudIconElement> Group, const FBattleHudIconElement& Element, bool bJapaneseCommands)
 		{
 			for (const FBattleHudIconElement& Other : Group)
 			{
-				const FHudButton Button = HudButton(Other.Frame);
+				const FHudButton Button = HudButton(Other.Frame, bJapaneseCommands);
 				if (Button.Role != 0 && Button.Slot == EMenuIconSlot::FaceButton && ElementCommand(Other) == ElementCommand(Element))
 				{
 					return Button.Role;
@@ -148,7 +148,7 @@ namespace Weltall
 			const std::vector<FBattleHudIconElement>& Elements = Tables.IconGroups[Group];
 			for (const FBattleHudIconElement& Element : Elements)
 			{
-				DrawIconElement(Slot, Layer, Element, PromptRole(Elements, Element));
+				DrawIconElement(Slot, Layer, Element, PromptRole(Elements, Element, Settings.bJapaneseCommands));
 				if (FaultState != EBattleHudFault::None)
 				{
 					return;
@@ -444,7 +444,7 @@ namespace Weltall
 			Quad.Page = MenuGpu::TexturePage(0, 0, HintTextX, 0);
 			Quad.Clut = Plane != 0 ? OddTextClut : EvenTextClut;
 		}
-		const std::span<const uint8> Name = Text.Tables != nullptr ? Text.Tables->String(Battle->PartyCharacters[Slot], Deathblow) : std::span<const uint8>{};
+		const std::span<const uint8> Name = Text.Tables != nullptr ? Text.Tables->String(Battle->PartyLooks().Drawn(Battle->PartyCharacters[Slot]), Deathblow) : std::span<const uint8>{};
 		if (Name.empty())
 		{
 			FaultState = EBattleHudFault::MessageOutsideTable;

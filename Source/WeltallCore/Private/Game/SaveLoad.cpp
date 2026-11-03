@@ -23,10 +23,10 @@ namespace Weltall
 	}
 
 	TResult<FGameState> LoadOriginalSave(const FOriginalSave& Save, FGameState State, const FGearPartTables& Tables, const FMesNameTables& NameTables,
-		const FSaveLoadOptions& Options)
+		const FSaveLoadOptions& Options, bool bExpansionPlayed)
 	{
 		using namespace SaveLayout;
-		const std::vector<uint8> Played = Save.PlayedData();
+		const std::vector<uint8> Played = Save.PlayedData(bExpansionPlayed);
 		const std::span<const uint8> Data = Played;
 		const std::span<uint8> Block = State.Block();
 		CopyToState(RegionsBeforeGears, Data, Block);
@@ -61,8 +61,12 @@ namespace Weltall
 		CopyToState(RegionsAfterGears, Data, Block);
 
 		State.SetPlayTime(LittleEndian::ReadU32(Data, Summary::PlayTime));
-		State.SetStoryMode(Save.StoryMode());
+		const bool bExpanded = Save.StoryMode() == EStoryMode::Expanded && bExpansionPlayed;
+		State.SetStoryMode(Save.StoryMode() == EStoryMode::Expanded && !bExpansionPlayed ? EStoryMode::Original : Save.StoryMode());
+		State.SetExpansion(bExpanded ? Save.Expansion() : std::string());
 		State.SetPartyOrder(Save.PartyOrder());
+		State.SetCharacterLooks(Save.CharacterLooks());
+		State.SetClearGame(Save.ClearGame());
 		for (std::size_t Global = 0; Global < State.BattleGlobals().size(); ++Global)
 		{
 			State.BattleGlobals()[Global] = LittleEndian::ReadU16(Block, GameStateLayout::SavedBattleGlobalsOffset + Global * 2);

@@ -10,7 +10,8 @@
 /**
  * The player's settings, kept as text in the platform's standard folder for a user's settings: read
  * as the game starts, written whole (a new file put in the old one's place, so a write cut short
- * leaves the old settings) whenever they change.
+ * leaves the old settings) whenever they change, and whatever is not written yet as the app goes
+ * into the background and as the game ends.
  */
 UCLASS()
 class WELTALL_API UPlayerSettingsSubsystem : public UGameInstanceSubsystem, public FTickableGameObject
@@ -31,7 +32,10 @@ public:
 	/** The player changed the settings: they are written at once and whatever follows them is told. */
 	void Change(const Weltall::FPlayerSettings& Settings);
 
-	/** The player is changing the settings (the options screen is open): whatever follows them is told, and they are written once changed. */
+	/**
+	 * The player is changing the settings (the options screen is open): whatever follows them is told, and they are
+	 * written once they have rested a moment, or as the options screen closes (Change).
+	 */
 	void Follow(const Weltall::FPlayerSettings& Settings);
 
 	/**
@@ -54,8 +58,11 @@ public:
 
 private:
 	void Save();
+	/** Writes the settings when something has changed since they were last written. */
+	void SaveUnsaved();
 
 	Weltall::FPlayerSettings Current;
-	/** Seconds since the game last changed what it keeps here (the framing, the battle speed), while that is not written yet. */
+	/** Seconds since the settings last changed (the framing, the battle speed, the options screen's changes), while that is not written yet. */
 	TOptional<float> UnsavedFor;
+	FDelegateHandle BackgroundHandle;
 };

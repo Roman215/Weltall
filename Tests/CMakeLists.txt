@@ -41,7 +41,8 @@ add_executable(WeltallCoreTests ${TEST_SOURCES})
 target_include_directories(WeltallCoreTests PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(WeltallCoreTests PRIVATE WeltallCore Catch2)
 target_compile_options(WeltallCoreTests PRIVATE ${WELTALL_WARNINGS})
-target_compile_definitions(WeltallCoreTests PRIVATE WELTALL_GAMES_DIR="${REPO_ROOT}/Games" WELTALL_STORY_DIR="${REPO_ROOT}/Content/Story")
+target_compile_definitions(WeltallCoreTests PRIVATE WELTALL_GAMES_DIR="${REPO_ROOT}/Games" WELTALL_STORY_DIR="${REPO_ROOT}/Content/Story"
+	WELTALL_EXAMPLES_DIR="${REPO_ROOT}/Content/Examples")
 
 enable_testing()
 include("${CATCH2_DIR}/Catch.cmake")
@@ -70,5 +71,6 @@ add_executable(WeltallStorySweep ${STORY_SWEEP_SOURCES} "${CMAKE_CURRENT_SOURCE_
 target_include_directories(WeltallStorySweep PRIVATE "${CMAKE_CURRENT_SOURCE_DIR}")
 target_link_libraries(WeltallStorySweep PRIVATE WeltallCore)
 target_compile_options(WeltallStorySweep PRIVATE ${WELTALL_WARNINGS})
-target_compile_definitions(WeltallStorySweep PRIVATE WELTALL_GAMES_DIR="${REPO_ROOT}/Games" WELTALL_STORY_DIR="${REPO_ROOT}/Content/Story")
+target_compile_definitions(WeltallStorySweep PRIVATE WELTALL_GAMES_DIR="${REPO_ROOT}/Games" WELTALL_STORY_DIR="${REPO_ROOT}/Content/Story"
+	WELTALL_EXAMPLES_DIR="${REPO_ROOT}/Content/Examples")
 

@@ -11,10 +11,12 @@
 #include "Battle/BattleTables.h"
 #include "Battle/BattleTurnState.h"
 #include "Foundation/Types.h"
+#include "Game/CharacterLooks.h"
 #include "Game/GameBalance.h"
 
 #include <array>
 #include <cstddef>
+#include <optional>
 #include <span>
 
 namespace Weltall
@@ -156,6 +158,8 @@ namespace Weltall
 		std::array<uint8, SlotCount> TotalKinds{};
 		/** What to play: a command's number or animation, or one of the show's own codes; FFh empty. */
 		uint8 Code = 0xFF;
+		/** Fei drawn as Id: the animation of Id's own sprite that plays the record in Code's place (FFh none), his one-press combos'. */
+		uint8 IdsAnimation = 0xFF;
 	};
 
 	/** What the battle has come to: still going, won, escaped or lost. */
@@ -442,6 +446,8 @@ namespace Weltall
 		bool bPerfectWorksRebalance = false;
 		/** The player's changes to the balance in use (the rewards'); the setup keeps them. */
 		FGameBalance Balance;
+		/** The player's auto-advancing text, which the events' messages follow; the setup keeps it. */
+		EMesAutoAdvance AutoAdvance = EMesAutoAdvance::Off;
 		/** What the battle's result works out (BattleResult.h), and its routine with the screen. */
 		FBattleResultWork Result;
 		FBattleResultRun ResultRun;
@@ -468,6 +474,12 @@ namespace Weltall
 		 * lands in the next one, as in the game.
 		 */
 		std::array<FBattleCommand, CommandRecordCount> Commands{};
+		/**
+		 * By party slot, where its player has the member drawn as another record (PartyLooks) that numbers some of its
+		 * animations otherwise: for each code the member's commands play, the code the drawn record's same command plays.
+		 * Only the show reads it (DrawnCode).
+		 */
+		std::array<std::optional<std::array<uint8, 256>>, PartySlotCount> DrawnCodes{};
 		std::array<FBattleItem, FBattleTables::ItemCount> Items{};
 		/** The copied weapons' attacks (FBattleTables::AmmunitionAttacks). */
 		std::array<uint8, FBattleTables::AmmunitionCount> AmmunitionAttacks{};
@@ -529,5 +541,29 @@ namespace Weltall
 		static constexpr uint16 EnemyCommandIndex(int32 Command) { return static_cast<uint16>(FirstEnemyCommand + Command); }
 		/** Whether a record holds a command the tables gave: not a gear table's last, nor past the enemies' table. */
 		WELTALLCORE_API static bool IsLoadedCommand(int32 Index);
+
+		/**
+		 * How the party is drawn: as its player has it (FCharacterLooks); where an event stages the battle or a special
+		 * party is formed, whose scripts play their sprites' animations by number, the second Citan and the grown Emeralda
+		 * as the story has them, since their looks are other records numbering those animations otherwise (Fei as Id and
+		 * Elly's hair stay). The rules play the story's records but for Fei as Id's own: his one press on foot and True Id
+		 * in Xenogears.
+		 */
+		WELTALLCORE_API FCharacterLooks PartyLooks() const;
+
+		/**
+		 * Whether Slot's gear Special Special is True Id: Fei drawn as Id keeps Xenogears' second Special, the
+		 * Infinity the original takes from it, at no fuel and by that name.
+		 */
+		WELTALLCORE_API bool IsTrueId(int32 Slot, int32 Special) const;
+
+		/** A slot's occupant as the show draws it: a party member as its player has it drawn (PartyLooks), anyone else as it is. */
+		WELTALLCORE_API uint8 DrawnOccupant(int32 Slot) const;
+
+		/** The code the show plays for a performance's Code by Slot's member, as its player has it drawn: Code itself where it is drawn as it is. */
+		uint8 DrawnCode(int32 Slot, uint8 Code) const
+		{
+			return Slot >= 0 && Slot < PartySlotCount && DrawnCodes[static_cast<std::size_t>(Slot)] ? (*DrawnCodes[static_cast<std::size_t>(Slot)])[Code] : Code;
+		}
 	};
 }

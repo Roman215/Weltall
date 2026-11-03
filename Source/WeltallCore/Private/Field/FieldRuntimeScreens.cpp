@@ -25,7 +25,10 @@ namespace Weltall
 		/** The map's script the field runs after the other menus: the first actor's third. */
 		constexpr int32 AfterMenuScript = 3;
 		constexpr int32 GearModeBits = 0xC000;
-		/** After a movie shown full screen, the field comes back through a dissolve of 32 ticks from its last picture. */
+		/**
+		 * After a movie shown over the screen, which wrote over VRAM past the screen's columns, the map's textures stream
+		 * in again and the field comes back through a dissolve of 32 ticks from the movie's last picture.
+		 */
 		constexpr uint8 DissolveFromStill = 1;
 		constexpr int32 MovieDissolveTicks = 0x20;
 		/**
@@ -131,6 +134,7 @@ namespace Weltall
 		}
 		if (Context.MovieView != EFieldMovieView::InScene)
 		{
+			Context.Render.StreamTexturesAgain();
 			Context.Requests.DissolveTicks = MovieDissolveTicks;
 			Context.Requests.Dissolve = DissolveFromStill;
 		}

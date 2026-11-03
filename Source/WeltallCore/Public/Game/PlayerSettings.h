@@ -12,8 +12,11 @@
 #include "Game/BattleSpeed.h"
 #include "Game/GameBalance.h"
 #include "Game/SaveLoad.h"
+#include "Graphics/VramUploads.h"
 #include "Input/ControlBindings.h"
 #include "Menu/MenuOptions.h"
+#include "Mods/ExpansionMods.h"
+#include "Mods/ItalianPatch.h"
 #include "Mods/PerfectWorks.h"
 #include "Media/VoiceLanguage.h"
 #include "Presentation/DisplayOptions.h"
@@ -47,6 +50,22 @@ namespace Weltall
 	 * the sound's output, the player's framing of the field and the controls. The game's systems read
 	 * their options from it.
 	 */
+	/** Which kinds of picture a texture pack shows; every kind until the player hides one. */
+	struct FTexturePackKinds
+	{
+		bool bText = true;
+		bool bPortraits = true;
+		bool bMenusAndHud = true;
+		bool bCharacters = true;
+		bool bScenery = true;
+		bool bModelsAndEffects = true;
+
+		/** Bit k for EVramUploadKind k a pack shows: Other always. */
+		WELTALLCORE_API uint8 Shown() const;
+
+		bool operator==(const FTexturePackKinds&) const = default;
+	};
+
 	struct FPlayerSettings
 	{
 		FGameFixes Fixes;
@@ -61,6 +80,7 @@ namespace Weltall
 		bool bExternalAssets = false;
 		/** Save original texture pages as PNG files when they are first drawn. */
 		bool bCaptureTextures = false;
+		FTexturePackKinds PackKinds;
 		FFieldCameraOffsets Camera = FFieldCameraOffsets::Defaults();
 		/** The player's framing of the world map. */
 		FWorldMapCameraOffsets WorldMapCamera;
@@ -68,12 +88,18 @@ namespace Weltall
 		bool bChapterCards = true;
 		/** How fast messages are typed: twice the original's until the player chooses. */
 		EMesTextSpeed TextSpeed = EMesTextSpeed::Double;
+		/** Whether a page of dialogue that waits for the button goes on by itself, and how soon: off, as the original. */
+		EMesAutoAdvance AutoAdvance = EMesAutoAdvance::Off;
 		/** How fast battles are fought, which L1 and R1 step during one. */
 		EBattleSpeed BattleSpeed = EBattleSpeed::Normal;
 		/** The player's changes to the game's balance: rewards and how often battles come. */
 		FGameBalance Balance;
 		/** What the game takes from Perfect Works Build where the player has it, from the game's next start. */
 		FPerfectWorksOptions PerfectWorks;
+		/** What the game takes from SadNES cITy's Italian translation where the player has its patch, from the next start. */
+		FItalianOptions Italian;
+		/** Whether the Disc 2 expansions of the Mods folder are played, and which the second disc's question offers. */
+		FExpansionOptions Expansions;
 		FControlBindings Controls = FControlBindings::Defaults();
 	};
 

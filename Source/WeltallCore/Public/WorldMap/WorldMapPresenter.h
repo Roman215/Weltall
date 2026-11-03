@@ -78,6 +78,10 @@ namespace Weltall
 		std::optional<FError> DrawGears(const FWorldMapDrawState& State);
 		void DrawScreen(const FWorldMapContext& Context, FDrawList& Screen) const;
 		std::optional<FError> StartAnimations(std::span<const uint8> Section, std::span<const FWorldMapTextureAnimation> Known, bool bPalettes);
+		/** Puts Id's picture in the port's rows when the party's files are made with a member drawn as Id, or a scene is entered. */
+		void PlaceIdsPicture(const FWorldMapRuntime& Runtime, bool bEntered);
+		/** The sprites' uploads the frame pool queued, as characters' pictures. */
+		void FlushSpriteUploads(FWorldMapRuntime& Runtime);
 		void StepAnimations();
 
 		/** A message window's text image in VRAM, which the kernel never clears: each strip uploaded whole as a line types. */
@@ -121,6 +125,8 @@ namespace Weltall
 		FWindowText NoticeText;
 		uint32 Ticks = 0;
 		bool bDrewFrame = false;
+		/** The party's files Id's picture was last placed for (FWorldMapRuntime::PartyLoads). */
+		uint32 PartyLoadsPlaced = 0;
 
 		/** A party slot's gear as its sprite was last followed: where its task stood, and the entry its sprite was linked into. */
 		struct FGearPlace

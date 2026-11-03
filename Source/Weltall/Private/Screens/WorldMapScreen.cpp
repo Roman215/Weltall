@@ -22,7 +22,7 @@ namespace
 	class FBlankFrame final : public IScreenFrame
 	{
 	public:
-		virtual void AddPasses(FRDGBuilder&, FRDGTextureRef, const FIntRect&) const override {}
+		virtual void AddPasses(FRDGBuilder&, FRDGTextureRef, const FScreenArea&) const override {}
 	};
 }
 
@@ -63,7 +63,7 @@ bool FWorldMapScreen::Start(Weltall::FGameSoundSession& Sound, const FWorldMapSt
 		return false;
 	}
 	Index = std::make_unique<Weltall::FGameFileIndex>(std::move(*FileIndex));
-	auto Started = Weltall::FGameSession::PowerOn(Disc.Image(), *Index, *Executable, Identity->Release, Sound);
+	auto Started = Weltall::FGameSession::PowerOn(Disc.Image(), *Index, *Executable, *Identity, Sound);
 	if (!Started)
 	{
 		UE_LOG(LogWeltall, Error, TEXT("The game cannot start: %hs"), Started.Error().Message.c_str());
@@ -81,6 +81,7 @@ bool FWorldMapScreen::Start(Weltall::FGameSoundSession& Sound, const FWorldMapSt
 	Game.SetSavedEventVariable(0, Start.Story);
 	Game.SetParty(Start.Party);
 	Game.SetPartyOrder(Start.Order);
+	Game.SetCharacterLooks(Start.Looks);
 	for (int32 Slot = 0; Slot < 3; ++Slot)
 	{
 		const uint8 Character = Start.Party[static_cast<std::size_t>(Slot)];

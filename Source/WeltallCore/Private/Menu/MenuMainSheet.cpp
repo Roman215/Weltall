@@ -234,10 +234,10 @@ namespace Weltall
 			const uint32 Pounds = (Kilograms * 10 + Record[WeightTenths]) * PoundsPerTenKilograms & 0xFFFF;
 			uint32 Whole = Pounds / 100;
 			uint32 Tenths = Pounds % 100 / 10;
-			if (Resources.IsFrench())
+			if (Resources.WeighsInKilograms())
 			{
-				// The French translation's program shows the kilograms, its tenths' division left out: 0 unless the pounds' 16
-				// bits wrapped below the kilograms' hundreds.
+				// The translations' program shows the kilograms, its tenths' division left out: 0 unless the pounds' 16 bits
+				// wrapped below the kilograms' hundreds.
 				Whole = Kilograms;
 				Tenths = static_cast<int32>(Pounds) - static_cast<int32>(Kilograms * 100) < 0 ? 1 : 0;
 			}

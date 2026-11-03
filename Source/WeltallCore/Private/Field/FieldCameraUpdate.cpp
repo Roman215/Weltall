@@ -285,7 +285,7 @@ namespace Weltall
 		}
 		else if (bFollows)
 		{
-			Follow(Camera, *Context.Walkmesh, *Actor, Context.PadHeld);
+			Follow(Camera, *Context.Walkmesh, *Actor, static_cast<uint16>(Context.PadHeld & ~Context.PadZoomHeld));
 		}
 		SmoothFieldCamera(Camera, *Context.Random);
 		Camera.Rotation[1] = static_cast<int16>(Camera.Rotation[1] & 0xFFF);

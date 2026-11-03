@@ -101,6 +101,13 @@ namespace Weltall
 		 */
 		WELTALLCORE_API std::optional<EPadButton> FaceButton(FMesCode Code) const;
 
+		/**
+		 * The code whose glyph is the star (☆) among the USA font's symbols, wherever the font as the disc holds it draws
+		 * that picture: 6Dh in the USA's, D2h in the French and Spanish translations' (their accented letters took the
+		 * symbols' codes); none in a font that draws it nowhere. No text of the game writes it.
+		 */
+		const std::optional<FMesCode>& Star() const { return StarCode; }
+
 	private:
 		/** Where Code's glyph is in Glyphs, or the box; none for a code the font does not hold. */
 		std::optional<std::span<const uint8>> GlyphOf(FMesCode Code) const;
@@ -116,6 +123,7 @@ namespace Weltall
 		uint32 FirstCode = 0;
 		/** The face buttons whose pictures the disc's font draws at their codes, a bit each. */
 		uint8 DrawnFaceButtons = 0;
+		std::optional<FMesCode> StarCode;
 		/** The glyphs a font sheet gives widths of their own, by their code's lead << 8 | code. */
 		std::unordered_map<uint16, int32> OwnWidths;
 		bool bVariableWidth = false;

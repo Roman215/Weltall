@@ -12,7 +12,7 @@
 
 namespace
 {
-	/** The world map's screen, fitted in the display's middle as the field's is; the scene and the fade fill the display. */
+	/** The world map's screen, laid out in the picture's middle as the field's is; the scene and the fade take its rows across the picture. */
 	constexpr Weltall::FScreenSize WorldMapScreen{320, 216};
 
 	void AddLayerPasses(FRDGBuilder& GraphBuilder, const FVramTexture& Vram, const FWorldMapLayer& Layer, float Alpha, FRDGTextureRef Output, const FIntRect& Rect)
@@ -46,7 +46,7 @@ void FWorldMapLayer::Gather(const Weltall::FWorldMapFrame& LatestFrame, const We
 	}
 }
 
-/** A frame of one of the world map's own fades: a picture, the GPU subtracting a level from it over the whole display. */
+/** A frame of one of the world map's own fades: a picture, the GPU subtracting a level from it over the picture's rows. */
 class FWorldMapFadeFrame final : public IScreenFrame
 {
 public:
@@ -62,14 +62,14 @@ public:
 		Darkening.UntexturedBlend = static_cast<Weltall::EBlendMode>(Blend & 3);
 	}
 
-	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override
+	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override
 	{
 		if (Picture.IsValid())
 		{
 			Picture->AddPasses(GraphBuilder, Output, Area);
 		}
 		const FDrawListFrame Frame{&Layer, nullptr, nullptr, 1.0f};
-		AddDrawListPasses(GraphBuilder, *Vram, Frame, Output, Area, WorldMapScreen);
+		AddDrawListPasses(GraphBuilder, *Vram, Frame, Output, Area.Rows(ScreenSize()), WorldMapScreen);
 	}
 
 	virtual Weltall::FScreenSize ScreenSize() const override
@@ -84,8 +84,8 @@ private:
 };
 
 /**
- * A displayed frame of the world map: its scene, then over it the minimap and the windows in the display's middle,
- * and the fade over the whole display.
+ * A displayed frame of the world map: its scene, then over it the minimap and the windows in the picture's middle,
+ * and the fade over the scene's rows.
  */
 class FWorldMapScreenFrame final : public IScreenFrame
 {
@@ -94,14 +94,12 @@ public:
 	{
 	}
 
-	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override
+	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override
 	{
-		AddFieldScenePasses(GraphBuilder, *Mesh, *Vram, Draw, Output, Area);
-		const Weltall::FScreenLayout Layout = Weltall::FScreenLayout::Fit(Area.Width(), Area.Height(), WorldMapScreen);
-		const Weltall::FDisplayRect Placed = Layout.ToDisplay({0, 0, static_cast<int16>(WorldMapScreen.Width), static_cast<int16>(WorldMapScreen.Height)});
-		const FIntPoint Origin = Area.Min + FIntPoint(Placed.X, Placed.Y);
-		AddLayerPasses(GraphBuilder, *Vram, Overlays, Alpha, Output, FIntRect(Origin, Origin + FIntPoint(Placed.Width, Placed.Height)));
-		AddLayerPasses(GraphBuilder, *Vram, Fade, Alpha, Output, Area);
+		const FScreenArea Rows = Area.Rows(WorldMapScreen);
+		AddFieldScenePasses(GraphBuilder, *Mesh, *Vram, Draw, Output, Rows);
+		AddLayerPasses(GraphBuilder, *Vram, Overlays, Alpha, Output, Area.ScreenRect(WorldMapScreen));
+		AddLayerPasses(GraphBuilder, *Vram, Fade, Alpha, Output, Rows);
 	}
 
 	virtual Weltall::FScreenSize ScreenSize() const override

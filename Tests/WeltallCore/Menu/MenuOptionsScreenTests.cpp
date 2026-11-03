@@ -3,7 +3,10 @@
 #include "Menu/MenuPlay.h"
 #include "Menu/MenuAssetPages.h"
 #include "Menu/MenuDeviceFiles.h"
+#include "Menu/OptionsText.h"
 #include "Support/GameDiscs.h"
+#include "Support/GameText.h"
+#include "Support/OptionsRows.h"
 #include "Support/PressedKeys.h"
 
 #include <catch_amalgamated.hpp>
@@ -32,6 +35,12 @@ namespace
 		IMenuDeviceFiles* DeviceFiles() const override { return Files; }
 		FMenuMods Mods() const override { return Found; }
 		FSoundSources SoundSources() const override { return Sources; }
+		bool HasExampleScenes() const override { return bExampleScenes; }
+		EExampleScenesCopy CopyExampleScenes(bool bReplace) override
+		{
+			Copies.push_back(bReplace);
+			return bReplace ? EExampleScenesCopy::Copied : EExampleScenesCopy::AlreadyThere;
+		}
 
 		FPlayerSettings Current;
 		FDisplayModes Display;
@@ -41,6 +50,9 @@ namespace
 		IMenuDeviceFiles* Files = nullptr;
 		FMenuMods Found;
 		FSoundSources Sources;
+		bool bExampleScenes = false;
+		/** Each copy of the example scenes asked for: whether it replaced the one there, which it finds there always. */
+		std::vector<bool> Copies;
 	};
 
 	FPadState Holding(EPadButton Button)
@@ -92,6 +104,7 @@ TEST_CASE("The Assets page changes replacements and starts, refreshes and cancel
 			Current = {EAssetExportState::Running, Kind, 0, 100, Current.Revision + 1};
 			return true;
 		}
+		EShareableStart StartShareable(std::string_view, bool) override { return EShareableStart::Started; }
 		void CancelExport() override { ++Cancels; Current.State = EAssetExportState::Cancelled; ++Current.Revision; }
 		FMenuAssetProgress Current;
 		EAssetExportKind Started = EAssetExportKind::Dump;
@@ -119,7 +132,15 @@ TEST_CASE("The Assets page changes replacements and starts, refreshes and cancel
 	Press(Menu, EPadButton::Down);
 	Press(Menu, EPadButton::Right);
 	CHECK(Settings.Current.bCaptureTextures);
+	// The packs' kinds of picture: Confirm on the first hides a pack's text.
 	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Cross);
+	CHECK_FALSE(Settings.Current.PackKinds.bText);
+	CHECK(Settings.Current.PackKinds.bPortraits);
+	for (int32 Row = 0; Row < AssetRow::PackKinds; ++Row)
+	{
+		Press(Menu, EPadButton::Down);
+	}
 	Press(Menu, EPadButton::Cross);
 	CHECK(Exporter.Starts == 1);
 	CHECK(Exporter.Started == EAssetExportKind::Textures);
@@ -213,6 +234,286 @@ TEST_CASE("A mod found has a row on the Modding page that switches it and opens 
 	CHECK_FALSE(Settings.Kept.front().PerfectWorks.bScript);
 }
 
+TEST_CASE("The Italian translation's patch found has a row on the Modding page that switches it and opens its page", "[Menu][Content][Mods]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const auto Executable = ReadBootExecutable(*Disc);
+	REQUIRE(Executable);
+	FRecordedSettings Settings;
+	Settings.Found.bItalian = true;
+	auto Play = FMenuPlay::NewGame(Disc->Image(), *Executable, 1, {EMenuMode::LoadGame, 0, false}, nullptr, &Settings);
+	REQUIRE(Play);
+	FMenuPlay& Menu = **Play;
+	Wait(Menu, 30);
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Cross, 40);
+	// L1 to Modding; past the balance rows and the mods' heading to the translation's row, which Right switches on.
+	Press(Menu, EPadButton::L1);
+	for (int32 Row = 0; Row < 3; ++Row)
+	{
+		Press(Menu, EPadButton::Down);
+	}
+	Press(Menu, EPadButton::Right);
+	CHECK(Settings.Current.Italian.bEnabled);
+	CHECK_FALSE(Settings.Current.PerfectWorks.bEnabled);
+	// Cross opens its page on its switch; Down twice to the commands, which Right sets to the Japanese.
+	Press(Menu, EPadButton::Cross);
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Right);
+	CHECK(Settings.Current.Italian.bJapaneseCommands);
+	CHECK_FALSE(Settings.Current.Italian.bJapaneseVoices);
+	Press(Menu, EPadButton::Circle);
+	Press(Menu, EPadButton::Circle, 40);
+	REQUIRE(Settings.Kept.size() == 1);
+	CHECK(Settings.Kept.front().Italian.bJapaneseCommands);
+}
+
+TEST_CASE("The Modding page's Disc 2 rows switch the expansions, choose the one offered and copy the example scenes, a second Confirm replacing a copy", "[Menu][Content][Mods]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const auto Executable = ReadBootExecutable(*Disc);
+	REQUIRE(Executable);
+	FRecordedSettings Settings;
+	Settings.bExampleScenes = true;
+	Settings.Found.Expansions = {{"Abel", {"Abel's tale", "A. Writer", "1.0"}, true, false, 0}, {"Broken", {"Broken", "", ""}, false, false, 0},
+		{"Zeboim", {"Zeboim", "", ""}, true, false, 2}};
+	auto Play = FMenuPlay::NewGame(Disc->Image(), *Executable, 1, {EMenuMode::LoadGame, 0, false}, nullptr, &Settings);
+	REQUIRE(Play);
+	FMenuPlay& Menu = **Play;
+	Wait(Menu, 30);
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Cross, 40);
+	// L1 to Modding; past the balance rows and the second disc's heading to its expansions, which Right switches off.
+	Press(Menu, EPadButton::L1);
+	for (int32 Row = 0; Row < 3; ++Row)
+	{
+		Press(Menu, EPadButton::Down);
+	}
+	Press(Menu, EPadButton::Right);
+	CHECK_FALSE(Settings.Current.Expansions.bEnabled);
+	// Off, the rows of the expansions found are gone: Down is the example scenes' row, whose Confirm finds them there.
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Cross);
+	CHECK(Settings.Copies == std::vector<bool>{false});
+	// Away and back, the row asks again; Confirm on the switch turns it on.
+	Press(Menu, EPadButton::Up);
+	Press(Menu, EPadButton::Cross);
+	CHECK(Settings.Current.Expansions.bEnabled);
+	// The expansion offered, the first that plays: Right the next that plays, past the broken one, Right round to the
+	// first, Left back.
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Right);
+	CHECK(Settings.Current.Expansions.Folder == "Zeboim");
+	Press(Menu, EPadButton::Right);
+	CHECK(Settings.Current.Expansions.Folder == "Abel");
+	Press(Menu, EPadButton::Left);
+	CHECK(Settings.Current.Expansions.Folder == "Zeboim");
+	// The broken one's row changes nothing, nor the row of the one with files for another disc; then the example
+	// scenes: there already, a second Confirm replaces them.
+	for (int32 Row = 0; Row < 2; ++Row)
+	{
+		Press(Menu, EPadButton::Down);
+		Press(Menu, EPadButton::Right);
+		Press(Menu, EPadButton::Cross);
+		CHECK(Settings.Current.Expansions.Folder == "Zeboim");
+	}
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Cross);
+	Press(Menu, EPadButton::Cross);
+	CHECK(Settings.Copies == std::vector<bool>{false, false, true});
+	Press(Menu, EPadButton::Circle, 40);
+	REQUIRE(Settings.Kept.size() == 1);
+	CHECK(Settings.Kept.front().Expansions == FExpansionOptions{true, "Zeboim"});
+}
+
+TEST_CASE("Everything the Modding page's Disc 2 rows tell is in the game's font and fits", "[Menu][Content][Mods]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const FMesResident Resident = Testing::LoadMesResident(*Disc);
+	namespace Text = OptionsText::Modding;
+	// Names with the font's widest letters, as long as the rows show them: a value's 16 letters, a line's 30.
+	const std::string Value = std::string(14, 'W') + "..";
+	const std::string Line = std::string(28, 'W') + "..";
+	std::vector<FSettingsRow> Rows;
+	Rows.push_back({std::string(Text::Disc2), {}, {}});
+	for (const std::string_view Switch : {OptionsText::On, OptionsText::Off})
+	{
+		Rows.push_back({std::string(Text::Expansions.Label), std::string(Switch), OptionsText::Fill(Text::Expansions.Help)});
+	}
+	Rows.push_back({std::string(Text::Expansion), Value, OptionsText::Fill(Text::ExpansionHelp, {Line, Line})});
+	Rows.push_back({Value, std::string(Text::Unplayable), OptionsText::Fill(Text::UnplayableHelp, {Line})});
+	Rows.push_back({Value, std::string(Text::Unchanged), OptionsText::Fill(Text::UnchangedHelp, {Line})});
+	for (const std::string_view Files : {"1 file", "999 files"})
+	{
+		Rows.push_back({Value, std::string(Text::ForAnotherDisc), OptionsText::Fill(Text::ForAnotherDiscHelp, {Line, Files})});
+	}
+	for (const auto& Help : {Text::ExampleScenes.Help, Text::ExampleScenesCopied, Text::ExampleScenesThere, Text::ExampleScenesFailed})
+	{
+		Rows.push_back({std::string(Text::ExampleScenes.Label), {}, OptionsText::Fill(Help)});
+	}
+	for (const auto& Help : {Text::ExportDisc2.Help, Text::ExportDisc2Working, Text::ExportDisc2Done, Text::ExportDisc2Failed, Text::ExportDisc2Unavailable})
+	{
+		for (const std::string_view Shown : {std::string_view("100%"), OptionsText::Assets::States[1], OptionsText::Assets::States[3], OptionsText::Assets::States[5]})
+		{
+			Rows.push_back({std::string(Text::ExportDisc2.Label), std::string(Shown), OptionsText::Fill(Help)});
+		}
+	}
+	for (const auto& Help : {Text::MakeShareable.Help, Text::MakeShareableWorking, Text::MakeShareableDone, Text::MakeShareableFailed, Text::MakeShareableUnavailable,
+		Text::MakeShareableThere})
+	{
+		for (const std::string_view Shown : {std::string_view("100%"), OptionsText::Assets::States[1], OptionsText::Assets::States[3], OptionsText::Assets::States[5]})
+		{
+			Rows.push_back({std::string(Text::MakeShareable.Label), std::string(Shown), OptionsText::Fill(Help, {Line})});
+		}
+	}
+	CHECK(Testing::OptionsRowsFit(Rows, Resident.Font));
+}
+
+TEST_CASE("The Modding page's Export Disc 2 row starts the export and stops it, and waits while another export runs", "[Menu][Content][Mods]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const auto Executable = ReadBootExecutable(*Disc);
+	REQUIRE(Executable);
+	class FExporter final : public IMenuAssets
+	{
+	public:
+		FMenuAssetProgress Progress() const override { return Current; }
+		bool StartExport(EAssetExportKind Kind) override
+		{
+			Started.push_back(Kind);
+			Current = {EAssetExportState::Running, Kind, 0, 935, Current.Revision + 1};
+			return true;
+		}
+		EShareableStart StartShareable(std::string_view Folder, bool bReplace) override
+		{
+			Shared.emplace_back(Folder, bReplace);
+			if (bCopyThere && !bReplace)
+			{
+				return EShareableStart::CopyThere;
+			}
+			Current = {EAssetExportState::Running, EAssetExportKind::Shareable, 0, 12, Current.Revision + 1};
+			return EShareableStart::Started;
+		}
+		void CancelExport() override { ++Cancels; Current.State = EAssetExportState::Cancelled; ++Current.Revision; }
+		FMenuAssetProgress Current;
+		std::vector<EAssetExportKind> Started;
+		std::vector<std::pair<std::string, bool>> Shared;
+		bool bCopyThere = false;
+		int32 Cancels = 0;
+	} Exporter;
+	FRecordedSettings Settings;
+	Settings.AssetExport = &Exporter;
+	// An export left as written: found, and told as unchanged rather than playable.
+	Settings.Found.Expansions = {{"Disc 2 (export)", {"Disc 2 (export)", "", ""}, false, true, 0}};
+	auto Play = FMenuPlay::NewGame(Disc->Image(), *Executable, 1, {EMenuMode::LoadGame, 0, false}, nullptr, &Settings);
+	REQUIRE(Play);
+	FMenuPlay& Menu = **Play;
+	Wait(Menu, 30);
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Cross, 40);
+	// L1 to Modding; past the balance rows, Assets, the expansions' switch and the unchanged export's row to Export Disc 2.
+	Press(Menu, EPadButton::L1);
+	for (int32 Row = 0; Row < 6; ++Row)
+	{
+		Press(Menu, EPadButton::Down);
+	}
+	Press(Menu, EPadButton::Cross);
+	CHECK(Exporter.Started == std::vector<EAssetExportKind>{EAssetExportKind::Disc2});
+	// Its progress followed while the screen is open; Confirm again stops it after its step.
+	Exporter.Current.Completed = 400;
+	++Exporter.Current.Revision;
+	Wait(Menu, 4);
+	Press(Menu, EPadButton::Cross);
+	CHECK(Exporter.Cancels == 1);
+	// Another export running, the row waits: Confirm neither starts this one nor stops that one.
+	Exporter.Current = {EAssetExportState::Running, EAssetExportKind::Textures, 10, 100, Exporter.Current.Revision + 1};
+	Wait(Menu, 4);
+	Press(Menu, EPadButton::Cross);
+	CHECK(Exporter.Started.size() == 1);
+	CHECK(Exporter.Cancels == 1);
+	// The unchanged export's row above changes nothing.
+	Press(Menu, EPadButton::Up);
+	Press(Menu, EPadButton::Cross);
+	Press(Menu, EPadButton::Right);
+	CHECK(Settings.Current.Expansions == FExpansionOptions{});
+	Press(Menu, EPadButton::Circle, 40);
+	REQUIRE(Settings.Kept.size() == 1);
+}
+
+TEST_CASE("The Modding page's Make shareable row copies the offered expansion, asks before replacing its copy, and stops", "[Menu][Content][Mods]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const auto Executable = ReadBootExecutable(*Disc);
+	REQUIRE(Executable);
+	class FExporter final : public IMenuAssets
+	{
+	public:
+		FMenuAssetProgress Progress() const override { return Current; }
+		bool StartExport(EAssetExportKind Kind) override
+		{
+			Started.push_back(Kind);
+			Current = {EAssetExportState::Running, Kind, 0, 935, Current.Revision + 1};
+			return true;
+		}
+		EShareableStart StartShareable(std::string_view Folder, bool bReplace) override
+		{
+			Shared.emplace_back(Folder, bReplace);
+			if (!bReplace)
+			{
+				return EShareableStart::CopyThere;
+			}
+			Current = {EAssetExportState::Running, EAssetExportKind::Shareable, 0, 12, Current.Revision + 1};
+			return EShareableStart::Started;
+		}
+		void CancelExport() override { ++Cancels; Current.State = EAssetExportState::Cancelled; ++Current.Revision; }
+		FMenuAssetProgress Current;
+		std::vector<EAssetExportKind> Started;
+		std::vector<std::pair<std::string, bool>> Shared;
+		int32 Cancels = 0;
+	} Exporter;
+	FRecordedSettings Settings;
+	Settings.AssetExport = &Exporter;
+	Settings.Found.Expansions = {{"My Disc 2", {"My Disc 2", "A tester", "1.0"}, true, false, 0}};
+	auto Play = FMenuPlay::NewGame(Disc->Image(), *Executable, 1, {EMenuMode::LoadGame, 0, false}, nullptr, &Settings);
+	REQUIRE(Play);
+	FMenuPlay& Menu = **Play;
+	Wait(Menu, 30);
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Cross, 40);
+	// L1 to Modding; past the balance rows, Assets, the expansions' switch, the expansion and Export Disc 2.
+	Press(Menu, EPadButton::L1);
+	for (int32 Row = 0; Row < 7; ++Row)
+	{
+		Press(Menu, EPadButton::Down);
+	}
+	// Its copy there already: nothing starts until a second Confirm, which replaces it.
+	Press(Menu, EPadButton::Cross);
+	Press(Menu, EPadButton::Cross);
+	using FShared = std::vector<std::pair<std::string, bool>>;
+	CHECK(Exporter.Shared == FShared{{"My Disc 2", false}, {"My Disc 2", true}});
+	CHECK(Exporter.Started.empty());
+	// Its progress followed while the screen is open; Confirm again stops it after its step.
+	Exporter.Current.Completed = 6;
+	++Exporter.Current.Revision;
+	Wait(Menu, 4);
+	Press(Menu, EPadButton::Cross);
+	CHECK(Exporter.Cancels == 1);
+	// The cursor gone and back, the copy is asked about anew.
+	Press(Menu, EPadButton::Up);
+	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Cross);
+	CHECK(Exporter.Shared.size() == 3);
+	CHECK(Exporter.Shared.back() == std::pair<std::string, bool>{"My Disc 2", false});
+	// Another export running, the row waits: Confirm neither starts this one nor stops that one.
+	Exporter.Current = {EAssetExportState::Running, EAssetExportKind::Textures, 10, 100, Exporter.Current.Revision + 1};
+	Wait(Menu, 4);
+	Press(Menu, EPadButton::Cross);
+	CHECK(Exporter.Shared.size() == 3);
+	CHECK(Exporter.Cancels == 1);
+	Press(Menu, EPadButton::Circle, 40);
+}
+
 TEST_CASE("On a device, the Modding page has External assets in the Assets row's place, then the device's mods, the cursor kept as rows come above", "[Menu][Content][Mods]")
 {
 	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
@@ -223,6 +524,7 @@ TEST_CASE("On a device, the Modding page has External assets in the Assets row's
 	public:
 		FMenuAssetProgress Progress() const override { return {}; }
 		bool StartExport(EAssetExportKind) override { return false; }
+		EShareableStart StartShareable(std::string_view, bool) override { return EShareableStart::Started; }
 		void CancelExport() override {}
 	} Exports;
 	class FDevice final : public IMenuDeviceFiles
@@ -414,8 +716,8 @@ TEST_CASE("The CRT filter's row opens its parts, each change handed on at once, 
 	Wait(Menu, 30);
 	Press(Menu, EPadButton::Down);
 	Press(Menu, EPadButton::Cross, 40);
-	// Display without the window's rows: down five to the CRT filter, and Right: the monitor's look.
-	for (int32 Row = 0; Row < 5; ++Row)
+	// Display without the window's rows: down six to the CRT filter, and Right: the monitor's look.
+	for (int32 Row = 0; Row < 6; ++Row)
 	{
 		Press(Menu, EPadButton::Down);
 	}
@@ -459,13 +761,14 @@ TEST_CASE("The Normal Menu's eighth orb, over Status, opens the options screen a
 	Press(Menu, EPadButton::Up);
 	Press(Menu, EPadButton::Cross, 40);
 	// It opens on Display, on full screen; Down to the window's size, Right: the display's next size up from the window's;
-	// Down, Left: the picture 4:3; Down twice to the scenery's texels, Right: crisp.
+	// Down, Left: the picture 4:3; Down three times, past integer scaling, to the scenery's texels, Right: crisp.
 	Press(Menu, EPadButton::Down);
 	Press(Menu, EPadButton::Right);
 	CHECK(Settings.Current.Display.WindowSize == FDisplaySize{1920, 1080});
 	Press(Menu, EPadButton::Down);
 	Press(Menu, EPadButton::Left);
 	CHECK(Settings.Current.Display.Aspect == EDisplayAspect::Standard);
+	Press(Menu, EPadButton::Down);
 	Press(Menu, EPadButton::Down);
 	Press(Menu, EPadButton::Down);
 	Press(Menu, EPadButton::Right);

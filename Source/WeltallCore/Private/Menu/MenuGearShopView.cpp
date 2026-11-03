@@ -88,6 +88,7 @@ namespace Weltall
 	{
 		// The model's textures and its scripts' copies go into the menu's VRAM, where the shop draws it.
 		FGearModels& Models = Model.Models();
+		const FVram::FKindScope GearsKind(MenuVram, EVramUploadKind::ModelsAndEffects);
 		for (const FGearUpload& Block : Models.Uploads())
 		{
 			MenuVram.Upload({{Block.X, Block.Y, Block.Width, Block.Height}, Block.Pixels});

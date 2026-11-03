@@ -8,18 +8,18 @@ Examples:
 
 - `Content/Story/additions/rps-helper.txt` adds a choice and three messages to a Lahan house, controlled
   by the RPS helper setting.
-- `Content/Story/disc2/mass-driver-way-out.txt` changes a story-progress check to open an exit earlier.
-- `Content/Story/disc2/mass-driver-setting-out.txt` replaces a scene at one story value, changes the
+- `Content/Examples/disc2/mass-driver-way-out.txt` changes a story-progress check to open an exit earlier.
+- `Content/Examples/disc2/mass-driver-setting-out.txt` replaces a scene at one story value, changes the
   party, removes characters from the room and adds dialogue.
-- `Content/Story/disc2/rematch-parting.txt` branches from the original story into the expansion.
+- `Content/Examples/disc2/rematch-parting.txt` branches from the original story into the expansion.
 
 ## Document structure
 
 ```
 map 614
-option fix.rps_helper            (apply only when this setting is on; omit to apply unconditionally)
+option fix.rps_helper            ; apply only when this setting is on; omit to always apply
 
-message Hello                    a new message, referenced by name in scripts
+message Hello                   ; a new message, referenced by name in scripts
 {
 Taura
 "Hello."
@@ -34,13 +34,14 @@ Shut:
     IfAccGreater #299 @0x0624
     Jump @0x0619
 
-actor 16 script 13:              replace this script slot
+actor 16 script 13:              ; replace this script slot
     SetPosition #-150 #-172
     End
 ```
 
 - **`expect @offset instruction`** checks that the original instruction matches the listing from
-  `WeltallMapText`. If the bytes differ, the document is rejected and the tests fail.
+  `WeltallMapText`. If the bytes differ, the document is left out and the tests fail; in an expansion, the Modding
+  page lists it as **Other disc** and the log names the document.
 - **`detour @offset to Label instruction`** performs the same check, then replaces the instruction's
   first three bytes with a jump to `Label`. The instruction must be at least three bytes long. When
   returning to the original script, repeat the replaced instruction if needed, then jump to the next
@@ -65,6 +66,48 @@ right story progress (`var[000]`), entrance (`var[002]`) or flag.
 - Remove characters by reusing the original code for a later story event.
 - Keep a scene trigger frozen when its scene shouldn't run.
 - Replace a scene's first instruction while preserving the original path at all other story values.
+
+## Reusing the game's own messages
+
+To show one of the game's messages, name it instead of copying it:
+
+```
+message Graveyard from map 617 message 16
+message Tombstones from map 617 message 16 page 2
+```
+
+- **`from map M message K`** reads message K of field map M from your disc when the map loads, in the
+  window size map M gives it. K is the number in the `msgK` names of `WeltallMapText M`.
+- **`page P`** takes one page of the message (counted from 1), in a window fitted to that page.
+- The words come from the player's own game, so a translated disc or a translation in `Mods` shows
+  them translated.
+- If the disc lacks the map or message, Weltall skips the patch; a new map that needs it can't load.
+  The Modding page shows **Other disc**, and the log and tests name the document. Reference battle narration with `from event E`
+  ([A battle's narration](a-battles-narration.md)).
+
+## Replacing the map's own messages and entrances
+
+A patch can put new words in place of one of the map's messages, so every script that shows it shows yours:
+
+```
+map 617
+disc 3f0a...
+message msg16 anew size 30 2
+{
+...
+}
+message msg4 anew from map 617 message 9
+entrance 2 x 120 z -40 layer 0 camera 2 facing keep
+```
+
+- **`message msgK anew`** replaces message K, with text (`size` as for any message) or as another of the game's
+  messages (`from`). A map without message K leaves the patch out.
+- **`disc`** identifies the original map by checksum. Copy it from the `map N whole` document written by Export
+  Disc 2. Weltall skips the patch if the map differs, so its offsets and message numbers always refer to the right map.
+- **`entrance K x N z N layer N camera N facing N`** moves where the party appears when it enters by entrance K, as the
+  listing's `entrance` lines show them. Include the `disc` line so Weltall can check that the entrance exists.
+
+Make shareable writes patches this way from maps you edited in an export ([the modding guide](../Modding.md)).
 
 ## Finding the script to change
 

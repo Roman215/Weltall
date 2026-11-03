@@ -20,6 +20,12 @@ Weltall::FFieldViewInput AWeltallPlayerController::ReadView(float DeltaSeconds)
 	return Input != nullptr && Pad != nullptr ? Pad->ReadView(*Input, DeltaSeconds) : Weltall::FFieldViewInput{};
 }
 
+TArray<Weltall::EControlAction, TFixedAllocator<Weltall::PortActionCount>> AWeltallPlayerController::ReadPortKeys()
+{
+	const UEnhancedPlayerInput* Input = Cast<UEnhancedPlayerInput>(PlayerInput);
+	return Input != nullptr && Pad != nullptr ? Pad->ReadPortKeys(*Input) : TArray<Weltall::EControlAction, TFixedAllocator<Weltall::PortActionCount>>();
+}
+
 void AWeltallPlayerController::BeginPlay()
 {
 	Super::BeginPlay();

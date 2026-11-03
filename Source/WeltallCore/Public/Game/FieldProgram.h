@@ -61,6 +61,19 @@ namespace Weltall
 		 */
 		const FBootNotice* Credits() const { return TranslationCredits ? &*TranslationCredits : nullptr; }
 
+		/**
+		 * Whether Confirm offers the clear file: on the ending's last picture, where the game waits for good, once it has
+		 * shown alone a while. A fresh press fades the screen to black; then the game is made the clear file's and its
+		 * save asks, and after it the game starts again from the title, as a console is reset.
+		 */
+		WELTALLCORE_API bool OffersClearFile() const;
+
+		/** Whether the field's own ticks run: the program running, not its menu, a movie, the translation's credits or the ending's fade to its save. */
+		bool TicksField() const
+		{
+			return ProgramState == EGameProgramState::Running && !Menu && !FieldMovie && !TranslationCredits && SaveFadeLeft < 0;
+		}
+
 		/** What the player does to the field's view, shown from the next frame; nothing while the menu, a movie or the credits run. */
 		WELTALLCORE_API void AddViewInput(const FFieldViewInput& Input);
 
@@ -84,6 +97,12 @@ namespace Weltall
 		/** The movie's share of the field's frame: its pictures and cues through the frame's vertical blanks, the picture in the scene. */
 		std::optional<FError> AdvanceMovie(int32 Vblanks);
 		std::optional<FError> StartMenu(const FFieldRequest& Request);
+		/**
+		 * The ending's wait through a frame's vertical blanks: Confirm pressed afresh once it offers the clear file starts
+		 * the screen's fade to black; whether the fade has ended this frame, the save to open.
+		 */
+		bool AdvanceClearFileOffer(std::span<const FPadState> HeldPerVblank);
+		std::optional<FError> StartClearFileMenu();
 		std::optional<FError> Leave(const FFieldRequest& Request);
 		/** A game the Normal Menu loaded goes on from its save's map, as the title's map sends a loaded game on. */
 		std::optional<FError> GoOnWithLoadedGame();
@@ -114,6 +133,13 @@ namespace Weltall
 		/** The field's count of map loads the drawing and the kernel's formations were last taken at. */
 		int32 MapLoadsSeen = 0;
 		bool bMainEffectsRegistered = false;
+		/** Vertical blanks the ending has waited on its last picture; Confirm held through them (from before them too). */
+		int32 EndingVblanks = 0;
+		bool bConfirmHeld = true;
+		/** The field's ticks left of the fade to black before the clear file's save; -1 before Confirm. */
+		int32 SaveFadeLeft = -1;
+		/** The menu running is the clear file's. */
+		bool bClearFileMenu = false;
 		EGameProgramState ProgramState = EGameProgramState::Running;
 	};
 }

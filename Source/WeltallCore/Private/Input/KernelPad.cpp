@@ -1,5 +1,8 @@
 #include "Input/KernelPad.h"
 
+#include <initializer_list>
+#include <utility>
+
 namespace Weltall
 {
 	namespace
@@ -23,10 +26,32 @@ namespace Weltall
 		return Logical;
 	}
 
-	FKernelPadWords FKernelPad::Read(FPort& Port, FPadState Held, uint32 VblankCount)
+	uint16 FKernelPad::SwapFaceButtons(uint16 Report)
+	{
+		constexpr uint16 Circle = 0x20;
+		constexpr uint16 Cross = 0x40;
+		constexpr uint16 Triangle = 0x10;
+		constexpr uint16 Square = 0x80;
+		uint16 Swapped = Report;
+		for (const auto& [First, Second] : {std::pair{Circle, Cross}, std::pair{Square, Triangle}})
+		{
+			// Both tests read the buttons as reported, and each sets its partner and clears its own by toggling it.
+			if ((Report & First) != 0)
+			{
+				Swapped = static_cast<uint16>((Swapped | Second) ^ First);
+			}
+			if ((Report & Second) != 0)
+			{
+				Swapped = static_cast<uint16>((Swapped | First) ^ Second);
+			}
+		}
+		return Swapped;
+	}
+
+	FKernelPadWords FKernelPad::Read(FPort& Port, uint16 Logical, FPadState Held, uint32 VblankCount)
 	{
 		FKernelPadWords Words;
-		Words.Held = LogicalButtons(ReportWord(Held));
+		Words.Held = Logical;
 		Words.Pressed = static_cast<uint16>((Words.Held ^ Port.Previous) & Words.Held);
 		if (Words.Pressed != 0)
 		{
@@ -43,6 +68,7 @@ namespace Weltall
 		}
 		Port.Previous = Words.Held;
 		Words.StickHeld = LogicalButtons(ReportWord(FPadState{Held.StickButtons}));
+		Words.ZoomHeld = LogicalButtons(ReportWord(FPadState{Held.ZoomButtons}));
 		Words.StickX = Held.StickX;
 		Words.StickY = Held.StickY;
 		Words.bAnalog = Held.bAnalog;
@@ -57,7 +83,8 @@ namespace Weltall
 
 	void FKernelPad::Vblank(FPadState Held, uint32 VblankCount, FPadState SecondHeld)
 	{
-		const std::array<FKernelPadWords, Ports> Words{Read(State[0], Held, VblankCount), Read(State[1], SecondHeld, VblankCount)};
+		const std::array<FKernelPadWords, Ports> Words{Read(State[0], FirstPortButtons(Held), Held, VblankCount),
+			Read(State[1], LogicalButtons(ReportWord(SecondHeld)), SecondHeld, VblankCount)};
 		if (Count < QueueCapacity)
 		{
 			Queue[static_cast<std::size_t>((First + Count++) % QueueCapacity)] = Words;
@@ -78,6 +105,7 @@ namespace Weltall
 			Merged.Pressed |= Words.Pressed;
 			Merged.Repeated |= Words.Repeated;
 			Merged.StickHeld |= Words.StickHeld;
+			Merged.ZoomHeld |= Words.ZoomHeld;
 			Merged.StickX = Words.StickX;
 			Merged.StickY = Words.StickY;
 			Merged.bAnalog = Words.bAnalog;

@@ -16,24 +16,33 @@ namespace Weltall
 		constexpr std::size_t ScriptsEndAt = 0x52 * 4;
 		constexpr uint64 LargestFile = 512ULL * 1024 * 1024;
 
-		TResult<std::vector<uint8>> ReadWhole(const std::filesystem::path& Path)
+		/** Size bytes of Path from Offset (Size 0: from Offset to its end). */
+		TResult<std::vector<uint8>> ReadPart(const std::filesystem::path& Path, uint64 Offset, uint64 Size)
 		{
 			const auto File = FFileByteSource::Open(Path);
 			if (!File)
 			{
 				return File.Error();
 			}
-			if ((*File)->Size() == 0 || (*File)->Size() > LargestFile)
+			const uint64 Whole = (*File)->Size();
+			const uint64 Length = Size != 0 ? Size : Whole - std::min(Offset, Whole);
+			if (Length == 0 || Length > LargestFile || Offset > Whole || Length > Whole - Offset)
 			{
 				return MakeError("a mod's file has an invalid size: " + Path.string());
 			}
-			std::vector<uint8> Bytes(static_cast<std::size_t>((*File)->Size()));
-			if (!(*File)->Read(0, Bytes))
+			std::vector<uint8> Bytes(static_cast<std::size_t>(Length));
+			if (!(*File)->Read(Offset, Bytes))
 			{
 				return MakeError("cannot read a mod's file: " + Path.string());
 			}
 			return Bytes;
 		}
+
+		TResult<std::vector<uint8>> ReadWhole(const std::filesystem::path& Path)
+		{
+			return ReadPart(Path, 0, 0);
+		}
+
 
 		/** Scripts written over the map's own, from their offset to the next section's: cut, or ended with zeros, to fit. */
 		std::optional<FError> SpliceScripts(std::vector<uint8>& Map, std::span<const uint8> Scripts, const std::filesystem::path& Path)
@@ -52,6 +61,32 @@ namespace Weltall
 			std::copy_n(Scripts.begin(), Kept, Map.begin() + Start);
 			std::fill(Map.begin() + Start + static_cast<std::ptrdiff_t>(Kept), Map.begin() + End, uint8{0});
 			return std::nullopt;
+		}
+
+		TResult<FFileReplacement> ReadModFile(const FModFile& File)
+		{
+			TResult<std::vector<uint8>> Bytes = File.Bytes != nullptr ? TResult<std::vector<uint8>>(*File.Bytes) : ReadPart(File.Path, File.Offset, File.Size);
+			if (!Bytes)
+			{
+				return Bytes.Error();
+			}
+			if (!File.Section5.empty())
+			{
+				const TResult<std::vector<uint8>> Scripts = ReadWhole(File.Section5);
+				if (!Scripts)
+				{
+					return Scripts.Error();
+				}
+				if (std::optional<FError> Error = SpliceScripts(*Bytes, *Scripts, File.Path))
+				{
+					return *Error;
+				}
+			}
+			FFileReplacement Replacement{std::move(*Bytes), 0};
+			Replacement.Size = Replacement.Bytes.size();
+			// The game reads whole sectors, and a packed stream may run on into the last one's padding.
+			Replacement.Bytes.resize((Replacement.Size + CdSector::Form1DataSize - 1) / CdSector::Form1DataSize * CdSector::Form1DataSize, 0);
+			return Replacement;
 		}
 	}
 
@@ -75,33 +110,25 @@ namespace Weltall
 
 	TResult<std::optional<FFileReplacement>> FDiscModFiles::Read(const FIndexRecord& Record) const
 	{
-		const auto Found = BySector.find(Record.Lba);
-		if (!Record.IsFile() || Found == BySector.end())
+		if (!Record.IsFile())
 		{
 			return std::optional<FFileReplacement>{};
 		}
-		const FModFile& File = Found->second;
-		TResult<std::vector<uint8>> Bytes = ReadWhole(File.Path);
-		if (!Bytes)
+		return ReadAt(Record.Lba);
+	}
+
+	TResult<std::optional<FFileReplacement>> FDiscModFiles::ReadAt(uint32 Lba) const
+	{
+		const auto Found = BySector.find(Lba);
+		if (Found == BySector.end())
 		{
-			return Bytes.Error();
+			return std::optional<FFileReplacement>{};
 		}
-		if (!File.Section5.empty())
+		TResult<FFileReplacement> Replacement = ReadModFile(Found->second);
+		if (!Replacement)
 		{
-			const TResult<std::vector<uint8>> Scripts = ReadWhole(File.Section5);
-			if (!Scripts)
-			{
-				return Scripts.Error();
-			}
-			if (std::optional<FError> Error = SpliceScripts(*Bytes, *Scripts, File.Path))
-			{
-				return *Error;
-			}
+			return Replacement.Error();
 		}
-		FFileReplacement Replacement{std::move(*Bytes), 0};
-		Replacement.Size = Replacement.Bytes.size();
-		// The game reads whole sectors, and a packed stream may run on into the last one's padding.
-		Replacement.Bytes.resize((Replacement.Size + CdSector::Form1DataSize - 1) / CdSector::Form1DataSize * CdSector::Form1DataSize, 0);
-		return std::optional{std::move(Replacement)};
+		return std::optional{std::move(*Replacement)};
 	}
 }

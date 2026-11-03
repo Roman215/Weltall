@@ -89,14 +89,24 @@ TEST_CASE("Switching to original button icons restores native menu pictures and 
 
 TEST_CASE("A menu's button picture stands for the controller's button the kernel reads as its role", "[Menu]")
 {
-	CHECK(MenuRoleButton(0x20) == EPadButton::Cross);
-	CHECK(MenuRoleButton(0x40) == EPadButton::Circle);
-	CHECK(MenuRoleButton(0x10) == EPadButton::Square);
-	CHECK(MenuRoleButton(0x80) == EPadButton::Triangle);
-	CHECK(MenuRoleButton(0x04) == EPadButton::L1);
-	CHECK(MenuRoleButton(0x08) == EPadButton::R1);
+	CHECK(MenuRoleButton(0x20, false) == EPadButton::Cross);
+	CHECK(MenuRoleButton(0x40, false) == EPadButton::Circle);
+	CHECK(MenuRoleButton(0x10, false) == EPadButton::Square);
+	CHECK(MenuRoleButton(0x80, false) == EPadButton::Triangle);
+	CHECK(MenuRoleButton(0x04, false) == EPadButton::L1);
+	CHECK(MenuRoleButton(0x08, false) == EPadButton::R1);
 	CHECK(MenuIconSlotOf(0x04) == EMenuIconSlot::Hint);
 	CHECK(MenuIconSlotOf(0x20) == EMenuIconSlot::FaceButton);
+}
+
+TEST_CASE("With the Japanese commands each role is the button of the Japanese release's layout", "[Menu]")
+{
+	CHECK(MenuRoleButton(0x20, true) == EPadButton::Circle);
+	CHECK(MenuRoleButton(0x40, true) == EPadButton::Cross);
+	CHECK(MenuRoleButton(0x10, true) == EPadButton::Triangle);
+	CHECK(MenuRoleButton(0x80, true) == EPadButton::Square);
+	CHECK(MenuRoleButton(0x04, true) == EPadButton::L1);
+	CHECK(MenuRoleButton(0x08, true) == EPadButton::R1);
 }
 
 TEST_CASE("A prompt set out as the four face buttons puts each button and its words where the player's button lies", "[Menu][Input]")
@@ -419,6 +429,43 @@ TEST_CASE("A menu's button pictures are shown as the player's controller prints 
 		}
 		CHECK_FALSE(Shrunk.Primitives[0].Texels);
 	}
+}
+
+
+TEST_CASE("With the Japanese commands a menu's face buttons are the translation's pictures of the buttons its pad reads", "[Menu][Content]")
+{
+	REQUIRE_ITALIAN_JP_DISC(Disc, EDiscRelease::UsaDisc1);
+	const auto Executable = ReadBootExecutable(*Disc);
+	REQUIRE(Executable);
+	const auto Index = FGameFileIndex::Read(*Executable);
+	REQUIRE(Index);
+	const auto Resources = FMenuResources::Load(Disc->Image(), *Index, *Executable);
+	REQUIRE(Resources);
+	const FMenuSpriteSheet& Sheet = Resources->Sheet();
+	FMenuFrame Frame;
+	Frame.Layer = MenuFlatTransform;
+	for (int32 Picture = 0; Picture < 4; ++Picture)
+	{
+		Sheet.Draw(0xF9 + Picture, 100 + 20 * Picture, 50, 0x1000, Frame.Primitives);
+	}
+	FMenuDrawBuilder Builder;
+	FDrawList Original;
+	Builder.Build(Frame, nullptr, 1.0f, Original);
+	REQUIRE(Builder.Icons.size() == 4);
+	FMenuButtonIcons Pictures;
+	Pictures.SetJapaneseCommands(true);
+
+	// The PlayStation's own buttons, bound as the console's: each role's button is the translation's picture of it.
+	FTestGlyphs PlayStation(EButtonIconSet::PlayStation);
+	PlayStation.Bind({{EPadButton::Cross, "Cross"}, {EPadButton::Circle, "Circle"}, {EPadButton::Square, "Square"}, {EPadButton::Triangle, "Triangle"}});
+	FDrawList List = Original;
+	Pictures.Apply(List, Builder.Icons, PlayStation, Sheet, MenuSheetJapaneseCommandsPictures);
+	for (std::size_t Primitive = 0; Primitive < List.Primitives.size(); ++Primitive)
+	{
+		CHECK(List.Primitives[Primitive].Corners[0].U == Original.Primitives[Primitive].Corners[0].U);
+		CHECK(List.Primitives[Primitive].Texture->Vram == 0);
+	}
+	CHECK(Pictures.Pictures().Revision() == 0);
 }
 
 TEST_CASE("A frame's own keys are drawn as their pictures, a free place as an empty button", "[Menu][Content]")

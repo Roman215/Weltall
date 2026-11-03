@@ -25,8 +25,7 @@ namespace Weltall
 		/** A name in the font's characters, its end cut short where it is longer than Letters. */
 		std::string Shown(std::string_view Name, std::size_t Letters)
 		{
-			const std::string Characters = FFileBrowser::DisplayName(std::filesystem::path(std::u8string(Name.begin(), Name.end())));
-			return Characters.size() <= Letters ? Characters : Characters.substr(0, Letters - 2) + "..";
+			return FFileBrowser::ShortDisplayName(Name, Letters);
 		}
 
 		/** Bytes as the device's own file manager counts them, in thousands. */

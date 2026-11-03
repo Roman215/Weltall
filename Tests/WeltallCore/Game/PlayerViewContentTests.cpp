@@ -135,3 +135,14 @@ TEST_CASE("The player's turn turns the leader's walk with the view, up into the 
 	// The view turned as R1 turns the camera: its yaws a step back, the walk into the screen a step on.
 	CHECK(((Turned.LeaderFacing - Game.LeaderFacing) & 0xFFF) == 0x200);
 }
+
+TEST_CASE("Camera buttons held to zoom the view leave the field's camera unturned", "[Game][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	constexpr FPadState R1{FPadState::Bit(EPadButton::R1)};
+	FPadState Zooming = R1;
+	Zooming.ZoomButtons = R1.Buttons;
+	const FPlayed Still = Play(*Disc, {}, FPadState{});
+	CHECK(Play(*Disc, {}, Zooming).Logic == Still.Logic);
+	CHECK(Play(*Disc, {}, R1).Logic != Still.Logic);
+}

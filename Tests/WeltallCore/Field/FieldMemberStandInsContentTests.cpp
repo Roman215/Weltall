@@ -2,6 +2,8 @@
 #include "Field/FieldPilotStandIns.h"
 #include "Field/FieldPlay.h"
 #include "Field/FieldSprites.h"
+#include "Field/IdsFieldSprite.h"
+#include "Game/CharacterLooks.h"
 #include "Game/PartyOrder.h"
 #include "Game/PsxRandom.h"
 #include "Graphics/Texture.h"
@@ -268,4 +270,207 @@ TEST_CASE("Boarded, the leader rides the gear of the member placed first, as a s
 			CHECK(StandInActors(Arranged->Frame).count(Context.LeaderActor) != 0);
 		}
 	}
+}
+
+TEST_CASE("The grown Emeralda switched to the child is drawn as the child in her place, the game as the story's", "[Field][Content]")
+{
+	// The forest of the first battle, whose actors stand for every member, the grown Emeralda among them.
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	constexpr int32 EveryMembersMap = 15;
+	constexpr uint8 Emeralda = 6;
+	constexpr uint8 GrownEmeralda = 10;
+	const auto Grown = [](FGameState& Game)
+	{
+		REQUIRE(Game.CopyCharacter(Emeralda, GrownEmeralda));
+		Game.SetParty({Fei, GrownEmeralda, 0xFF});
+		Game.SetJoinedCharacters(static_cast<uint16>(Game.JoinedCharacters() | 1u << GrownEmeralda));
+	};
+	const auto AsTheChild = [&Grown](FGameState& Game)
+	{
+		Grown(Game);
+		FCharacterLooks Looks;
+		REQUIRE(Looks.Switch(GrownEmeralda));
+		Game.SetCharacterLooks(Looks);
+	};
+	auto Switched = Testing::EnterFieldMap(*Disc, EveryMembersMap, AsTheChild);
+	auto Story = Testing::EnterFieldMap(*Disc, EveryMembersMap, Grown);
+	REQUIRE(Switched->Play->Field().Context().PartyCharacters[0] == Fei);
+	REQUIRE(Switched->Play->Field().Context().PartyCharacters[1] == GrownEmeralda);
+
+	int32 Differences = 0;
+	int32 Drawn = 0;
+	for (int32 Tick = 0; Tick < Ticks; ++Tick)
+	{
+		// Standing, so that no encounter comes.
+		const std::vector<FPadState> Held(static_cast<std::size_t>(Switched->Play->VblanksPerTick()));
+		REQUIRE_FALSE(Switched->Play->Tick(Held, EFieldCulling::InRange, Switched->Frame));
+		REQUIRE_FALSE(Story->Play->Tick(Held, EFieldCulling::InRange, Story->Frame));
+		const FEventContext& Context = Switched->Play->Field().Context();
+		const FEventContext& AsStory = Story->Play->Field().Context();
+		for (std::size_t Actor = 0; Actor < Context.States.size(); ++Actor)
+		{
+			Differences += Context.States[Actor].Position == AsStory.States[Actor].Position ? 0 : 1;
+		}
+		Differences += Context.Random->Seed() == AsStory.Random->Seed() ? 0 : 1;
+		CHECK(StandInActors(Story->Frame).empty());
+
+		// While the party is together: her own place, the child's pictures; Fei as he is.
+		const FFieldMemberStandIns& Members = Switched->Play->Drawing().MemberStandIns();
+		CHECK_FALSE(Members.ShownIn(1));
+		CHECK_FALSE(Members.PicturedIn(0));
+		const std::set<uint32> StandIns = StandInActors(Switched->Frame);
+		CHECK(StandIns.count(Context.PartyActors[0]) == 0);
+		// Her look holds apart and in cutscenes too: only the party's order waits for it to walk as one.
+		CHECK(Members.PicturedIn(1) == std::optional<int32>(Emeralda));
+		if (Switched->Play->Drawing().Party().Together())
+		{
+			Drawn += StandIns.count(Context.PartyActors[1]) != 0 ? 1 : 0;
+		}
+	}
+	CHECK(Differences == 0);
+	CHECK(Drawn > Ticks * 3 / 4);
+}
+
+TEST_CASE("Elly with purple hair is drawn from her own pictures recoloured in her place, the game as the story's", "[Field][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	constexpr int32 EveryMembersMap = 15;
+	constexpr uint8 Elly = FCharacterLooks::Elly;
+	const auto WithElly = [](FGameState& Game) { Game.SetParty({Fei, Elly, 0xFF}); };
+	const auto PurpleHaired = [&WithElly](FGameState& Game)
+	{
+		WithElly(Game);
+		FCharacterLooks Looks;
+		REQUIRE(Looks.Switch(Elly));
+		Game.SetCharacterLooks(Looks);
+	};
+	auto Switched = Testing::EnterFieldMap(*Disc, EveryMembersMap, PurpleHaired);
+	auto Story = Testing::EnterFieldMap(*Disc, EveryMembersMap, WithElly);
+	REQUIRE(Switched->Play->Field().Context().PartyCharacters[1] == Elly);
+	int32 Differences = 0;
+	int32 Drawn = 0;
+	for (int32 Tick = 0; Tick < Ticks; ++Tick)
+	{
+		const std::vector<FPadState> Held(static_cast<std::size_t>(Switched->Play->VblanksPerTick()));
+		REQUIRE_FALSE(Switched->Play->Tick(Held, EFieldCulling::InRange, Switched->Frame));
+		REQUIRE_FALSE(Story->Play->Tick(Held, EFieldCulling::InRange, Story->Frame));
+		const FEventContext& Context = Switched->Play->Field().Context();
+		const FEventContext& AsStory = Story->Play->Field().Context();
+		for (std::size_t Actor = 0; Actor < Context.States.size(); ++Actor)
+		{
+			Differences += Context.States[Actor].Position == AsStory.States[Actor].Position ? 0 : 1;
+		}
+		Differences += Context.Random->Seed() == AsStory.Random->Seed() ? 0 : 1;
+		CHECK(StandInActors(Story->Frame).empty());
+		// Her own record's pictures, recoloured, drawn by a stand-in in her place; Fei as he is.
+		const FFieldMemberStandIns& Members = Switched->Play->Drawing().MemberStandIns();
+		const std::set<uint32> StandIns = StandInActors(Switched->Frame);
+		CHECK(StandIns.count(Context.PartyActors[0]) == 0);
+		CHECK(Members.PicturedIn(1) == std::optional<int32>(Elly));
+		if (Switched->Play->Drawing().Party().Together())
+		{
+			Drawn += StandIns.count(Context.PartyActors[1]) != 0 ? 1 : 0;
+		}
+	}
+	CHECK(Differences == 0);
+	CHECK(Drawn > Ticks * 3 / 4);
+}
+
+TEST_CASE("A stand-in jumps as the leader does from the rise to the landing", "[Field][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	constexpr int32 JumpAt = 40;
+	constexpr int32 JumpTicks = 80;
+	constexpr int32 Jump = 3;
+	auto Arranged = Testing::EnterFieldMap(*Disc, Lahan, CitanFirst);
+	int32 Jumping = 0;
+	int32 FramesInTheFall = 0;
+	bool bFalling = false;
+	std::optional<int32> LastFrame;
+	for (int32 Tick = 0; Tick < JumpTicks; ++Tick)
+	{
+		// A walk, and the jump button (the release's Triangle) pressed in it.
+		std::vector<FPadState> Held(static_cast<std::size_t>(Arranged->Play->VblanksPerTick()));
+		for (FPadState& Vblank : Held)
+		{
+			Vblank.Buttons = (Tick >= WalkFrom ? FPadState::Bit(EPadButton::Down) : 0) | (Tick == JumpAt ? FPadState::Bit(EPadButton::Triangle) : 0);
+		}
+		REQUIRE_FALSE(Arranged->Play->Tick(Held, EFieldCulling::InRange, Arranged->Frame));
+		const FEventContext& Context = Arranged->Play->Field().Context();
+		const FSprite* Leader = Arranged->Play->Field().Sprites().SpriteOf(Context.LeaderActor);
+		const FSprite* StandIn = Arranged->Play->Drawing().MemberStandIns().Of(0);
+		REQUIRE(Leader != nullptr);
+		if (Leader->Animation() != Jump || StandIn == nullptr)
+		{
+			continue;
+		}
+		++Jumping;
+		// Once the leader falls, its stand-in goes on to its own fall's and landing's frames: the waits on them read
+		// the vertical speed and the floor, which only the leader's actor moves.
+		bFalling = bFalling || Leader->Velocity[1] > 0;
+		if (bFalling && LastFrame != StandIn->Frame)
+		{
+			++FramesInTheFall;
+		}
+		LastFrame = StandIn->Frame;
+	}
+	CHECK(Jumping > 16);
+	CHECK(FramesInTheFall >= 2);
+}
+
+TEST_CASE("Fei as Id is drawn with Id's own field sprite from the port's rows in his place, the game as the story's", "[Field][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	constexpr int32 EveryMembersMap = 15;
+	constexpr uint8 Elly = FCharacterLooks::Elly;
+	const auto WithElly = [](FGameState& Game) { Game.SetParty({Fei, Elly, 0xFF}); };
+	const auto AsId = [&WithElly](FGameState& Game)
+	{
+		WithElly(Game);
+		FCharacterLooks Looks;
+		REQUIRE(Looks.Switch(Fei));
+		Game.SetCharacterLooks(Looks);
+	};
+	auto Switched = Testing::EnterFieldMap(*Disc, EveryMembersMap, AsId);
+	auto Story = Testing::EnterFieldMap(*Disc, EveryMembersMap, WithElly);
+	REQUIRE(Switched->Play->Field().Context().PartyCharacters[0] == Fei);
+	int32 Differences = 0;
+	int32 Drawn = 0;
+	for (int32 Tick = 0; Tick < Ticks; ++Tick)
+	{
+		const std::vector<FPadState> Held(static_cast<std::size_t>(Switched->Play->VblanksPerTick()));
+		REQUIRE_FALSE(Switched->Play->Tick(Held, EFieldCulling::InRange, Switched->Frame));
+		REQUIRE_FALSE(Story->Play->Tick(Held, EFieldCulling::InRange, Story->Frame));
+		const FEventContext& Context = Switched->Play->Field().Context();
+		const FEventContext& AsStory = Story->Play->Field().Context();
+		for (std::size_t Actor = 0; Actor < Context.States.size(); ++Actor)
+		{
+			Differences += Context.States[Actor].Position == AsStory.States[Actor].Position ? 0 : 1;
+		}
+		Differences += Context.Random->Seed() == AsStory.Random->Seed() ? 0 : 1;
+		const FFieldMemberStandIns& Members = Switched->Play->Drawing().MemberStandIns();
+		const std::set<uint32> StandIns = StandInActors(Switched->Frame);
+		CHECK(StandIns.count(Context.PartyActors[1]) == 0);
+		CHECK(Members.PicturedIn(0) == std::optional<int32>(Fei));
+		if (!Switched->Play->Drawing().Party().Together())
+		{
+			continue;
+		}
+		// His own record's place, drawn from Id's picture: the first band's page beside the stand-ins' areas (his shadow lies on the floor as ever).
+		int32 LeaderQuads = 0;
+		for (const FFieldCharacterQuad& Entry : Switched->Frame.Quads)
+		{
+			const FFieldCharacterView& Character = Switched->Frame.Characters[Entry.Character];
+			if (Character.BlendKey >> ActorShift == Context.PartyActors[0] && !Character.bOnFloor)
+			{
+				const FTexturePage Page = FTexturePage::FromPortAttribute(Entry.Quad.TexturePage);
+				CHECK(Page.X == FIdsFieldSprite::TextureX);
+				CHECK(Page.Y == FIdsFieldSprite::TextureY);
+				++LeaderQuads;
+			}
+		}
+		Drawn += LeaderQuads != 0 && StandIns.count(Context.PartyActors[0]) != 0 ? 1 : 0;
+	}
+	CHECK(Differences == 0);
+	CHECK(Drawn > Ticks * 3 / 4);
 }

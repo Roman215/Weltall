@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Text/MesFont.h"
+#include "Text/MesReading.h"
 #include "Text/MessageTable.h"
 
 #include <array>
@@ -10,6 +11,8 @@
 
 namespace Weltall
 {
+	class FMessageLog;
+
 	/** What a window's inserts read from the game's state, as the kernel reads them from RAM. */
 	class IMesGameState
 	{
@@ -52,6 +55,10 @@ namespace Weltall
 		std::vector<uint8> NumberString;
 		/** The player's text speed. */
 		EMesTextSpeed Speed = EMesTextSpeed::Original;
+		/** The player's auto-advancing text, which the modes' dialogue reads; the window itself never goes on alone. */
+		EMesAutoAdvance AutoAdvance = EMesAutoAdvance::Off;
+		/** Where the modes' dialogue windows record what they type (UpdateLoggedWindow); none records nothing. */
+		FMessageLog* Log = nullptr;
 		/**
 		 * The French translation's kernel flag that types a variable-width font 8 pixels a glyph (7 a two-byte code's), as
 		 * its Enter Name sets it for its grid of letters; the glyphs are still drawn their own width.
@@ -79,12 +86,16 @@ namespace Weltall
 		bool operator==(const FMesPlacedGlyph&) const = default;
 	};
 
-	/** The glyphs a tick typed on one line: where they begin among the tick's typed glyphs, how many, and the line's strip. */
+	/**
+	 * The glyphs a tick typed on one line: where they begin among the tick's typed glyphs, how many, the line's strip, and
+	 * the line's number from the first the page typed (0), which a line that types nothing still takes.
+	 */
 	struct FMesTypedLine
 	{
 		int32 First = 0;
 		int32 Count = 0;
 		uint8 Strip = 0;
+		int16 Number = 0;
 	};
 
 	/** A line's end among glyphs read ahead of the typing (FMesWindow::PendingGlyphs): no glyph of any font. */
@@ -217,6 +228,10 @@ namespace Weltall
 		/** How many lines the latest tick drew: the window's count then (a program can change it after). */
 		int32 DrawnLines() const { return DrawnLineCount; }
 		bool Stepped() const { return bStepped; }
+		/** Whether the latest tick took a string from the queue, which starts it on a clear window. */
+		bool TookString() const { return bTook; }
+		/** Whether the latest tick cleared the window for its text: a string taken, or a page after the player's button. */
+		bool ClearedPage() const { return bCleared; }
 		/** The glyphs the latest tick typed, in the order typed. */
 		std::span<const FMesPlacedGlyph> TypedGlyphs() const { return Typed; }
 		/**
@@ -315,6 +330,8 @@ namespace Weltall
 		std::vector<FMesTypedLine> TypedOn;
 		bool bDrew = false;
 		bool bStepped = false;
+		bool bTook = false;
+		bool bCleared = false;
 		/**
 		 * The ticks the game's own speed takes over each stretch of the current string between the player's
 		 * stops, the last one up to its timed end; empty at the game's speed and for a string without one.

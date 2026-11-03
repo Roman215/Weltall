@@ -165,3 +165,35 @@ TEST_CASE("A save without an order keeps none, and one the port wrote without it
 	FGameState Plain = MakeState();
 	CHECK_FALSE(WriteOriginalSave(Plain, 0, 0, MakeNameTables(), LeadByte).PartyOrder().IsSet());
 }
+
+TEST_CASE("A save keeps how the player has Citan and Emeralda drawn, and shows its faces so", "[Game]")
+{
+	constexpr uint8 Bart = 3;
+	constexpr uint8 Emeralda = 6;
+	constexpr uint8 GrownEmeralda = 10;
+	FGameState State = MakeState();
+	State.SetParty({0, GrownEmeralda, Bart});
+	LittleEndian::WriteU16(State.Block(), 0x1D30, static_cast<uint16>(0x0009 | 1u << GrownEmeralda));
+	LittleEndian::WriteU16(State.Block(), 0x1D32, static_cast<uint16>(0x0009 | 1u << GrownEmeralda));
+	const std::size_t Grown = 0x26C + GrownEmeralda * 0xA4;
+	LittleEndian::WriteU16(State.Block(), Grown + 0x4C, 555);
+	FCharacterLooks Looks;
+	Looks.Switch(GrownEmeralda);
+	State.SetCharacterLooks(Looks);
+	const FOriginalSave Save = WriteOriginalSave(State, 2, 0, MakeNameTables(), LeadByte);
+	// The summary's face is the child's, her HP the grown Emeralda's own; the game's party keeps the story's record.
+	CHECK(Save.Party() == std::array<uint8, 3>{0, Emeralda, Bart});
+	CHECK(LittleEndian::ReadU16(Save.Data(), 0x06) == 555);
+	CHECK(Save.Data()[0x1124 + 0x1D35 - 0x1920] == GrownEmeralda);
+	CHECK(Save.CharacterLooks() == Looks);
+	CHECK_FALSE(Save.PartyOrder().IsSet());
+	CHECK(FOriginalSave::FromData(Save.Data()));
+}
+
+TEST_CASE("A save with no look switched keeps none, as the game's own saves keep none", "[Game]")
+{
+	FGameState State = MakeState();
+	const FOriginalSave Save = WriteOriginalSave(State, 0, 0, MakeNameTables(), LeadByte);
+	CHECK_FALSE(Save.CharacterLooks().IsSet());
+	CHECK(Save.Party() == std::array<uint8, 3>{0, 3, FOriginalSave::EmptySlot});
+}

@@ -125,6 +125,12 @@ namespace Weltall
 		return Shown;
 	}
 
+	std::string FFileBrowser::ShortDisplayName(std::string_view Name, std::size_t Letters)
+	{
+		const std::string Characters = DisplayName(std::filesystem::path(std::u8string(Name.begin(), Name.end())));
+		return Characters.size() <= Letters ? Characters : Characters.substr(0, Letters - 2) + "..";
+	}
+
 	void FFileBrowser::Show(const std::filesystem::path& Folder)
 	{
 		Shown = Folder;

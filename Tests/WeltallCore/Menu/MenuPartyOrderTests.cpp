@@ -6,6 +6,7 @@
 #include <catch_amalgamated.hpp>
 
 #include <array>
+#include <vector>
 
 using namespace Weltall;
 
@@ -264,4 +265,37 @@ TEST_CASE("Member Change leaves an order kept for other people as it is", "[Menu
 	CHECK(bEnded);
 	CHECK(Menu.Game().Party() == std::array<uint8, 3>{Bart, Citan, Elly});
 	CHECK(Menu.Game().PartyOrder() == Earlier);
+}
+
+TEST_CASE("Arranged panels keep every member's name, as the menu types them opening with that order", "[Menu][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	// The names are typed into strips two to a row, each 40 units wide and the second 24 units in, so a slot's strip covers
+	// the start of the next one's.
+	const auto Strips = [](const FMenuPlay& Menu)
+	{
+		const std::span<const uint16> All = Menu.Menu().Vram().ConsoleUnits();
+		std::vector<uint16> Units;
+		for (int32 Row = 59; Row < 111; ++Row)
+		{
+			const auto Start = All.begin() + Row * 1024 + 384;
+			Units.insert(Units.end(), Start, Start + 64);
+		}
+		return Units;
+	};
+	std::unique_ptr<FMenuPlay> Swapped = OpenMenu(*Disc, true);
+	Wait(*Swapped, 60);
+	// Fei picked, then Citan, beside him: Elly's panel stays where it is.
+	Press(*Swapped, EPadButton::Right);
+	Press(*Swapped, EPadButton::Cross);
+	Press(*Swapped, EPadButton::Cross, 30);
+
+	std::unique_ptr<FMenuPlay> Opened = OpenMenu(*Disc, true);
+	constexpr std::array<uint8, 3> Arranged{Citan, Fei, Elly};
+	FPartyOrder Order;
+	Order.Arrange(Opened->Game().Party(), Arranged);
+	Opened->Game().SetPartyOrder(Order);
+	Wait(*Opened, 60);
+	REQUIRE(Swapped->Game().PartyOrder().Shown(Swapped->Game().Party()) == Arranged);
+	CHECK(Strips(*Swapped) == Strips(*Opened));
 }

@@ -118,6 +118,33 @@ namespace Weltall
 		}
 	}
 
+	bool FGearModels::Wear(int32 Slot, std::shared_ptr<const IGearDress> Dress)
+	{
+		FGearModel* Worn = Model(Slot);
+		if (Worn == nullptr || Dress == nullptr)
+		{
+			return false;
+		}
+		const FGearModelPack& Pack = Dress->Model();
+		const FGearTexturePlace Place{Worn->TextureX, Worn->TextureY, Worn->ClutX, Worn->ClutY};
+		const FGearTexturePlace* Placed = (Pack.Header.Flags & GearModelFlags::AbsoluteTextures) == 0 ? &Place : nullptr;
+		for (const FGearTextureBlock& Block : Pack.Textures)
+		{
+			const std::array<int16, 2> Corner = GearTextureBlockCorner(Block, Placed);
+			PendingUploads.push_back({Corner[0], Corner[1], Block.Width, Block.Height, Block.Pixels});
+		}
+		Worn->TextureSeeds = Dress->TextureSeeds();
+		FGearFrameModel& Drawn = DrawnFrame.Models[static_cast<std::size_t>(Slot)];
+		Drawn.Parts.clear();
+		for (const FGearBonePackets& Built : Dress->Packets())
+		{
+			Drawn.Parts.push_back({Built.Bone, Built.Part, false, {}, 0});
+		}
+		Worn->Dress = std::move(Dress);
+		++Revision;
+		return true;
+	}
+
 	FGearModels::FGearModels() : FGearEngine("the gears' models")
 	{
 	}

@@ -297,6 +297,8 @@ namespace Weltall::Testing
 		Objects.Services = &Services;
 		Objects.Random = &Random;
 		Objects.Arctangents = &Data.Arctangents;
+		ShowOptions.bRegurusFightsAsVierge = false;
+		Objects.ShowOptions = &ShowOptions;
 	}
 
 	std::string RunBattleObjectCase(FXorShift32& G, const FBattleObjectData& Data, FOracleDigest& Digest, const FBattleObjectCaseFrames& Frames,

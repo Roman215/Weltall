@@ -5,6 +5,7 @@
 #include <filesystem>
 #include <optional>
 #include <string>
+#include <string_view>
 #include <vector>
 
 namespace Weltall
@@ -51,6 +52,8 @@ namespace Weltall
 		WELTALLCORE_API static bool IsOffered(const std::filesystem::path& File);
 		/** A name in the game's font's characters: an underscore as a space, any other character it lacks a question mark. */
 		WELTALLCORE_API static std::string DisplayName(const std::filesystem::path& Name);
+		/** A name of the player's (UTF-8) as DisplayName shows it, shortened to Letters with ".." at its end where it is longer. */
+		WELTALLCORE_API static std::string ShortDisplayName(std::string_view Name, std::size_t Letters);
 
 	private:
 		void Show(const std::filesystem::path& Folder);

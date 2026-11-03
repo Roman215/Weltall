@@ -149,9 +149,46 @@ namespace Weltall
 		}
 	}
 
+	std::shared_ptr<const FBattleGearDress> FBattleObjects::MakeDress(FBattleModelFiles& Files, FGearMotionPack& Motion, const FGearTexturePlace& Place)
+	{
+		if (!Files.Dress)
+		{
+			return nullptr;
+		}
+		// Without a pairing for the two, or with models other than the ones it was drawn up for, the performer is drawn as it is.
+		const FBattleGearDress::FPairing* Pairing = Files.Dress->bIdsGear ? FBattleGearDress::IdsPairing(Files.Dress->PerformerGear)
+																		  : FBattleGearDress::FindPairing(Files.Dress->PerformerGear, Files.Dress->Gear);
+		if (Pairing == nullptr)
+		{
+			return nullptr;
+		}
+		TResult<FBattleGearDress> Made = FBattleGearDress::Make(*Pairing, Files.Model, Motion, std::move(Files.Dress->Model), Files.Dress->Motion, &Place);
+		return Made ? std::make_shared<const FBattleGearDress>(std::move(*Made)) : nullptr;
+	}
+
 	void FBattleObjects::CreateFromFiles(int32 Slot, FBattleModelFiles&& Files, const FGearTexturePlace& Place)
 	{
 		FGearMotionPack* Motion = HoldPack(std::move(Files.Motion));
+		std::shared_ptr<const FBattleGearDress> Dress = MakeDress(Files, *Motion, Place);
+		if (Dress != nullptr)
+		{
+			// The performer's own pieces are never drawn at its place, so its pictures never go up there; the wearer's go up
+			// in their place before the object is made, as its own would, for a palette animation its first sequence starts
+			// to read.
+			Files.Model.Textures.clear();
+			const bool bPlaced = (Dress->Model().Header.Flags & GearModelFlags::AbsoluteTextures) == 0;
+			for (const FGearTextureBlock& Block : Dress->Model().Textures)
+			{
+				const std::array<int16, 2> Corner = GearTextureBlockCorner(Block, bPlaced ? &Place : nullptr);
+				Services->UploadImage(Block, Corner[0], Corner[1]);
+			}
+			// The performer's own, for the pieces of it the dress keeps, where the wearer's leave them whole.
+			for (const FGearTextureBlock& Block : Dress->PerformerTextures())
+			{
+				const std::array<int16, 2> Corner = GearTextureBlockCorner(Block, &Dress->PerformerPlace());
+				Services->UploadToPortRows(Block, Corner[0], Corner[1]);
+			}
+		}
 		Create(Slot, 0, Motion, std::make_shared<const FGearModelPack>(std::move(Files.Model)), Place);
 		FBattleObject* Made = Object(Slot);
 		if (Made == nullptr)
@@ -161,6 +198,11 @@ namespace Weltall
 		}
 		Made->Playing = 1;
 		Made->bFromFiles = true;
+		if (Dress != nullptr)
+		{
+			Made->TextureSeeds = Dress->TextureSeeds();
+			Made->Dress = std::move(Dress);
+		}
 		if (!Files.Variant)
 		{
 			return;

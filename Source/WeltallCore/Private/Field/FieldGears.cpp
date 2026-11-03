@@ -1,6 +1,11 @@
 #include "Field/FieldGears.h"
 
+#include "Battle/Show/BattleGearDress.h"
+#include "Battle/Show/BattleObjectFiles.h"
+#include "Battle/Show/BattleRegurus.h"
 #include "Field/EventContext.h"
+#include "Game/CharacterLooks.h"
+#include "Game/GameState.h"
 #include "Graphics/GteMath.h"
 #include "Graphics/GteVectors.h"
 
@@ -20,6 +25,18 @@ namespace Weltall
 		constexpr uint32 ShadowlessFloors = 0x200002;
 		/** The model's yaw is three quarters of a turn on from its actor's. */
 		constexpr int32 ModelYawOffset = 0xC00;
+
+		/** The Yggdrasil's hangar close up, the bay it shows (var[002]), and Fei's bay. */
+		constexpr int32 HangarCloseUp = 293;
+		constexpr uint32 BayVariable = 2;
+		constexpr uint16 FeisBay = 0;
+		/** The field's models of Fei's gears, and the gears they are. */
+		constexpr std::array<std::pair<int32, uint8>, 3> FeisGearModels{{{0, FCharacterLooks::Weltall}, {42, FCharacterLooks::Weltall2}, {57, FCharacterLooks::Xenogears}}};
+		/** The hangar's other bays close up, Elly's bay there, the field's model of Vierge it shows, and Elly. */
+		constexpr int32 OtherBaysCloseUp = 296;
+		constexpr uint16 EllysBay = 4;
+		constexpr int32 ViergesFieldModel = 1;
+		constexpr int32 Elly = 1;
 
 		/** A gear tick for each field tick: the field passes one extra vblank for its two. */
 		constexpr uint32 FieldExtraVblanks = 1;
@@ -82,6 +99,44 @@ namespace Weltall
 		return ReadGearFiles(*Image, *Index, GearModel);
 	}
 
+	namespace
+	{
+		/** The battle's dress of Pairing's wearer over its performer, from their battle files (a scene's model for Id's gear). */
+		std::shared_ptr<const IGearDress> MakeGearDress(const FCdImage& Image, const FGameFileIndex& Index, const FBattleGearDress::FPairing* Pairing,
+			const FGearTexturePlace& Place)
+		{
+			if (Pairing == nullptr)
+			{
+				return nullptr;
+			}
+			const TResult<FBattleObjectTables> Tables = FBattleObjectTables::Load(Image, Index);
+			if (!Tables)
+			{
+				return nullptr;
+			}
+			TResult<FBattleModelFiles> Performer = BattleObjectFiles::ReadGear(Image, Index, *Tables, Pairing->PerformerGear, 0);
+			TResult<FBattleModelFiles> Wearer = Pairing->WearerScene != FBattleGearDress::NoScene
+				? BattleObjectFiles::ReadSceneModel(Image, Index, Pairing->WearerScene, Pairing->WearerEntry)
+				: BattleObjectFiles::ReadGear(Image, Index, *Tables, Pairing->WearerGear, 0);
+			if (!Performer || !Wearer)
+			{
+				return nullptr;
+			}
+			TResult<FBattleGearDress> Made = FBattleGearDress::Make(*Pairing, Performer->Model, Performer->Motion, std::move(Wearer->Model), Wearer->Motion, &Place);
+			return Made ? std::make_shared<const FBattleGearDress>(std::move(*Made)) : nullptr;
+		}
+	}
+
+	std::shared_ptr<const IGearDress> FFieldDiscGearFiles::IdsDress(uint8 FeisGear, const FGearTexturePlace& Place)
+	{
+		return MakeGearDress(*Image, *Index, FBattleGearDress::IdsPairing(FeisGear), Place);
+	}
+
+	std::shared_ptr<const IGearDress> FFieldDiscGearFiles::GearDress(uint8 PerformerGear, uint8 WearerGear, const FGearTexturePlace& Place)
+	{
+		return MakeGearDress(*Image, *Index, FBattleGearDress::FindPairing(PerformerGear, WearerGear), Place);
+	}
+
 	uint32 FieldGearLayout(const FFieldGears& Gears)
 	{
 		constexpr uint32 RevisionBits = 16;
@@ -102,6 +157,38 @@ namespace Weltall
 
 	namespace
 	{
+		/**
+		 * The gear a bay of the Yggdrasil's hangar close up shows, dressed: Fei's (map 293's bay 0) as Id's red gear of its
+		 * time while he is drawn as Id, Elly's Vierge (map 296's bay 4) as Regurus while she holds it, as the hangar parks
+		 * it; the bay's lowdown and renaming stay the scripts'. Elsewhere the scripts' gears are the story's.
+		 */
+		std::shared_ptr<const IGearDress> BayDress(FEventContext& Context, int32 Slot)
+		{
+			FFieldGears& Gears = Context.Gears;
+			if (Context.GameState == nullptr)
+			{
+				return nullptr;
+			}
+			const int32 Model = Gears.FileNumbers[static_cast<std::size_t>(Slot)] / 2;
+			const uint16 Bay = Context.Variables.Raw(BayVariable);
+			if (Context.RunningMap == HangarCloseUp && Bay == FeisBay)
+			{
+				for (const auto& [FieldModel, Gear] : FeisGearModels)
+				{
+					if (FieldModel == Model && Context.GameState->CharacterLooks().WearsIdsGear(Gear))
+					{
+						return Gears.Files->IdsDress(Gear, FieldGearTexturePlace(Gears, Slot));
+					}
+				}
+			}
+			if (Context.RunningMap == OtherBaysCloseUp && Bay == EllysBay && Model == ViergesFieldModel
+				&& Context.GameState->CharacterGear(Elly) == BattleRegurus::Regurus)
+			{
+				return Gears.Files->GearDress(BattleRegurus::Vierge, BattleRegurus::Regurus, FieldGearTexturePlace(Gears, Slot));
+			}
+			return nullptr;
+		}
+
 		/** The gears' module made afresh and every registered gear loaded, its builds under Lighting (none: unknown). */
 		std::optional<FError> MakeFieldGears(FEventContext& Context, const std::optional<FGte>& Lighting)
 		{
@@ -138,6 +225,7 @@ namespace Weltall
 					return Error;
 				}
 				Gears.LoadScales[static_cast<std::size_t>(Slot)] = Models.Model(Slot)->Scale;
+				Models.Wear(Slot, BayDress(Context, Slot));
 			}
 			// A later load (a script's swap) builds under whatever the last frame's drawing left by then.
 			Models.BuildLighting.reset();

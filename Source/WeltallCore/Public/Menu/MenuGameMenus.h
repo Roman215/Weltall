@@ -49,6 +49,8 @@ namespace Weltall
 		void SetDeviceFiles(IMenuDeviceFiles* InFiles) { DeviceFiles = InFiles; }
 		/** The mods the game has found, asked as the options screen's Modding page lists them; none: none found. */
 		void SetMods(std::function<FMenuMods()> InMods) { Mods = std::move(InMods); }
+		/** Copies the game's example scenes into the Mods folder, over a copy there with its argument; none: the game has none. */
+		void SetExampleScenes(std::function<EExampleScenesCopy(bool)> InCopy) { ExampleScenes = std::move(InCopy); }
 
 		/** What the display offers, asked as the options screen opens; none: the screen offers no window sizes. */
 		void SetDisplayModes(std::function<FDisplayModes()> InModes) { DisplayModes = std::move(InModes); }
@@ -68,6 +70,7 @@ namespace Weltall
 		IMenuAssets* Assets = nullptr;
 		IMenuDeviceFiles* DeviceFiles = nullptr;
 		std::function<FMenuMods()> Mods;
+		std::function<EExampleScenesCopy(bool)> ExampleScenes;
 		std::function<FDisplayModes()> DisplayModes;
 		std::function<void()> Quit;
 	};

@@ -33,8 +33,8 @@ struct FDrawListFrame
 
 /**
  * Adds the passes that draw a frame's 2D layer over Output, with the game screen (Screen of its own
- * pixels) filling ScreenRect of it. Textured primitives sample Textures, which must hold every
- * texture they name.
+ * pixels) filling ScreenRect of it, nothing drawn above or below its rows. Textured primitives sample
+ * Textures, which must hold every texture they name.
  */
 WELTALL_API void AddDrawListPasses(FRDGBuilder& GraphBuilder, const FDrawListTextures& Textures, const FDrawListFrame& Frame, FRDGTextureRef Output,
 	const FIntRect& ScreenRect, Weltall::FScreenSize Screen);

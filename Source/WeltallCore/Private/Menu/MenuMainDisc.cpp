@@ -1,7 +1,10 @@
 #include "Menu/MenuMain.h"
 #include "Menu/MenuDeviceFiles.h"
+#include "Menu/MenuFileBrowser.h"
 #include "Menu/OptionsText.h"
 
+#include <array>
+#include <optional>
 #include <string>
 
 namespace Weltall
@@ -27,7 +30,7 @@ namespace Weltall
 		/** The disc the change goes on with: the second. */
 		constexpr int32 SecondDisc = 1;
 
-		/** The second disc's question: its window across the screen's middle, its line, its answers side by side, the lines on one under them. */
+		/** The port's questions: the window across the screen's middle, the line, the answers side by side, the lines on one under them. */
 		constexpr int16 OfferX = 0x18;
 		constexpr int16 OfferY = 0x34;
 		constexpr uint16 OfferWidth = 0x110;
@@ -44,8 +47,8 @@ namespace Weltall
 		constexpr int32 OfferPointerDrop = 8;
 		/** The question's lines among the labels: the line, the two answers, then the three on the answer under the pointer. */
 		constexpr std::size_t OfferQuestion = 0;
-		constexpr std::size_t OfferOriginal = 1;
-		constexpr std::size_t OfferExpanded = 2;
+		constexpr std::size_t OfferLeft = 1;
+		constexpr std::size_t OfferRight = 2;
 		constexpr std::size_t OfferHelp = 3;
 	}
 
@@ -77,7 +80,51 @@ namespace Weltall
 		}
 		Flags[MenuFlag::Pointer] = 0;
 		Flags[MenuFlag::Selection] = 0;
-		co_await RequireDisc(SecondDisc);
+		co_await RequireDisc(SecondDisc, true);
+	}
+
+	TMenuTask<> FMenuMain::RequireLoadedGameDisc()
+	{
+		// The disc change's own save is made as disc 2's on the forest where the change opens (map 612), the story still
+		// at the change; its first script sends it on to disc 2's opening at once, so its load is the change itself.
+		constexpr uint16 DiscChangeMap = 612;
+		constexpr uint16 PlaceMapBits = 0x3FFF;
+		const FGameState& Game = *Services.Game;
+		const bool bResumesInChange = Game.SavedDisc() == SecondDisc && (Game.Place() & PlaceMapBits) == DiscChangeMap
+			&& Game.SavedEventVariable(0) == DiscChangeStoryProgress;
+		co_await RequireDisc(Game.SavedDisc(), bResumesInChange);
+	}
+
+	TMenuTask<> FMenuMain::SaveClearFile()
+	{
+		bCardWatchInAsk = false;
+		OpenLayer();
+		while (LayerState != EMenuLayer::Still)
+		{
+			co_await Frame();
+		}
+		// The disc change's "Save?" first, its left option or Cancel asking whether to go on without; then the files,
+		// which Cancel leaves once a save is made, and before it asks that again ("Are you sure you don't need to save?",
+		// No back to the files).
+		InitTargetPointers(0);
+		const uint8 Answer = co_await Ask(SaveText);
+		bool bSaves = (Answer == 0 && !bAskCancelled) || co_await Ask(SkipSaveText) == 0;
+		Flags[MenuFlag::TargetPointers] = 0;
+		bFileStaysAfterSave = true;
+		while (bSaves)
+		{
+			co_await RunCommand(0);
+			if (bFileSaved)
+			{
+				break;
+			}
+			InitTargetPointers(0);
+			bSaves = co_await Ask(SkipSaveText) == 0;
+			Flags[MenuFlag::TargetPointers] = 0;
+		}
+		bFileStaysAfterSave = false;
+		Flags[MenuFlag::Pointer] = 0;
+		Flags[MenuFlag::Selection] = 0;
 	}
 
 	TMenuTask<uint8> FMenuMain::Ask(uint8 FirstText, uint8 SecondText, bool bWaits)
@@ -230,6 +277,32 @@ namespace Weltall
 
 	TMenuTask<> FMenuMain::OfferStoryMode()
 	{
+		namespace Text = OptionsText::SecondDisc;
+		constexpr std::size_t NameLetters = 22;
+		// A mod's expansion is named under Extended; Menu opens the Modding page to choose another, then asks again. Turned
+		// off there, none is offered: nothing is chosen, as where none ever was.
+		while (const std::optional<FMenuExpansion> Offered = Services.OfferedExpansion ? Services.OfferedExpansion() : std::nullopt)
+		{
+			const bool bModding = !Offered->Folder.empty() && Services.Settings != nullptr;
+			const std::array<std::string, 3> Help = Offered->Folder.empty() ? OptionsText::Fill(Text::ExtendedHelp)
+				: OptionsText::Fill(Text::ExtendedNamed, {FFileBrowser::ShortDisplayName(Offered->Info.Name, NameLetters)});
+			OptionsText::FOffer Offer = Text::Offer;
+			Offer.RightHelp = {Help[0], Help[1], bModding || Offered->Folder.empty() ? std::string_view(Help[2]) : std::string_view()};
+			const EOfferAnswer Answer = co_await AskOffer(Offer, false, bModding);
+			if (Answer == EOfferAnswer::Menu)
+			{
+				co_await OptionsScreen(true);
+				continue;
+			}
+			const bool bExpanded = Answer == EOfferAnswer::Right;
+			Services.Game->SetStoryMode(bExpanded ? EStoryMode::Expanded : EStoryMode::Original);
+			Services.Game->SetExpansion(bExpanded ? Offered->Folder : std::string());
+			co_return;
+		}
+	}
+
+	TMenuTask<FMenuMain::EOfferAnswer> FMenuMain::AskOffer(const OptionsText::FOffer& Offer, bool bCancels, bool bMenu)
+	{
 		OpenLayer();
 		while (LayerState != EMenuLayer::Still)
 		{
@@ -241,48 +314,58 @@ namespace Weltall
 		{
 			co_await Frame();
 		}
-		// The pointer starts on the right answer, as the messages' does: the expanded second disc.
-		EStoryMode Choice = EStoryMode::Expanded;
-		DrawStoryOffer(Choice);
-		bStoryOfferShown = true;
+		// The pointer starts on the right answer, as the messages' does.
+		bool bRight = true;
+		bool bCancelled = false;
+		bool bMenuPressed = false;
+		DrawOffer(Offer, bRight);
+		bOfferShown = true;
 		while (true)
 		{
 			co_await Frame();
-			const EStoryMode Was = Choice;
+			const bool bWas = bRight;
 			if (Code == EMenuCode::Left)
 			{
-				Choice = EStoryMode::Original;
+				bRight = false;
 			}
 			else if (Code == EMenuCode::Right)
 			{
-				Choice = EStoryMode::Expanded;
+				bRight = true;
 			}
 			else if (Code == EMenuCode::Confirm)
 			{
 				break;
 			}
-			if (Choice != Was)
+			else if (Code == EMenuCode::Cancel && bCancels)
 			{
-				DrawStoryOffer(Choice);
+				bCancelled = true;
+				break;
+			}
+			else if (Code == EMenuCode::Triangle && bMenu)
+			{
+				bMenuPressed = true;
+				break;
+			}
+			if (bRight != bWas)
+			{
+				DrawOffer(Offer, bRight);
 			}
 		}
-		Services.Game->SetStoryMode(Choice);
-		bStoryOfferShown = false;
+		bOfferShown = false;
 		TargetPointerShown[LeftPointer] = false;
 		TargetPointerShown[RightPointer] = false;
 		Flags[MenuFlag::TargetPointers] = 0;
 		CloseWindow(MessageWindow);
 		co_await Frame();
+		co_return bCancelled ? EOfferAnswer::Cancelled : bMenuPressed ? EOfferAnswer::Menu : bRight ? EOfferAnswer::Right : EOfferAnswer::Left;
 	}
 
-	void FMenuMain::DrawStoryOffer(EStoryMode Choice)
+	void FMenuMain::DrawOffer(const OptionsText::FOffer& Offer, bool bRight)
 	{
-		namespace Words = OptionsText::SecondDisc;
-		const bool bExpanded = Choice == EStoryMode::Expanded;
-		const std::array<std::string_view, 3>& Help = bExpanded ? Words::ExtendedHelp : Words::OriginalHelp;
-		std::array<FMenuLabel, 6>& Lines = StoryOfferLines;
-		TypeStripPair(0, Words::Question, Words::Original, Lines[OfferQuestion], Lines[OfferOriginal]);
-		TypeStripPair(1, Words::Extended, Help[0], Lines[OfferExpanded], Lines[OfferHelp]);
+		const std::array<std::string_view, 3>& Help = bRight ? Offer.RightHelp : Offer.LeftHelp;
+		std::array<FMenuLabel, 6>& Lines = OfferLines;
+		TypeStripPair(0, Offer.Question, Offer.Left, Lines[OfferQuestion], Lines[OfferLeft]);
+		TypeStripPair(1, Offer.Right, Help[0], Lines[OfferRight], Lines[OfferHelp]);
 		TypeStripPair(2, Help[1], Help[2], Lines[OfferHelp + 1], Lines[OfferHelp + 2]);
 		const auto Place = [this, &Lines](std::size_t Line, int32 X, int32 Y)
 		{
@@ -290,16 +373,16 @@ namespace Weltall
 			RecordLabel(Lines[Line]);
 		};
 		Place(OfferQuestion, OfferTextX, OfferQuestionY);
-		Place(OfferOriginal, OfferAnswerX[0], OfferAnswersY);
-		Place(OfferExpanded, OfferAnswerX[1], OfferAnswersY);
+		Place(OfferLeft, OfferAnswerX[0], OfferAnswersY);
+		Place(OfferRight, OfferAnswerX[1], OfferAnswersY);
 		for (std::size_t Line = 0; Line < Help.size(); ++Line)
 		{
 			Place(OfferHelp + Line, OfferTextX, OfferHelpY + static_cast<int32>(Line) * OfferHelpStep);
 		}
-		PlaceTargetPointer(LeftPointer, OfferAnswerX[0] + Lines[OfferOriginal].Width + OfferPointerGap, OfferAnswersY + OfferPointerDrop);
-		PlaceTargetPointer(RightPointer, OfferAnswerX[1] + Lines[OfferExpanded].Width + OfferPointerGap, OfferAnswersY + OfferPointerDrop);
-		TargetPointerShown[LeftPointer] = !bExpanded;
-		TargetPointerShown[RightPointer] = bExpanded;
+		PlaceTargetPointer(LeftPointer, OfferAnswerX[0] + Lines[OfferLeft].Width + OfferPointerGap, OfferAnswersY + OfferPointerDrop);
+		PlaceTargetPointer(RightPointer, OfferAnswerX[1] + Lines[OfferRight].Width + OfferPointerGap, OfferAnswersY + OfferPointerDrop);
+		TargetPointerShown[LeftPointer] = !bRight;
+		TargetPointerShown[RightPointer] = bRight;
 	}
 
 	void FMenuMain::DrawDiscChange()

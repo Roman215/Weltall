@@ -273,6 +273,8 @@ namespace Weltall
 		uint32 TextY = 0;
 		/** The message waits for the confirm button: the input keeps the frame's event for it. */
 		bool bKeyWait = false;
+		/** Auto-advancing text: how long the message has waited for the button, counted by the message input's steps. */
+		FMesReading Reading;
 		/** The Wait instructions' countdowns run (with the message input). */
 		bool bWaitCounters = false;
 

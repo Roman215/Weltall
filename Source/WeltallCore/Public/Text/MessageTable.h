@@ -12,6 +12,9 @@ namespace Weltall
 	/**
 	 * A table of messages, the form every text of the game takes: a count, each message's offset and
 	 * window size (width in 4-pixel units, lines), then the strings, each ended by a zero byte.
+	 *
+	 * The game never checks a table's offsets, only reads the messages its scripts name, so a table is kept
+	 * even where some of its messages start past its bytes (a translation's tool can leave unused ones so).
 	 */
 	class FMessageTable
 	{
@@ -21,8 +24,14 @@ namespace Weltall
 
 		int32 Count() const { return static_cast<int32>(Entries); }
 
-		/** The message's bytes to the end of the table, as the game reads them: up to its zero byte. */
+		/**
+		 * The message's bytes to the end of the table, as the game reads them: up to its zero byte. Empty past the
+		 * count, and for a message that starts past the table's bytes, where the game reads memory the table does not hold.
+		 */
 		WELTALLCORE_API std::span<const uint8> String(int32 Index) const;
+
+		/** Whether message Index, one of the table's, starts past its bytes. */
+		WELTALLCORE_API bool StartsPastBytes(int32 Index) const;
 
 		/** The window size the message was written for. */
 		WELTALLCORE_API int32 WidthUnits(int32 Index) const;
@@ -36,6 +45,7 @@ namespace Weltall
 	/** A message to add to a table: its codes, ending with 00, and the window it is written for. */
 	struct FAddedMessage
 	{
+		/** None for a message the disc's table starts past its bytes, which stays past the new table's. */
 		std::vector<uint8> Codes;
 		/** In units of 4 pixels. */
 		uint8 WidthUnits = 0;

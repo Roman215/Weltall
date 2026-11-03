@@ -123,6 +123,7 @@ namespace Weltall::EventOps
 					SetPortraitSlot(Self(Context), Messages.LastPortraitSlot);
 					Slot.Character = Character;
 					Slot.Load = FFieldPortraitSlot::Reading;
+					Slot.ReadNumber = ++Messages.PortraitReads;
 					return false;
 				}
 				if (Tries >= FFieldMessages::PortraitSlotCount)

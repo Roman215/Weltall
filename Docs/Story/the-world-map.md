@@ -4,7 +4,7 @@ A `world map E` document adds locations, names, arrival points and minimap dots 
 from 0 to 8; Disc 2 uses era 8. It can also temporarily hide the party's ship at specified story values.
 The additions load with the world map scene.
 
-`Content/Story/disc2/mass-driver-world-map.txt` adds the Mass Driver ruins on Taura's land:
+`Content/Examples/disc2/mass-driver-world-map.txt` adds the Mass Driver ruins on Taura's land:
 
 ```
 world map 8

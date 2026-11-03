@@ -127,7 +127,7 @@ IMPLEMENT_GLOBAL_SHADER(FCrtGlowAcrossPS, "/Weltall/Private/Crt.usf", "GlowAcros
 IMPLEMENT_GLOBAL_SHADER(FCrtGlowDownPS, "/Weltall/Private/Crt.usf", "GlowDownPS", SF_Pixel);
 IMPLEMENT_GLOBAL_SHADER(FCrtScreenPS, "/Weltall/Private/Crt.usf", "ScreenPS", SF_Pixel);
 
-void AddCrtPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Picture, FRDGTextureRef Output, const FIntRect& Area, const Weltall::FCrtParameters& Look,
+void AddCrtPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Picture, FRDGTextureRef Output, const FScreenArea& Area, const Weltall::FCrtParameters& Look,
 	Weltall::FScreenSize Screen)
 {
 	const FIntPoint Size = Area.Size();
@@ -136,8 +136,7 @@ void AddCrtPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Picture, FRDGTexture
 		return;
 	}
 	// The rows as the game screen's 2D layer is placed; the lines go on above and below it to the picture's edges.
-	const Weltall::FDisplayRect Placed = Weltall::FScreenLayout::Fit(Size.X, Size.Y, Screen).ToDisplay(
-		{0, 0, static_cast<int16>(Screen.Width), static_cast<int16>(Screen.Height)});
+	const Weltall::FDisplayRect Placed = Area.Layout(Screen).ToDisplay({0, 0, static_cast<int16>(Screen.Width), static_cast<int16>(Screen.Height)});
 	const float LinePitch = static_cast<float>(Placed.Height) / Screen.Height;
 	if (LinePitch <= 0.0f)
 	{

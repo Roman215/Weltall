@@ -6,6 +6,8 @@
 #include "Menu/MenuProgram.h"
 #include "Menu/MenuResources.h"
 #include "Sound/GameSoundSession.h"
+#include "Mods/ExpansionMods.h"
+#include "Story/StoryLibrary.h"
 #include "Story/StoryPacks.h"
 
 namespace Weltall
@@ -29,7 +31,24 @@ namespace Weltall
 		FDisplayModes DisplayModes() const override { return Owner.DisplayModes ? Owner.DisplayModes() : FDisplayModes{}; }
 		IMenuAssets* Assets() const override { return Owner.Assets; }
 		IMenuDeviceFiles* DeviceFiles() const override { return Owner.DeviceFiles; }
-		FMenuMods Mods() const override { return Owner.Mods ? Owner.Mods() : FMenuMods{}; }
+		FMenuMods Mods() const override
+		{
+			FMenuMods Found = Owner.Mods ? Owner.Mods() : FMenuMods{};
+			if (const FStoryLibrary* Library = Session.StoryLibrary())
+			{
+				for (const FStoryLibrary::FExpansion& Expansion : Library->Expansions())
+				{
+					Found.Expansions.push_back({Expansion.Mod.Folder, Expansion.Mod.Info, Expansion.Packs.has_value(), Expansion.bUnchanged,
+						static_cast<int32>(Expansion.ForAnotherDisc.size())});
+				}
+			}
+			return Found;
+		}
+		bool HasExampleScenes() const override { return static_cast<bool>(Owner.ExampleScenes); }
+		EExampleScenesCopy CopyExampleScenes(bool bReplace) override
+		{
+			return Owner.ExampleScenes ? Owner.ExampleScenes(bReplace) : EExampleScenesCopy::Failed;
+		}
 		FSoundSources SoundSources() const override { return Session.SoundSources(); }
 
 	private:
@@ -110,6 +129,18 @@ namespace Weltall
 			Result.bLoadsInPlay = true;
 			Result.bArrangesParty = true;
 			Result.bStoryExpansion = Session.Story() != nullptr && Session.Story()->HasExpansion();
+			// Asked of a game with no story mode chosen, whose story is the offered expansion's.
+			Result.OfferedExpansion = [Played = &Session]() -> std::optional<FMenuExpansion>
+			{
+				if (Played->Story() == nullptr || !Played->Story()->HasExpansion())
+				{
+					return std::nullopt;
+				}
+				const FExpansionMod* Offered = Played->OfferedExpansion();
+				return Offered != nullptr ? FMenuExpansion{Offered->Folder, Offered->Info, true, false, 0} : FMenuExpansion{{}, {}, true, false, 0};
+			};
+			Result.PlaysExpansion = [Played = &Session](std::string_view Folder) { return Played->PlaysExpansion(Folder); };
+			Result.Tell = [Played = &Session](std::string Line, std::string Why) { Played->TellPlayer({std::move(Line), std::move(Why)}); };
 			Result.WayBack = Session.Story() != nullptr ? Session.Story()->WayBack() : nullptr;
 			return Result;
 		}

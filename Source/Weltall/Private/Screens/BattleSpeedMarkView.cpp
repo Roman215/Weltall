@@ -11,14 +11,15 @@ class FBattleSpeedMarkFrame final : public IScreenFrame
 public:
 	explicit FBattleSpeedMarkFrame(TSharedRef<FVramTexture> InVram) : Vram(MoveTemp(InVram)) {}
 
-	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override
+	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override
 	{
 		if (Background.IsValid())
 		{
 			Background->AddPasses(GraphBuilder, Output, Area);
 		}
-		const Weltall::FDisplayRect Place = Weltall::PlaceBattleSpeedMark(Area.Width(), Area.Height());
-		const FIntPoint Origin = Area.Min + FIntPoint(Place.X, Place.Y);
+		const FIntRect Rows = Area.Rows(ScreenSize());
+		const Weltall::FDisplayRect Place = Weltall::PlaceBattleSpeedMark(Rows.Width(), Rows.Height());
+		const FIntPoint Origin = Rows.Min + FIntPoint(Place.X, Place.Y);
 		FDrawListFrame Frame;
 		Frame.Latest = &Mark;
 		AddDrawListPasses(GraphBuilder, *Vram, Frame, Output, FIntRect(Origin, Origin + FIntPoint(Place.Width, Place.Height)), Weltall::BattleSpeedMarkScreen);

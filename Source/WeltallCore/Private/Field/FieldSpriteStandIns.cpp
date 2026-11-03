@@ -46,13 +46,19 @@ namespace Weltall
 		}
 	}
 
-	void FFieldSpriteStandIns::Make(FStandIn& StandIn, int32 Place, const FSpriteFile& File)
+	void FFieldSpriteStandIns::Make(FStandIn& StandIn, int32 Place, const FSpriteFile& File, const FVramImage* Picture, FVram& Vram)
 	{
 		if (StandIn.File != nullptr)
 		{
 			Kernel.Free(StandIn.Sprite);
 		}
-		Kernel.Create(StandIn.Sprite, File, ClutX, static_cast<int16>(ClutRow + Place), static_cast<int16>(AreaX + AreaWidth * Place), AreaY);
+		const int16 TextureX = Picture != nullptr ? Picture->Rect.X : static_cast<int16>(AreaX + AreaWidth * Place);
+		const int16 TextureY = Picture != nullptr ? Picture->Rect.Y : AreaY;
+		if (Picture != nullptr)
+		{
+			Vram.UploadToPortRows(*Picture);
+		}
+		Kernel.Create(StandIn.Sprite, File, ClutX, static_cast<int16>(ClutRow + Place), TextureX, TextureY);
 		Kernel.SetPartCapacity(StandIn.Sprite, PartRecords);
 		Kernel.SetSizeShift(StandIn.Sprite, FieldSizeShift);
 		StandIn.Sprite.Weight = FieldSpriteWeight;
@@ -94,13 +100,13 @@ namespace Weltall
 	}
 
 	const FSprite* FFieldSpriteStandIns::Follow(int32 Place, const FSpriteFile& File, int32 Animation, const FSprite& Followed, bool bAnimates, int32 Scale,
-		uint32 Tick, const FGteArctangents* Arctangents, FVram& Vram)
+		uint32 Tick, const FGteArctangents* Arctangents, FVram& Vram, const FVramImage* Picture)
 	{
 		FStandIn& StandIn = StandIns[static_cast<std::size_t>(Place)];
 		const bool bMade = StandIn.File != &File;
 		if (bMade)
 		{
-			Make(StandIn, Place, File);
+			Make(StandIn, Place, File, Picture, Vram);
 		}
 		if (StandIn.bFailed)
 		{
@@ -109,6 +115,9 @@ namespace Weltall
 		Kernel.Arctangents = Arctangents;
 		FSprite& Sprite = StandIn.Sprite;
 		Sprite.Position = Followed.Position;
+		// A jump's waits on the fall and the landing read the vertical speed and the floor, which only the followed one's actor moves.
+		Sprite.Velocity[1] = Followed.Velocity[1];
+		Sprite.FloorY = Followed.FloorY;
 		Sprite.Scale = static_cast<int16>(Followed.Scale * Scale >> 12);
 		Step(StandIn, Followed, Animation, Tick, bMade, Vram);
 		StandIn.bFollowedAnimates = bAnimates;

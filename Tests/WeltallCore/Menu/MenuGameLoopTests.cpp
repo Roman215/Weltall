@@ -3,6 +3,7 @@
 #include "Game/GameSession.h"
 #include "Game/SaveStore.h"
 #include "Game/SaveWrite.h"
+#include "Game/StoryMode.h"
 #include "Game/WorldMapProgram.h"
 #include "Game/PlayerSettings.h"
 #include "Menu/MenuDeviceFiles.h"
@@ -530,7 +531,8 @@ TEST_CASE("Powered on with disc 2 alone, New Game asks for disc 1 and the game g
 		REQUIRE_FALSE(Game->Frame(CrossHeld));
 	}
 
-	// New Game: "INSERT DISC 1" stays up, disc 1 looked for at each confirmation until it is there.
+	// New Game: disc 1 is looked for, and not there "INSERT DISC 1" stays up, disc 1 looked for at each confirmation
+	// until it is there.
 	REQUIRE_FALSE(Game->Frame(UpHeld));
 	REQUIRE_FALSE(Game->Frame(NoButtons));
 	REQUIRE_FALSE(Game->Frame(CrossHeld));
@@ -539,7 +541,7 @@ TEST_CASE("Powered on with disc 2 alone, New Game asks for disc 1 and the game g
 		REQUIRE_FALSE(Game->Frame());
 	}
 	REQUIRE(Menus.Running() != nullptr);
-	CHECK(Drive.Asked.empty());
+	CHECK(Drive.Asked == std::vector<int32>{0});
 	for (const bool bThere : {false, true})
 	{
 		Drive.bThere = bThere;
@@ -554,7 +556,7 @@ TEST_CASE("Powered on with disc 2 alone, New Game asks for disc 1 and the game g
 	}
 	Game->RunUntil([&] { return Menus.Running() == nullptr; }, 200);
 	REQUIRE(Menus.Running() == nullptr);
-	CHECK(Drive.Asked == std::vector<int32>{0, 0});
+	CHECK(Drive.Asked == std::vector<int32>{0, 0, 0});
 	CHECK(Game->Session->DiscNumber() == 0);
 	CHECK(&Game->Session->Image() == &First->Image());
 	CHECK(Game->Session->Game().Place() == FirstMap);
@@ -570,7 +572,7 @@ TEST_CASE("Powered on with disc 2 alone, New Game asks for disc 1 and the game g
 	CHECK(Loop.Field()->Runtime().Context().RunningMap == FirstMap);
 }
 
-TEST_CASE("Powered on with disc 2 alone, Continue with a disc 1 save asks for disc 1 and goes on at the save's map from its files", "[Menu][Content]")
+TEST_CASE("Powered on with disc 2 alone, Continue with a disc 1 save goes straight on at the save's map from disc 1's files once disc 1 is in Games", "[Menu][Content]")
 {
 	REQUIRE_DISC(Second, EDiscRelease::UsaDisc2);
 	REQUIRE_DISC(First, EDiscRelease::UsaDisc1);
@@ -593,17 +595,10 @@ TEST_CASE("Powered on with disc 2 alone, Continue with a disc 1 save asks for di
 	Game->RunUntil([&] { return Menus.Running() != nullptr; }, 2000, CrossHeld);
 	REQUIRE(Menus.Running() != nullptr);
 
-	// Continue, Load, the save, "Load this file?" Yes, "Finished", then "INSERT DISC 1" confirmed with it there.
-	const std::array<std::pair<FPadState, int32>, 14> Presses{{{NoButtons, 40}, {CrossHeld, 2}, {NoButtons, 70}, {CrossHeld, 2}, {NoButtons, 40},
-		{CrossHeld, 2}, {NoButtons, 30}, {LeftHeld, 2}, {NoButtons, 6}, {CrossHeld, 2}, {NoButtons, 60}, {CrossHeld, 2}, {NoButtons, 120},
-		{CrossHeld, 2}}};
-	for (const auto& [Held, Frames] : Presses)
-	{
-		for (int32 Frame = 0; Frame < Frames; ++Frame)
-		{
-			REQUIRE_FALSE(Game->Frame(Held));
-		}
-	}
+	// Continue, Load, the save, "Load this file?" Yes, "Finished"; disc 1 is in Games, so no "INSERT DISC 1".
+	const std::array<std::pair<FPadState, int32>, 12> Presses{{{NoButtons, 40}, {CrossHeld, 2}, {NoButtons, 70}, {CrossHeld, 2}, {NoButtons, 40},
+		{CrossHeld, 2}, {NoButtons, 30}, {LeftHeld, 2}, {NoButtons, 6}, {CrossHeld, 2}, {NoButtons, 60}, {CrossHeld, 2}}};
+	Play(*Game, Presses);
 	Game->RunUntil([&] { return Menus.Running() == nullptr; }, 200);
 	REQUIRE(Menus.Running() == nullptr);
 	CHECK(Drive.Asked == std::vector<int32>{0});
@@ -614,6 +609,165 @@ TEST_CASE("Powered on with disc 2 alone, Continue with a disc 1 save asks for di
 	};
 	Game->RunUntil(OnSavedMap, 600);
 	CHECK(OnSavedMap());
+	std::filesystem::remove_all(Folder, Error);
+}
+
+namespace
+{
+	/** The forest where the disc change opens, and the bit of saved variable E0h its script sets before opening it. */
+	constexpr uint16 DiscChangeMap = 612;
+	constexpr int32 DiscChangeVariable = 0xE0;
+	constexpr uint16 DiscChangeBit = 0x8000;
+	/** Disc 2's opening, the dream the disc change's map sends a game on to. */
+	constexpr int32 SecondDiscFirstMap = 617;
+	/** The second disc, as a save's disc byte names it. */
+	constexpr int32 SavedOnSecondDisc = 1;
+	/** On the title: Continue, Load, the save, "Load this file?" Yes, "Finished". */
+	constexpr std::array<std::pair<FPadState, int32>, 12> LoadPresses{{{NoButtons, 40}, {CrossHeld, 2}, {NoButtons, 70}, {CrossHeld, 2},
+		{NoButtons, 40}, {CrossHeld, 2}, {NoButtons, 30}, {LeftHeld, 2}, {NoButtons, 6}, {CrossHeld, 2}, {NoButtons, 60}, {CrossHeld, 2}}};
+
+	/** Saved as made on disc Disc, in the first store's first slot of a fresh folder. */
+	FSaveStore SaveMadeOn(Testing::FGameLoopSession& Game, const std::filesystem::path& Folder, FGameState Saved, int32 Disc)
+	{
+		std::error_code Error;
+		std::filesystem::remove_all(Folder, Error);
+		FSaveStore Store(Folder);
+		REQUIRE_FALSE(Store.Write(0, WriteOriginalSave(Saved, 0, Disc, Game.Session->Text().NameTables, Game.Session->Text().Font.LeadByte())));
+		return Store;
+	}
+}
+
+TEST_CASE("Continue with a save made on disc 2 goes straight on with disc 2 where it is in Games, and asks for it only while it is not", "[Menu][Content]")
+{
+	REQUIRE_DISC(First, EDiscRelease::UsaDisc1);
+	REQUIRE_DISC(Second, EDiscRelease::UsaDisc2);
+	for (const bool bInGames : {true, false})
+	{
+		INFO("disc 2 in Games: " << bInGames);
+		auto Game = Testing::FGameLoopSession::Start(*First);
+		FMenuGameMenus Menus(*Game->Executable);
+		Game->Session->SetMenus(&Menus);
+		FLateDrive Drive(*Game, *Second);
+		Drive.bThere = bInGames;
+		Game->Session->SetDiscDrive(&Drive);
+		const std::filesystem::path Folder = std::filesystem::temp_directory_path() / "WeltallMenuGameLoopSecondDiscSave";
+		FGameState Saved = Game->Session->Game();
+		Saved.SetPlace(VillageMap);
+		FSaveStore Store = SaveMadeOn(*Game, Folder, Saved, SavedOnSecondDisc);
+		Game->Session->SetSaves(&Store);
+		Game->PowerOn();
+		FGameLoop& Loop = *Game->Loop;
+		Game->RunUntil([&] { return Menus.Running() != nullptr; }, 2000, CrossHeld);
+		REQUIRE(Menus.Running() != nullptr);
+		Play(*Game, LoadPresses);
+		if (!bInGames)
+		{
+			// Missing: "INSERT DISC 2" stays up, disc 2 looked for again at the confirmation that finds it.
+			Play(*Game, std::array<std::pair<FPadState, int32>, 1>{{{NoButtons, 200}}});
+			REQUIRE(Menus.Running() != nullptr);
+			CHECK(Game->Session->DiscNumber() == 0);
+			Drive.bThere = true;
+			Play(*Game, std::array<std::pair<FPadState, int32>, 1>{{{CrossHeld, 2}}});
+		}
+		Game->RunUntil([&] { return Menus.Running() == nullptr; }, 200);
+		REQUIRE(Menus.Running() == nullptr);
+		CHECK(Drive.Asked == (bInGames ? std::vector<int32>{1} : std::vector<int32>{1, 1}));
+		CHECK(Game->Session->DiscNumber() == 1);
+		const TResult<FGameDisc> InDrive = Game->Session->DriveDisc();
+		REQUIRE(InDrive);
+		CHECK(InDrive->Image == &Second->Image());
+		const auto OnSavedMap = [&] {
+			return Loop.Field() != nullptr && Loop.Field()->Runtime().Context().MapNumber == VillageMap && Loop.Field()->Runtime().Context().bFieldRunning;
+		};
+		Game->RunUntil(OnSavedMap, 600);
+		CHECK(OnSavedMap());
+		CHECK(Loop.Field()->Runtime().Context().Disc == 2);
+		std::error_code Error;
+		std::filesystem::remove_all(Folder, Error);
+	}
+}
+
+TEST_CASE("Continue with the disc change's own save asks for disc 2 as the change does, and the game goes on into disc 2's opening", "[Menu][Content]")
+{
+	REQUIRE_DISC(First, EDiscRelease::UsaDisc1);
+	REQUIRE_DISC(Second, EDiscRelease::UsaDisc2);
+	auto Game = Testing::FGameLoopSession::Start(*First);
+	FMenuGameMenus Menus(*Game->Executable);
+	Game->Session->SetMenus(&Menus);
+	Game->AddDisc(*Second);
+	// Saved in the disc change: on its forest, the story at the change, the bit its script set before opening it.
+	FGameState Saved = Game->Session->Game();
+	Saved.SetPlace(DiscChangeMap);
+	Saved.SetSavedEventVariable(0, DiscChangeStoryProgress);
+	Saved.SetSavedEventVariable(DiscChangeVariable, static_cast<uint16>(Saved.SavedEventVariable(DiscChangeVariable) | DiscChangeBit));
+	const std::filesystem::path Folder = std::filesystem::temp_directory_path() / "WeltallMenuGameLoopDiscChangeSave";
+	FSaveStore Store = SaveMadeOn(*Game, Folder, Saved, SavedOnSecondDisc);
+	Game->Session->SetSaves(&Store);
+	Game->PowerOn();
+	FGameLoop& Loop = *Game->Loop;
+	Game->RunUntil([&] { return Menus.Running() != nullptr; }, 2000, CrossHeld);
+	REQUIRE(Menus.Running() != nullptr);
+	Play(*Game, LoadPresses);
+
+	// "INSERT DISC 2" stays until it is confirmed, though disc 2 is in Games.
+	for (int32 Frame = 0; Frame < 200; ++Frame)
+	{
+		REQUIRE_FALSE(Game->Frame());
+	}
+	REQUIRE(Menus.Running() != nullptr);
+	CHECK(Game->Session->DiscNumber() == 0);
+	Play(*Game, std::array<std::pair<FPadState, int32>, 1>{{{CrossHeld, 2}}});
+	Game->RunUntil([&] { return Menus.Running() == nullptr; }, 200);
+	REQUIRE(Menus.Running() == nullptr);
+	CHECK(Game->Session->DiscNumber() == 1);
+
+	// The forest's first script sends the game on to the dream at once.
+	const auto InDream = [&] { return Loop.Field() != nullptr && Loop.Field()->Runtime().Context().RunningMap == SecondDiscFirstMap; };
+	Game->RunUntil(InDream, 1200);
+	CHECK(InDream());
+	std::error_code Error;
+	std::filesystem::remove_all(Folder, Error);
+}
+
+TEST_CASE("In a field the Normal Menu's File loads a save made on the other disc and the game goes straight on with that disc", "[Menu][Content]")
+{
+	REQUIRE_DISC(First, EDiscRelease::UsaDisc1);
+	REQUIRE_DISC(Second, EDiscRelease::UsaDisc2);
+	auto Game = Testing::FGameLoopSession::Start(*First);
+	FMenuGameMenus Menus(*Game->Executable);
+	Game->Session->SetMenus(&Menus);
+	Game->AddDisc(*Second);
+	const std::filesystem::path Folder = std::filesystem::temp_directory_path() / "WeltallMenuGameLoopOtherDiscInField";
+	FGameState Saved = Game->Session->Game();
+	Saved.SetPlace(VillageMap);
+	FSaveStore Store = SaveMadeOn(*Game, Folder, Saved, SavedOnSecondDisc);
+	Game->Session->SetSaves(&Store);
+	FGameState& State = Game->Session->Game();
+	State.SetParty({0, 1, 2});
+	State.SetJoinedCharacters(0x1FF);
+	State.MenuLastCommand = FileCommand;
+	Game->EnterField(ForestMap);
+	FGameLoop& Loop = *Game->Loop;
+	Game->RunUntil([&] { return Loop.Field() != nullptr && Loop.Field()->Runtime().Context().bFieldRunning; }, 200);
+	Game->RunUntil([&] { return Menus.Running() != nullptr; }, 200, SquareHeld);
+	REQUIRE(Menus.Running() != nullptr);
+	const int32 Runs = Loop.ProgramRuns();
+
+	// File, Load, the save, Yes, "Finished": no "INSERT DISC 2".
+	const std::array<std::pair<FPadState, int32>, 12> Presses{{{NoButtons, 50}, {CrossHeld, 2}, {NoButtons, 70}, {CrossHeld, 2}, {NoButtons, 40},
+		{CrossHeld, 2}, {NoButtons, 30}, {LeftHeld, 2}, {NoButtons, 6}, {CrossHeld, 2}, {NoButtons, 60}, {CrossHeld, 2}}};
+	Play(*Game, Presses);
+	Game->RunUntil([&] { return Menus.Running() == nullptr; }, 200);
+	REQUIRE(Menus.Running() == nullptr);
+	CHECK(Game->Session->DiscNumber() == 1);
+	const auto OnSavedMap = [&] {
+		return Loop.ProgramRuns() != Runs && Loop.Field() != nullptr && Loop.Field()->Runtime().Context().MapNumber == VillageMap
+			&& Loop.Field()->Runtime().Context().bFieldRunning;
+	};
+	Game->RunUntil(OnSavedMap, 600);
+	CHECK(OnSavedMap());
+	CHECK(Loop.Field()->Runtime().Context().Disc == 2);
+	std::error_code Error;
 	std::filesystem::remove_all(Folder, Error);
 }
 

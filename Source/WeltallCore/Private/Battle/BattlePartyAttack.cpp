@@ -4,7 +4,14 @@
 #include "Battle/BattlePartySteps.h"
 #include "Battle/BattleProgram.h"
 #include "Battle/BattleSteps.h"
+#include "Game/CharacterLooks.h"
 #include "Game/GameStateLayout.h"
+
+#include <algorithm>
+#include <array>
+#include <optional>
+#include <span>
+#include <vector>
 
 namespace Weltall::BattleParty
 {
@@ -20,6 +27,13 @@ namespace Weltall::BattleParty
 		constexpr uint8 FirstDeathblowAttack = 8;
 		constexpr uint8 NoPattern = FBattleProgramTables::PatternCount;
 		constexpr uint8 AmmunitionWindow = 5;
+		/** Id's two quick combos and his big one, his own sprite's animations. */
+		constexpr uint8 IdsQuickCombo = 0x1D;
+		constexpr uint8 IdsSecondQuickCombo = 0x1E;
+		constexpr uint8 IdsBigCombo = 0x1F;
+		/** The turn's AP an Id press is worked out for: Fei's AP per turn, 3 to 7. */
+		constexpr uint8 IdsLeastAp = 3;
+		constexpr uint8 IdsMostAp = 7;
 
 		enum EAttackPc : uint8
 		{
@@ -107,6 +121,45 @@ namespace Weltall::BattleParty
 			}
 		}
 
+		/** Fei drawn as Id on foot, whose one press performs one of Id's whole combos. */
+		bool IsDrawnAsId(const FBattleContext& Context, uint8 Slot)
+		{
+			return Slot < FBattleContext::PartySlotCount && Context.ApRecords[Slot].InGear == 0 && Context.PartyLooks().IsId(Context.PartyCharacters[Slot]);
+		}
+
+		/** The presses of one of Id's combos, as Fei would press them. */
+		struct FIdsCombo
+		{
+			std::array<uint8, 5> Presses;
+			uint8 Count;
+		};
+
+		/**
+		 * Id's combos by the turn's AP (3 to 7) and the button pressed (Weak, Strong, Fierce): the presses of a combo of Fei's
+		 * of that many AP. At 3 AP his basic attacks; from 4 on the build-up and the Fierce press finishing a Deathblow of
+		 * that AP, the lightest for Weak and the strongest for Fierce (4: Deathblow 0 for all; 5: 1, 2, 2; 6: 3, 5, 6; 7: 7,
+		 * 11, 12; research battle.md "Deathblows: the combo patterns").
+		 */
+		const FIdsCombo& IdsCombo(uint8 Ap, uint8 Event)
+		{
+			using namespace BattleMenuEvents;
+			static constexpr std::array<std::array<FIdsCombo, 3>, IdsMostAp - IdsLeastAp + 1> Combos{{
+				{{{{Weak, Weak, Weak}, 3}, {{Strong, Weak}, 2}, {{Confirm}, 1}}},
+				{{{{Weak, Confirm}, 2}, {{Weak, Confirm}, 2}, {{Weak, Confirm}, 2}}},
+				{{{{Weak, Weak, Confirm}, 3}, {{Strong, Confirm}, 2}, {{Strong, Confirm}, 2}}},
+				{{{{Weak, Weak, Weak, Confirm}, 4}, {{Strong, Weak, Confirm}, 3}, {{Confirm, Confirm}, 2}}},
+				{{{{Weak, Weak, Weak, Weak, Confirm}, 5}, {{Strong, Strong, Confirm}, 3}, {{Confirm, Weak, Confirm}, 3}}},
+			}};
+			const std::size_t Button = Event == Weak ? 0 : Event == Strong ? 1 : 2;
+			return Combos[static_cast<std::size_t>(std::clamp(Ap, IdsLeastAp, IdsMostAp) - IdsLeastAp)][Button];
+		}
+
+		/** The animation of Id's own sprite a press plays, at any AP: one of his combos by the button. */
+		uint8 IdsAnimation(uint8 Event)
+		{
+			return Event == BattleMenuEvents::Weak ? IdsQuickCombo : Event == BattleMenuEvents::Strong ? IdsSecondQuickCombo : IdsBigCombo;
+		}
+
 		/** A press's AP by its event (0 for none). */
 		uint8 PressCost(uint8 Event)
 		{
@@ -141,8 +194,8 @@ namespace Weltall::BattleParty
 			return static_cast<uint16>(Context.Program->ApBar[Party.ApAtStart][Party.ApLeft] * 100u / ApBarFull);
 		}
 
-		/** The press accepted: the target locked, the AP paid, the button recorded (whose hints take a frame). */
-		EFlow TakePress(FBattleContext& Context, FBattlePartyFrame& Frame, uint8 Slot, uint8 Event)
+		/** The press accepted: the target locked, the AP paid, the button recorded (whose hints take a frame, unless bHints is false). */
+		EFlow TakePress(FBattleContext& Context, FBattlePartyFrame& Frame, uint8 Slot, uint8 Event, bool bHints = true)
 		{
 			FBattlePartyInput& Party = Context.Party;
 			PlaySound(Context, ESound::Accept);
@@ -161,9 +214,128 @@ namespace Weltall::BattleParty
 			Party.ApLeft = static_cast<uint8>(Party.ApLeft - Party.Cost);
 			PlayMenuCue(Context, EBattleMenuCue::ApNumbers, Slot);
 			RecordButton(Context, Event, Slot);
-			PlayMenuCue(Context, EBattleMenuCue::DeathblowHints, Slot);
+			if (bHints)
+			{
+				PlayMenuCue(Context, EBattleMenuCue::DeathblowHints, Slot);
+			}
 			Frame.Pc = AttackAfterButton;
 			return EFlow::Yield;
+		}
+
+		/** A result that did something to its slot: not a miss, nor no effect, nor no target. */
+		bool Landed(uint8 Result)
+		{
+			return Result != BattleResults::Miss && Result != BattleResults::NoEffect && Result != BattleResults::NoResult;
+		}
+
+		/**
+		 * The records from First on made one where the hits were: the reaction before the first hit kept, then the last hit's
+		 * record showing what the hits did together (each slot's amounts summed, the turn's running total where its results
+		 * are HP's, and the last result that landed), played by Animation of Id's own sprite; any other record after it.
+		 */
+		void JoinHits(FBattleContext& Context, uint8 First, std::span<const uint8> Hits, uint8 Animation)
+		{
+			if (Hits.empty())
+			{
+				return;
+			}
+			FBattlePerformance Joined = Context.Performances[Hits.back()];
+			Joined.Targets = 0;
+			for (std::size_t Slot = 0; Slot < FBattlePerformance::SlotCount; ++Slot)
+			{
+				uint32 Sum = 0;
+				for (const uint8 Hit : Hits)
+				{
+					const FBattlePerformance& Performance = Context.Performances[Hit];
+					if (Landed(Performance.Results[Slot]))
+					{
+						Joined.Results[Slot] = Performance.Results[Slot];
+						Sum += Performance.WholeAmounts[Slot];
+					}
+				}
+				const uint8 Kind = Joined.TotalKinds[Slot];
+				const bool bHp = Kind == BattleResults::HpDamage || Kind == BattleResults::HalvedDamage || Kind == BattleResults::HpHeal;
+				Joined.WholeAmounts[Slot] = bHp ? Joined.WholeTotals[Slot] : Sum;
+				Joined.Amounts[Slot] = bHp ? Joined.Totals[Slot] : static_cast<uint16>(Sum);
+			}
+			std::optional<FBattlePerformance> Reaction;
+			std::vector<FBattlePerformance> Others;
+			for (uint8 Record = First; Record < Context.PerformanceIndex; ++Record)
+			{
+				const FBattlePerformance& Performance = Context.Performances[Record];
+				if (std::find(Hits.begin(), Hits.end(), Record) != Hits.end())
+				{
+					Joined.Targets = static_cast<uint16>(Joined.Targets | Performance.Targets);
+				}
+				else if (Performance.Code != ReactionCode)
+				{
+					Others.push_back(Performance);
+				}
+				else if (Record < Hits.front() && !Reaction)
+				{
+					Reaction = Performance;
+				}
+			}
+			Joined.IdsAnimation = Animation;
+			uint8 At = First;
+			if (Reaction)
+			{
+				Context.Performances[At++] = *Reaction;
+			}
+			Context.Performances[At++] = Joined;
+			for (const FBattlePerformance& Other : Others)
+			{
+				Context.Performances[At++] = Other;
+			}
+			Context.PerformanceIndex = At;
+		}
+
+		/**
+		 * Id's combo for the turn's AP: Fei's presses, each hit worked out, applied and queued as his would be, a Fierce press
+		 * finishing a pattern the pattern's Deathblow whether learned or not; a hit whose target's script ends the combo ends
+		 * it there. The hits' records then become one.
+		 */
+		void PerformIdsCombo(FBattleContext& Context, uint8 Slot)
+		{
+			FBattlePartyInput& Party = Context.Party;
+			const uint8 First = Context.PerformanceIndex;
+			const FIdsCombo& Combo = IdsCombo(Party.Cost, Party.IdsPress);
+			const std::span<const uint8> Presses = std::span<const uint8>(Combo.Presses).first(Combo.Count);
+			std::array<uint8, FBattlePartyInput::MaxButtons> Hits{};
+			std::size_t HitCount = 0;
+			Party.Buttons.fill(0xFF);
+			Party.ButtonCount = 0;
+			for (std::size_t Press = 0; Press < Presses.size(); ++Press)
+			{
+				const uint8 Event = Presses[Press];
+				if (Press + 1 == Presses.size() && Event == BattleMenuEvents::Confirm)
+				{
+					const uint8 Pattern = MatchPattern(Context);
+					if (Pattern != NoPattern)
+					{
+						Context.CurrentAttack = static_cast<uint8>(PatternDeathblow(Context, Slot, Pattern) + FirstDeathblowAttack);
+					}
+				}
+				Party.Buttons[Party.ButtonCount] = static_cast<uint8>(Event - BattleMenuEvents::Confirm);
+				++Party.ButtonCount;
+				const uint8 Before = Context.PerformanceIndex;
+				const bool bEnds = PerformHit(Context, Slot, PressCost(Event), true);
+				if (Context.Fault != EBattleFault::None)
+				{
+					return;
+				}
+				// The hit's record follows the reaction queued before it, where its target shows reactions.
+				if (Context.PerformanceIndex > Before)
+				{
+					const bool bAfterReaction = Context.Performances[Before].Code == ReactionCode && Context.PerformanceIndex > Before + 1;
+					Hits[HitCount++] = static_cast<uint8>(bAfterReaction ? Before + 1 : Before);
+				}
+				if (bEnds)
+				{
+					break;
+				}
+			}
+			JoinHits(Context, First, std::span<const uint8>(Hits).first(HitCount), IdsAnimation(Party.IdsPress));
 		}
 
 		/** The combo's end queued when the AP is spent or the hit ends it. */
@@ -273,7 +445,7 @@ namespace Weltall::BattleParty
 		CloseAmmunition(Context, Slot, false);
 	}
 
-	bool PerformHit(FBattleContext& Context, uint8 Slot, uint8 Cost)
+	bool PerformHit(FBattleContext& Context, uint8 Slot, uint8 Cost, bool bAnyDeathblow)
 	{
 		FBattlePartyInput& Party = Context.Party;
 		const uint8 Target = Context.SlotTargets[Slot];
@@ -307,7 +479,7 @@ namespace Weltall::BattleParty
 			{
 				Context.CurrentAttack = Context.Program->BasicAttacks[Context.CurrentAttack * 3u + Cost - 1u];
 			}
-			else if (HighBit(LearnedDeathblows(Context, Slot), static_cast<uint8>(Context.CurrentAttack - FirstDeathblowAttack)))
+			else if (bAnyDeathblow || HighBit(LearnedDeathblows(Context, Slot), static_cast<uint8>(Context.CurrentAttack - FirstDeathblowAttack)))
 			{
 				bEnds = true;
 			}
@@ -493,6 +665,13 @@ namespace Weltall::BattleParty
 			{
 				return EFlow::Return;
 			}
+			if (IsDrawnAsId(Context, Slot))
+			{
+				// The press takes the turn's AP, Fei's AP per turn, for one of Id's combos of that many; no further press to hint at.
+				Party.IdsPress = Event;
+				Party.Cost = Party.ApLeft;
+				return TakePress(Context, Frame, Slot, Event, false);
+			}
 			if (Event == BattleMenuEvents::Confirm && IsDeathblowFinisher(Context, Event, Slot) && Party.ApLeft >= 3)
 			{
 				Party.Deathblow = static_cast<uint8>(Party.Deathblow + 1);
@@ -506,7 +685,15 @@ namespace Weltall::BattleParty
 			return TakePress(Context, Frame, Slot, Event);
 		}
 		case AttackAfterButton:
-			Party.bHitEndsCombo = PerformHit(Context, Slot, Party.Cost);
+			if (Party.IdsPress != BattleMenuEvents::Nothing)
+			{
+				PerformIdsCombo(Context, Slot);
+				Party.bHitEndsCombo = false;
+			}
+			else
+			{
+				Party.bHitEndsCombo = PerformHit(Context, Slot, Party.Cost);
+			}
 			if (Context.Fault != EBattleFault::None)
 			{
 				return EFlow::Yield;

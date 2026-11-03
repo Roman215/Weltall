@@ -31,6 +31,15 @@ namespace Weltall::Testing
 		}
 	}
 
+	void FRecordingObjectServices::UploadToPortRows(const FGearTextureBlock& Block, int16 X, int16 Y)
+	{
+		Add("port upload", {X, Y, Block.Width, Block.Height});
+		if (Vram != nullptr)
+		{
+			Vram->UploadToPortRows({{X, Y, Block.Width, Block.Height}, Block.Pixels});
+		}
+	}
+
 	void FRecordingObjectServices::StoreImage(const FVramRect& Rect, std::span<uint16> Into)
 	{
 		Add("store", {Rect.X, Rect.Y, Rect.Width, Rect.Height});
@@ -126,5 +135,11 @@ namespace Weltall::Testing
 	{
 		Add("read", {BattleObjectFiles::ExtensionDirectory, File});
 		return BattleObjectFiles::ReadExtension(Image, Index, File);
+	}
+
+	TResult<FBattleModelFiles> FRecordingObjectServices::ReadSceneModel(int32 Scene, int32 Entry)
+	{
+		Add("read scene", {Scene, Entry});
+		return BattleObjectFiles::ReadSceneModel(Image, Index, Scene, Entry);
 	}
 }

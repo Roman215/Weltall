@@ -7,7 +7,9 @@
 #include "Sound/Spu.h"
 
 #include <array>
+#include <atomic>
 #include <mutex>
+#include <optional>
 
 namespace Weltall
 {
@@ -64,6 +66,18 @@ namespace Weltall
 		/** Audio thread: the next samples, the driver's interrupts run among them as they fall due. */
 		WELTALLCORE_API virtual void Render(std::span<int16> Stereo) override;
 
+		/**
+		 * Any thread: the host plays the samples to a listener, each heard LatencyFrames frames on average after it is
+		 * made, by its own buffering of them. Until it says so, nothing hears them (a host without an audio device).
+		 */
+		void SetHeard(uint32 LatencyFrames) { HeardLatencyFrames.store(LatencyFrames, std::memory_order_relaxed); }
+		/** How long a sample just made waits before it is heard, in frames; none while nothing hears the sound. */
+		std::optional<uint32> HeardLatency() const
+		{
+			const int64 Frames = HeardLatencyFrames.load(std::memory_order_relaxed);
+			return Frames < 0 ? std::nullopt : std::optional<uint32>(static_cast<uint32>(Frames));
+		}
+
 	private:
 		/** The voices' gains after an interrupt, which may have started notes of another kind on them. */
 		void SetVoiceGains();
@@ -75,5 +89,6 @@ namespace Weltall
 		/** The volumes as gains: master, then each ESoundKind's. */
 		int32 MasterGain = FSpu::FullGain;
 		std::array<int32, 3> KindGains{FSpu::FullGain, FSpu::FullGain, FSpu::FullGain};
+		std::atomic<int64> HeardLatencyFrames{-1};
 	};
 }

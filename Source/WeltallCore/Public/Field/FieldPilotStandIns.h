@@ -16,6 +16,7 @@ namespace Weltall
 {
 	class FCdImage;
 	class FFieldSprites;
+	struct FVramImage;
 	class FGameFileIndex;
 	class FVram;
 	struct FEventContext;
@@ -45,10 +46,11 @@ namespace Weltall
 		 * party member on foot, or when the pilot plays what a stand-in cannot (an animation of an extra set, or past its
 		 * own file's). Tick numbers the field's ticks: a stand-in steps once a tick, however many passes draw it, and its
 		 * new frame goes into Vram's port rows. Shown, where set, is the member whose own sprite it is (the party drawn in
-		 * its player's order, FFieldMemberStandIns): by default the pilot's own.
+		 * its player's order, FFieldMemberStandIns): by default the pilot's own. Looked, where given, is the file its look
+		 * draws the member with instead (FFieldMemberStandIns::LookedFileFor: Id's, with its Picture; Elly's recoloured).
 		 */
 		WELTALLCORE_API const FSprite* Follow(const FEventContext& Context, const FFieldSprites& Sprites, int32 Actor, const FSprite& Pilot, uint32 Tick,
-			FVram& Vram, std::optional<int32> Shown = std::nullopt);
+			FVram& Vram, std::optional<int32> Shown = std::nullopt, const FSpriteFile* Looked = nullptr, const FVramImage* Picture = nullptr);
 
 		/** The pass the stand-in is drawn in for its pilot's: the same place and sorting, at the stand-in's scale, with its own pivot. */
 		WELTALLCORE_API static FFieldSpritePass PassFor(const FSprite& Pilot, const FSprite& StandIn, const FFieldSpritePass& Pass);

@@ -4,10 +4,13 @@
 #include "Game/GameSession.h"
 #include "Game/SaveStore.h"
 #include "Game/SaveWrite.h"
+#include "Game/WayBackPoint.h"
 #include "Game/WorldMapProgram.h"
 #include "Menu/MenuGameMenus.h"
 #include "Menu/MenuProgram.h"
 #include "Menu/OptionsText.h"
+#include "Mods/ExpansionMods.h"
+#include "Story/StoryLibrary.h"
 #include "Story/StoryPacks.h"
 #include "Support/GameDiscs.h"
 #include "Support/GameLoopSession.h"
@@ -18,9 +21,12 @@
 
 #include <array>
 #include <filesystem>
+#include <fstream>
+#include <functional>
 #include <span>
 #include <string_view>
 #include <utility>
+#include <vector>
 
 using namespace Weltall;
 
@@ -74,11 +80,17 @@ namespace
 		std::unique_ptr<Testing::FGameLoopSession> Game;
 		FMenuGameMenus Menus;
 
-		FAtDiscPrompt(const FIso9660& First, const FIso9660& Second, const FStoryPacks* Story, uint16 Progress)
+		/** Prepare, when given, sets the session and its menus up further before the field is entered. */
+		FAtDiscPrompt(const FIso9660& First, const FIso9660& Second, const FStoryPacks* Story, uint16 Progress,
+			const std::function<void(FGameSession&, FMenuGameMenus&)>& Prepare = {})
 			: Game(Testing::FGameLoopSession::Start(First)), Menus(*Game->Executable)
 		{
 			Game->Session->SetMenus(&Menus);
 			Game->Session->SetStory(Story);
+			if (Prepare)
+			{
+				Prepare(*Game->Session, Menus);
+			}
 			Game->AddDisc(Second);
 			Game->Session->Game().SetSavedEventVariable(0, Progress);
 			Game->EnterField(QuietMap);
@@ -177,28 +189,185 @@ TEST_CASE("No game is asked without the expanded second disc, or with the story 
 	}
 }
 
-TEST_CASE("A save made at the disc change holds no answer: loaded, it asks after its INSERT DISC 2, and the answer is saved", "[Menu][Story][Content]")
+TEST_CASE("The question offers the Mods folder's expansion the player chose, which the game answered Extended plays; none with expansions off", "[Menu][Story][Content]")
+{
+	REQUIRE_DISC(First, EDiscRelease::UsaDisc1);
+	REQUIRE_DISC(Second, EDiscRelease::UsaDisc2);
+	const std::filesystem::path Mods = std::filesystem::temp_directory_path() / "WeltallMenuStoryModeMods";
+	std::error_code Error;
+	std::filesystem::remove_all(Mods, Error);
+	for (const char* Folder : {"Abel", "Zeboim"})
+	{
+		std::filesystem::create_directories(Mods / Folder / "disc2");
+		std::ofstream(Mods / Folder / "disc2" / "scene.txt", std::ios::binary) << "map 1000 from 7\nactors 1\nactor 0 script 0:\n    Return\n";
+	}
+	const FStoryLibrary Library(FStoryPacks(), FindExpansionMods(Mods));
+	std::filesystem::remove_all(Mods, Error);
+	REQUIRE(Library.Expansion("Zeboim") != nullptr);
+
+	FPlayerSettings Chosen;
+	Chosen.Expansions.Folder = "Zeboim";
+	FAtDiscPrompt At(*First, *Second, nullptr, DiscChangeStoryProgress, [&](FGameSession& Session, FMenuGameMenus&)
+		{
+			Session.SetStoryLibrary(&Library);
+			Session.SetSettings(Chosen);
+		});
+	FGameSession& Session = *At.Game->Session;
+	CHECK(Session.Story() == &Library.For("Zeboim"));
+	REQUIRE(Session.OfferedExpansion() != nullptr);
+	CHECK(Session.OfferedExpansion()->Folder == "Zeboim");
+	At.Press(CrossHeld, 200);
+	At.Press(CrossHeld, 0);
+	At.Game->RunUntil([&] { return At.Menus.Running() == nullptr; }, 200);
+	REQUIRE(At.Menus.Running() == nullptr);
+	CHECK(At.Mode() == EStoryMode::Expanded);
+	CHECK(Session.Game().Expansion() == "Zeboim");
+	// The game plays its own expansion whichever the player chooses next, and with expansions turned off: they apply to the
+	// games offered or loaded after.
+	FPlayerSettings Other = Chosen;
+	Other.Expansions.Folder = "Abel";
+	Session.SetSettings(Other);
+	CHECK(Session.Story() == &Library.For("Zeboim"));
+	CHECK(Session.PlaysExpansion("Abel"));
+	CHECK_FALSE(Session.PlaysExpansion("Missing"));
+	Other.Expansions.bEnabled = false;
+	Session.SetSettings(Other);
+	CHECK(Session.Story() == &Library.For("Zeboim"));
+	CHECK_FALSE(Session.PlaysExpansion("Zeboim"));
+	CHECK(Session.OfferedExpansion() == nullptr);
+
+	FPlayerSettings Off;
+	Off.Expansions.bEnabled = false;
+	FAtDiscPrompt Unasked(*First, *Second, nullptr, DiscChangeStoryProgress, [&](FGameSession& Game, FMenuGameMenus&)
+		{
+			Game.SetStoryLibrary(&Library);
+			Game.SetSettings(Off);
+		});
+	Unasked.Press(CrossHeld, 0);
+	Unasked.Game->RunUntil([&] { return Unasked.Menus.Running() == nullptr; }, 200);
+	CHECK(Unasked.Menus.Running() == nullptr);
+	CHECK(Unasked.Game->Session->DiscNumber() == 1);
+	CHECK(Unasked.Mode() == EStoryMode::Unchosen);
+
+	// Menu (Square, as the USA's buttons are) at the question opens the Modding page on the expansion offered: Right
+	// chooses the next, and back at the question Extended plays it.
+	std::vector<FPlayerSettings> Kept;
+	FAtDiscPrompt Chooses(*First, *Second, nullptr, DiscChangeStoryProgress, [&](FGameSession& Game, FMenuGameMenus& Menus)
+		{
+			Game.SetStoryLibrary(&Library);
+			Menus.SetSettingsKept([&Kept](const FPlayerSettings& Settings) { Kept.push_back(Settings); });
+		});
+	Chooses.Press(CrossHeld, 200);
+	Chooses.Press(SquareHeld, 80);
+	Chooses.Press(RightHeld, 30);
+	CHECK(Chooses.Game->Session->Settings().Expansions.Folder == "Zeboim");
+	CHECK(Chooses.Mode() == EStoryMode::Unchosen);
+	Chooses.Press(CircleHeld, 80);
+	REQUIRE(Chooses.Menus.Running() != nullptr);
+	REQUIRE(Kept.size() == 1);
+	CHECK(Kept.front().Expansions.Folder == "Zeboim");
+	Chooses.Press(CrossHeld, 0);
+	Chooses.Game->RunUntil([&] { return Chooses.Menus.Running() == nullptr; }, 200);
+	REQUIRE(Chooses.Menus.Running() == nullptr);
+	CHECK(Chooses.Mode() == EStoryMode::Expanded);
+	CHECK(Chooses.Game->Session->Game().Expansion() == "Zeboim");
+}
+
+TEST_CASE("A save at the disc change's story holds no answer: loaded, it is asked, the disc change's own after its INSERT DISC 2, and the answer is saved", "[Menu][Story][Content]")
 {
 	REQUIRE_DISC(First, EDiscRelease::UsaDisc1);
 	REQUIRE_DISC(Second, EDiscRelease::UsaDisc2);
 	const FStoryPacks Story = ExpandedStory();
+	// The save the disc change makes, on the forest where it opens, and one made on the second disc before its story
+	// moves on: both to go on with the second disc, nothing chosen.
+	constexpr uint16 DiscChangeMap = 612;
+	for (const uint16 Place : {DiscChangeMap, VillageMap})
+	{
+		INFO("saved on map " << Place);
+		const bool bDiscChange = Place == DiscChangeMap;
+		auto Game = Testing::FGameLoopSession::Start(*First);
+		FMenuGameMenus Menus(*Game->Executable);
+		FGameSession& Session = *Game->Session;
+		Session.SetMenus(&Menus);
+		Session.SetStory(&Story);
+		Game->AddDisc(*Second);
+		const std::filesystem::path Folder = std::filesystem::temp_directory_path() / "WeltallMenuStoryModeLoad";
+		std::error_code Error;
+		std::filesystem::remove_all(Folder, Error);
+		FSaveStore Store(Folder);
+		FGameState Saved = Session.Game();
+		Saved.SetPlace(Place);
+		Saved.SetSavedEventVariable(0, DiscChangeStoryProgress);
+		const FOriginalSave AtDiscChange = WriteOriginalSave(Saved, 0, 1, Session.Text().NameTables, Session.Text().Font.LeadByte());
+		CHECK(AtDiscChange.StoryMode() == EStoryMode::Unchosen);
+		REQUIRE_FALSE(Store.Write(0, AtDiscChange));
+		Session.SetSaves(&Store);
+		FGameState& State = Session.Game();
+		State.SetParty({0, 1, 2});
+		State.SetJoinedCharacters(0x1FF);
+		State.MenuLastCommand = FileCommand;
+		Game->EnterField(ForestMap);
+		FGameLoop& Loop = *Game->Loop;
+		Game->RunUntil([&] { return Loop.Field() != nullptr && Loop.Field()->Runtime().Context().bFieldRunning; }, 200);
+		Game->RunUntil([&] { return Menus.Running() != nullptr; }, 200, SquareHeld);
+		REQUIRE(Menus.Running() != nullptr);
+
+		// File, Load, the save, "Load this file?" Yes, "Finished": then the disc change's save asks for its disc, the
+		// other goes on with it at once.
+		const std::array<std::pair<FPadState, int32>, 13> Presses{{{NoButtons, 50}, {CrossHeld, 2}, {NoButtons, 70}, {CrossHeld, 2}, {NoButtons, 40},
+			{CrossHeld, 2}, {NoButtons, 30}, {LeftHeld, 2}, {NoButtons, 6}, {CrossHeld, 2}, {NoButtons, 60}, {CrossHeld, 2}, {NoButtons, 200}}};
+		Play(*Game, Presses);
+		REQUIRE(Menus.Running() != nullptr);
+		CHECK(Session.DiscNumber() == (bDiscChange ? 0 : 1));
+		CHECK(State.StoryMode() == EStoryMode::Unchosen);
+		if (bDiscChange)
+		{
+			// "INSERT DISC 2" confirmed.
+			const std::array<std::pair<FPadState, int32>, 2> Confirmed{{{CrossHeld, 2}, {NoButtons, 100}}};
+			Play(*Game, Confirmed);
+		}
+		// The question: the original's second disc.
+		const std::array<std::pair<FPadState, int32>, 3> Answer{{{LeftHeld, 2}, {NoButtons, 8}, {CrossHeld, 2}}};
+		Play(*Game, Answer);
+		Game->RunUntil([&] { return Menus.Running() == nullptr; }, 200);
+		REQUIRE(Menus.Running() == nullptr);
+		CHECK(Session.DiscNumber() == 1);
+		CHECK(State.ProgramResult == 2);
+		CHECK(State.StoryMode() == EStoryMode::Original);
+
+		// A save made from here on keeps the answer, and loads with it and no question.
+		const FOriginalSave Answered = WriteOriginalSave(State, 1, 1, Session.Text().NameTables, Session.Text().Font.LeadByte());
+		CHECK(Answered.StoryMode() == EStoryMode::Original);
+		std::filesystem::remove_all(Folder, Error);
+	}
+}
+
+TEST_CASE("A save of an expansion that cannot be played loads as the original second disc's game at its point, and says so", "[Menu][Story][Content]")
+{
+	REQUIRE_DISC(First, EDiscRelease::UsaDisc1);
+	REQUIRE_DISC(Second, EDiscRelease::UsaDisc2);
 	auto Game = Testing::FGameLoopSession::Start(*First);
 	FMenuGameMenus Menus(*Game->Executable);
 	FGameSession& Session = *Game->Session;
 	Session.SetMenus(&Menus);
-	Session.SetStory(&Story);
+	// The Mods folder holds no expansion.
+	const FStoryLibrary Library(FStoryPacks(), {});
+	Session.SetStoryLibrary(&Library);
 	Game->AddDisc(*Second);
-	// The save the disc change makes: the story at the disc change, to go on with the second disc, nothing chosen.
-	const std::filesystem::path Folder = std::filesystem::temp_directory_path() / "WeltallMenuStoryModeLoad";
+	const std::filesystem::path Folder = std::filesystem::temp_directory_path() / "WeltallMenuStoryModeMissing";
 	std::error_code Error;
 	std::filesystem::remove_all(Folder, Error);
 	FSaveStore Store(Folder);
+	// A game in a map of its expansion's own, saved as the original's at the chair where the expansion rejoins it.
 	FGameState Saved = Session.Game();
-	Saved.SetPlace(VillageMap);
-	Saved.SetSavedEventVariable(0, DiscChangeStoryProgress);
-	const FOriginalSave AtDiscChange = WriteOriginalSave(Saved, 0, 1, Session.Text().NameTables, Session.Text().Font.LeadByte());
-	CHECK(AtDiscChange.StoryMode() == EStoryMode::Unchosen);
-	REQUIRE_FALSE(Store.Write(0, AtDiscChange));
+	Saved.SetStoryMode(EStoryMode::Expanded);
+	Saved.SetExpansion("Abel");
+	Saved.SetPlace(735);
+	Saved.SetSavedEventVariable(0, 253);
+	const FWayBackPoint Chair{617, 2, 252};
+	const FOriginalSave Save = WriteOriginalSave(Saved, 0, 1, Session.Text().NameTables, Session.Text().Font.LeadByte(), &Chair);
+	REQUIRE(Save.Expansion() == "Abel");
+	REQUIRE_FALSE(Store.Write(0, Save));
 	Session.SetSaves(&Store);
 	FGameState& State = Session.Game();
 	State.SetParty({0, 1, 2});
@@ -210,25 +379,21 @@ TEST_CASE("A save made at the disc change holds no answer: loaded, it asks after
 	Game->RunUntil([&] { return Menus.Running() != nullptr; }, 200, SquareHeld);
 	REQUIRE(Menus.Running() != nullptr);
 
-	// File, Load, the save, "Load this file?" Yes, "Finished": then the save's disc is asked for.
+	// File, Load, the save, "Load this file?" Yes, "Finished".
 	const std::array<std::pair<FPadState, int32>, 13> Presses{{{NoButtons, 50}, {CrossHeld, 2}, {NoButtons, 70}, {CrossHeld, 2}, {NoButtons, 40},
 		{CrossHeld, 2}, {NoButtons, 30}, {LeftHeld, 2}, {NoButtons, 6}, {CrossHeld, 2}, {NoButtons, 60}, {CrossHeld, 2}, {NoButtons, 200}}};
 	Play(*Game, Presses);
-	REQUIRE(Menus.Running() != nullptr);
-	CHECK(Session.DiscNumber() == 0);
-	CHECK(State.StoryMode() == EStoryMode::Unchosen);
-	// "INSERT DISC 2" confirmed, and the question: the original's second disc.
-	const std::array<std::pair<FPadState, int32>, 5> Answer{{{CrossHeld, 2}, {NoButtons, 100}, {LeftHeld, 2}, {NoButtons, 8}, {CrossHeld, 2}}};
-	Play(*Game, Answer);
 	Game->RunUntil([&] { return Menus.Running() == nullptr; }, 200);
 	REQUIRE(Menus.Running() == nullptr);
-	CHECK(Session.DiscNumber() == 1);
 	CHECK(State.ProgramResult == 2);
 	CHECK(State.StoryMode() == EStoryMode::Original);
-
-	// A save made from here on keeps the answer, and loads with it and no question.
-	const FOriginalSave Answered = WriteOriginalSave(State, 1, 1, Session.Text().NameTables, Session.Text().Font.LeadByte());
-	CHECK(Answered.StoryMode() == EStoryMode::Original);
+	CHECK(State.Expansion().empty());
+	CHECK(State.Place() == 617);
+	CHECK(State.SavedEventVariable(0) == 252);
+	const FToldLine Told = Session.TakeTold();
+	CHECK(Told.Line == OptionsText::SecondDisc::ExpansionMissing);
+	CHECK(Told.Why.find("Mods/Abel") != std::string::npos);
+	CHECK(Session.TakeTold().Line.empty());
 	std::filesystem::remove_all(Folder, Error);
 }
 
@@ -431,6 +596,12 @@ TEST_CASE("The second disc's question's words are in the game's font and fit its
 	}
 	CHECK(LeftAnswerX + Width(Words::Original) + PointerRoom <= RightAnswerX);
 	CHECK(RightAnswerX + Width(Words::Extended) + PointerRoom <= WindowWidth - Margin);
+	// A mod's expansion named under Extended, as long as the question shows a name, in the font's widest letters.
+	for (const std::string& Line : OptionsText::Fill(Words::ExtendedNamed, {std::string(20, 'W') + ".."}))
+	{
+		INFO(Line);
+		CHECK(Width(Line) <= WindowWidth - 2 * Margin);
+	}
 
 	// The Fixes page's row: its label and either value side by side in the list, each line of its help in its strip.
 	constexpr int32 LabelX = 0x28;

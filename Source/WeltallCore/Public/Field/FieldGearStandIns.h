@@ -1,10 +1,12 @@
 #pragma once
 
+#include "Battle/Show/BattleGearDress.h"
 #include "Battle/Show/BattleGearOpening.h"
 #include "Field/FieldCharacters.h"
 #include "Field/FieldGearSprites.h"
 #include "Field/FieldRenderState.h"
 #include "Foundation/Result.h"
+#include "Game/CharacterLooks.h"
 #include "Foundation/Types.h"
 #include "Gears/GearFiles.h"
 #include "Gears/GearModels.h"
@@ -21,6 +23,7 @@ namespace Weltall
 	class FBattleObjectDisc;
 	class FCdImage;
 	class FFieldRuntime;
+	class FGameState;
 	class FGameFileIndex;
 	class FSprite;
 	class FVram;
@@ -43,6 +46,9 @@ namespace Weltall
 	 * sprite carries its own shading and takes no light from the map: the stand-ins are lit alike on every map
 	 * (Lights), under the sprite's tint. Where a stand-in cannot show what the sprite does (an animation it has no
 	 * motion for, a sprite drawn semi-transparent, a model that cannot be read), the sprite is drawn.
+	 *
+	 * A party gear is drawn as the player has its pilot drawn (FCharacterLooks): with Citan's sword put away, the second
+	 * Heimdal as the first, and Fenrir in its own model with the first Heimdal's poses, worn as in battle (FBattleGearDress).
 	 */
 	class FFieldGearStandIns
 	{
@@ -102,6 +108,8 @@ namespace Weltall
 			float Up = 0.0f;
 			/** The ground it covered since the tick before (x, z), in that space's units: the space itself may move with a camera. */
 			std::array<float, 2> Covered{};
+			/** How the player has the party drawn. */
+			FCharacterLooks Looks;
 		};
 
 		/**
@@ -185,6 +193,11 @@ namespace Weltall
 		struct FShape
 		{
 			FSource* Source = nullptr;
+			/** The gear whose poses it takes, worn over its skeleton (Dress); null for its own. */
+			FSource* Performer = nullptr;
+			std::optional<FBattleGearDress> Dress;
+			/** Which of its bones are shown over the performer's as the performer's opening leaves them. */
+			std::vector<uint8> DressShown;
 			int8 StanceRecord = 0;
 			float StanceWeight = 0.0f;
 			std::array<int16, 2> RaisedArms{FFieldGearSprite::NoArm, FFieldGearSprite::NoArm};
@@ -206,6 +219,11 @@ namespace Weltall
 			FGearPoseTrack Gesture;
 			/** From the model's soles to its top as it stands, and how far below its own space's floor its soles then reach. */
 			int32 ModelHeight = 0;
+			/**
+			 * Worn over a gear whose sprite it stands in for (Id's red gear over Fei's own): how tall the performer stands,
+			 * which the sprite's height sizes, so the worn model keeps its own size against it. 0 otherwise.
+			 */
+			int32 PerformerHeight = 0;
 			int32 Sole = 0;
 			/** How far below that floor the lowest of its strides reaches, walking and running Move whole. */
 			int32 WalkSole = 0;
@@ -216,6 +234,9 @@ namespace Weltall
 			float Stride = 0.0f;
 		};
 
+		/** The gear a parked gear's picture stands for: its own, or Regurus in Vierge's place while Elly's gear is Regurus. */
+		static int32 ParkedGearOf(const FFieldGearSprite& Parked, const FGameState* Game);
+
 		/** An actor's stand-in. */
 		struct FStandIn
 		{
@@ -224,6 +245,10 @@ namespace Weltall
 			/** The map's sprite file it follows, or null for a party slot's gear. */
 			const FFieldGearSprite* Known = nullptr;
 			int32 PartyGear = -1;
+			/** For a parked gear's picture, the gear it stands for (ParkedGearOf); -1 for any other. */
+			int32 ParkedGear = -1;
+			/** How the player had the party drawn when it was made. */
+			FCharacterLooks Looks;
 			int32 Module = -1;
 			int32 Slot = -1;
 			bool bUnusable = false;
@@ -275,9 +300,11 @@ namespace Weltall
 		const FFieldGearSprite* KnownSprite(const FFieldRuntime& Runtime, const FSprite& Sprite);
 		static EMotion MotionOf(const FSprite& Sprite, const FFieldGearSprite* Known);
 		FSource* SourceOf(EFieldGearModelKind Kind, int16 Number, int16 Entry);
-		FShape* ShapeOf(FSource& Source, const FFieldGearSprite* Known, int32 PartyGear);
+		FShape* ShapeOf(FSource& Source, const FFieldGearSprite* Known, int32 PartyGear, FSource* Performer);
 		void Make(FStandIn& StandIn, const FSprite& Sprite, FVram& Vram);
 		bool Measure(FShape& Shape, FGearModel& Model);
+		/** A shape's poses, its performer's, put on its own model (of Scale) as worn over the performer's skeleton. */
+		static bool Dress(FShape& Shape, int16 Scale);
 		void Step(FStandIn& StandIn);
 		static int32 SoleOf(const FShape& Shape, EMotion Shown);
 		void TargetPose(const FStandIn& StandIn, FGearPose& Pose);

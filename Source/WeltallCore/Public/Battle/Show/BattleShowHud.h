@@ -26,6 +26,37 @@ namespace Weltall
 	struct FBattleContext;
 	struct FTim;
 
+	/**
+	 * The blend keys of the HUD's parts that move between its frames (FMenuPrimitive::BlendKey), which the display draws
+	 * between two frames from their places in both: the turn-start icon's flight, the gauges and bars as they fill, the
+	 * windows as they grow, and the gear cockpit's reticle and sight. A part's key is the same from frame to frame; text,
+	 * and pictures redrawn in place as another picture, have none.
+	 */
+	namespace BattleHudBlendKeys
+	{
+		constexpr uint32 Kind(uint32 Number) { return Number << 28; }
+		/** A part of the turn-start icon in its flight, and at rest over the command window after it. */
+		constexpr uint32 Flight(uint32 Part) { return Kind(1) | Part; }
+		/** A member's wait gauge, the acting member's AP bar, a member's stored-AP or fuel bar, the Combo list's bar. */
+		constexpr uint32 WaitGauge(uint32 Slot) { return Kind(2) | Slot; }
+		constexpr uint32 ApBar = Kind(3);
+		constexpr uint32 StoredBar(uint32 Slot) { return Kind(4) | Slot; }
+		constexpr uint32 ComboBar(uint32 Piece) { return Kind(5) | Piece; }
+		/**
+		 * A part of a window's frame (its corners' parts from 0, its edges' halves from 8, its fill 16) by the window and
+		 * its centre: a window grows about its centre, and one opened elsewhere is laid out afresh.
+		 */
+		constexpr uint32 Window(uint32 Index, uint32 Part, int32 CentreX, int32 CentreY)
+		{
+			return Kind(6) | Index << 25 | (static_cast<uint32>(CentreX) & 0x3FF) << 15 | (static_cast<uint32>(CentreY) & 0x3FF) << 5 | Part;
+		}
+		constexpr uint32 WindowEdges = 8;
+		constexpr uint32 WindowFill = 16;
+		/** A part of the gear cockpit's reticle, or of its sight. */
+		constexpr uint32 Reticle(uint32 Part) { return Kind(7) | Part; }
+		constexpr uint32 Sight(uint32 Part) { return Kind(8) | Part; }
+	}
+
 	/** A picture of a command ring's group: a sheet frame, or from 4000h the slot's icon byte it names; its place; its brightness word. */
 	struct FBattleHudIconElement
 	{
@@ -185,6 +216,8 @@ namespace Weltall
 		std::vector<FVramImage> Images;
 		/** A 24 x 24 8-bit TIM of 460h bytes per character, the last for the special party's members. */
 		std::vector<uint8> Portraits;
+		/** Id's dialogue face, which his portrait is made from while Fei is drawn as him (IdsPictures); empty where the disc lacks it. */
+		std::vector<uint8> IdFace;
 		/** The battle's messages (section 26h, a message table): the actions' names. */
 		std::vector<uint8> Messages;
 		/** The battle items' help (section 10h, a message table), by item. */
@@ -233,6 +266,10 @@ namespace Weltall
 	{
 		std::array<uint8, 3> WindowColour{};
 		uint8 WindowBlend = 0;
+		/** Regurus' attacks named as Vierge's (BattleRegurus::NamingGear); off, the disc's own names as the original draws them. */
+		bool bRegurusNamedAsVierge = true;
+		/** The game has the Japanese commands (FKernelPad::HasJapaneseCommands): the ring's pictured buttons read otherwise. */
+		bool bJapaneseCommands = false;
 	};
 
 	/** Why the HUD stopped: its game would read or write memory the port does not model. */
@@ -247,7 +284,10 @@ namespace Weltall
 		IndexOutsideHud,
 		/** A window's frame drawn before the window was ever opened, or after it was closed: the game writes it into a block it does not hold. */
 		WindowNotMade,
-		/** A name or message past its table: the game reads an offset from the bytes after the table's. */
+		/**
+		 * A name or message past its table, or one that starts past the table's bytes: the game reads an offset from the
+		 * bytes after the table's, or the text from the memory after it.
+		 */
 		MessageOutsideTable,
 		/** The attack's hints drawn while no command HUD is made: the game writes them into a block it freed. */
 		CommandHudNotMade,
@@ -640,7 +680,8 @@ namespace Weltall
 
 	private:
 		// The set-up.
-		void Upload(const FVramImage& Image);
+		/** An image into VRAM and to the observer, as Kind unless it names its own: most of what the HUD uploads is text it typed. */
+		void Upload(const FVramImage& Image, EVramUploadKind Kind = EVramUploadKind::Text);
 		/** The party's portraits (a 24 x 24 image a character) uploaded where the sheet's frames from FirstFrame take theirs, a slot each. */
 		void LoadPortraits(std::span<const uint8> Portraits, int32 FirstFrame);
 		void InitPanelPrims();
@@ -655,9 +696,9 @@ namespace Weltall
 		int32 DrawSheet(int32 Frame, std::span<FBattleHudPair> Pairs, int32 First, int32 X, int32 Y, int32 Scale);
 		int32 DrawSheetRotated(int32 Frame, std::span<FBattleHudPair> Pairs, int32 First, int32 X, int32 Y, int32 Scale, int32 Angle);
 
-		// The frame's parts.
-		void Link(const FMenuPrimitive& Primitive);
-		void LinkPairs(std::span<const FBattleHudPair> Pairs, int32 Count, uint8 From);
+		// The frame's parts, each linked with its blend key (BattleHudBlendKeys; 0 none), a run's parts with Key's next ones.
+		void Link(const FMenuPrimitive& Primitive, uint32 Key = 0);
+		void LinkPairs(std::span<const FBattleHudPair> Pairs, int32 Count, uint8 From, uint32 Key = 0);
 		int16 PanelX(int32 Slot) const;
 		int16 PanelOffset(int32 Slot) const;
 		void GrowWindows();
@@ -725,7 +766,7 @@ namespace Weltall
 		/** Digits of Value from the place First on, each drawn where its place lies or closed up to the left; returns how many. */
 		int32 DrawCockpitDigits(FBattleHudCockpit::ERun Run, uint32 Value, std::size_t First, int16 X, int16 Y, int16 Step, bool bCloseUp);
 		void BlendCockpitRun(FBattleHudCockpit::ERun Run, bool bSubtract);
-		void LinkCockpitRun(FBattleHudCockpit::ERun Run);
+		void LinkCockpitRun(FBattleHudCockpit::ERun Run, uint32 Key = 0);
 		void DrawReticle();
 		void LinkCockpit();
 		int32 DrawGearHintName(uint8 Slot, int32 Hint, int32 Row, uint32 Attack, std::span<FVramImage> Images);

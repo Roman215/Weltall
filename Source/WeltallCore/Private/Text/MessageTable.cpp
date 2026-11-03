@@ -2,6 +2,8 @@
 
 #include "Foundation/LittleEndian.h"
 
+#include <algorithm>
+
 namespace Weltall
 {
 	namespace
@@ -23,13 +25,6 @@ namespace Weltall
 		if (OffsetsStart + Table.Entries * 4 > Bytes.size())
 		{
 			return MakeError("a message table's offsets run past it");
-		}
-		for (uint32 Index = 0; Index < Table.Entries; ++Index)
-		{
-			if (LittleEndian::ReadU16(Bytes, OffsetsStart + Index * 2) >= Bytes.size())
-			{
-				return MakeError("a message lies outside its table");
-			}
 		}
 		return Table;
 	}
@@ -56,7 +51,13 @@ namespace Weltall
 			Offsets.push_back(End);
 			End += Message.Codes.size();
 		}
-		if (Count - 1 >= EmptyTable || Offsets.back() > EmptyTable)
+		// A message the table starts past its bytes starts at the built table's end, past its bytes still.
+		bool bPastBytes = std::ranges::any_of(Messages, [](const FAddedMessage& Message) { return Message.Codes.empty(); });
+		for (std::size_t Index = 0; Index < Old; ++Index)
+		{
+			bPastBytes = bPastBytes || Parsed->StartsPastBytes(static_cast<int32>(Index));
+		}
+		if (Count - 1 >= EmptyTable || Offsets.back() > EmptyTable || (bPastBytes && End > EmptyTable))
 		{
 			return std::nullopt;
 		}
@@ -64,7 +65,7 @@ namespace Weltall
 		LittleEndian::WriteU16(Built, 0, static_cast<uint16>(Count - 1));
 		for (std::size_t Index = 0; Index < Old; ++Index)
 		{
-			const std::size_t Offset = LittleEndian::ReadU16(Table, OffsetsStart + Index * 2) + Moved;
+			const std::size_t Offset = Parsed->StartsPastBytes(static_cast<int32>(Index)) ? End : LittleEndian::ReadU16(Table, OffsetsStart + Index * 2) + Moved;
 			LittleEndian::WriteU16(Built, OffsetsStart + Index * 2, static_cast<uint16>(Offset));
 			Built[OffsetsStart + (Count + Index) * 2] = Table[OffsetsStart + (Old + Index) * 2];
 			Built[OffsetsStart + (Count + Index) * 2 + 1] = Table[OffsetsStart + (Old + Index) * 2 + 1];
@@ -72,7 +73,8 @@ namespace Weltall
 		for (std::size_t Added = 0; Added < Messages.size(); ++Added)
 		{
 			const std::size_t Index = Old + Added;
-			LittleEndian::WriteU16(Built, OffsetsStart + Index * 2, static_cast<uint16>(Offsets[Added]));
+			const std::size_t Offset = Messages[Added].Codes.empty() ? End : Offsets[Added];
+			LittleEndian::WriteU16(Built, OffsetsStart + Index * 2, static_cast<uint16>(Offset));
 			Built[OffsetsStart + (Count + Index) * 2] = Messages[Added].WidthUnits;
 			Built[OffsetsStart + (Count + Index) * 2 + 1] = Messages[Added].Lines;
 		}
@@ -87,11 +89,16 @@ namespace Weltall
 
 	std::span<const uint8> FMessageTable::String(int32 Index) const
 	{
-		if (Index < 0 || static_cast<uint32>(Index) >= Entries)
+		if (Index < 0 || static_cast<uint32>(Index) >= Entries || StartsPastBytes(Index))
 		{
 			return {};
 		}
 		return Bytes.subspan(LittleEndian::ReadU16(Bytes, OffsetsStart + static_cast<std::size_t>(Index) * 2));
+	}
+
+	bool FMessageTable::StartsPastBytes(int32 Index) const
+	{
+		return Index >= 0 && static_cast<uint32>(Index) < Entries && LittleEndian::ReadU16(Bytes, OffsetsStart + static_cast<std::size_t>(Index) * 2) >= Bytes.size();
 	}
 
 	int32 FMessageTable::WidthUnits(int32 Index) const

@@ -111,6 +111,25 @@ namespace Weltall
 		return std::span<uint8>(Bytes).subspan(Layout.Items, Layout.Slots);
 	}
 
+	bool FGameState::TakeItem(int32 List, uint8 Item)
+	{
+		constexpr uint8 NoItem = 0xFF;
+		const std::span<uint8> Counts = InventoryCounts(List);
+		const std::span<uint8> Items = InventoryItems(List);
+		for (std::size_t Slot = 0; Slot < Counts.size(); ++Slot)
+		{
+			if (Items[Slot] == Item && Counts[Slot] != 0)
+			{
+				if (--Counts[Slot] == 0)
+				{
+					Items[Slot] = NoItem;
+				}
+				return true;
+			}
+		}
+		return false;
+	}
+
 	uint16 FGameState::JoinedCharacters() const
 	{
 		return LittleEndian::ReadU16(Bytes, GameStateLayout::JoinedCharactersOffset);

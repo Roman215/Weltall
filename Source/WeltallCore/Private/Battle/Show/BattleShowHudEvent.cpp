@@ -4,6 +4,7 @@
 #include "Battle/Show/BattleShowHud.h"
 #include "Formats/Tim.h"
 #include "Text/MesRender.h"
+#include "Text/MessageLog.h"
 
 #include <algorithm>
 
@@ -50,12 +51,12 @@ namespace Weltall
 			FVramImage Clut = *Portrait.Clut;
 			Clut.Rect.X = PortraitClutX;
 			Clut.Rect.Y = PortraitClutY;
-			Upload(Clut);
+			Upload(Clut, EVramUploadKind::Portraits);
 		}
 		FVramImage Pixels = Portrait.Image;
 		Pixels.Rect.X = PortraitX;
 		Pixels.Rect.Y = PortraitY;
-		Upload(Pixels);
+		Upload(Pixels, EVramUploadKind::Portraits);
 
 		// Only this buffer's quad is placed, and it is the one drawn in either buffer until the next portrait.
 		FMenuPrimitive& Quad = EventPortrait[Buffer];
@@ -146,7 +147,7 @@ namespace Weltall
 		}
 		// The kernel's window draws its lines as they are, then types: a glyph shows from the frame after.
 		FMesWindow& Window = *Event.Text;
-		Window.Update(Text);
+		UpdateLoggedWindow(Window, Text, {EMessageLogSource::BattleEvent, 0});
 		if (!Window.Drew())
 		{
 			return;

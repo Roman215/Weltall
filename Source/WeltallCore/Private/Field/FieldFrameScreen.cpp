@@ -69,6 +69,7 @@ namespace Weltall
 
 	std::optional<FError> FFieldPresenter::FollowMapPicture(const FFieldMapPicture& Picture)
 	{
+		const FVram::FKindScope HudKind(FieldVram, EVramUploadKind::MenusAndHud);
 		constexpr FVramRect PictureArea{0x300, 0x100, 0xA0, 0x100};
 		constexpr int16 PictureClutY = 0xF6;
 		if (Picture.bShown == bMapPictureUp)

@@ -155,6 +155,8 @@ namespace Weltall
 
 	FBattlingGameProgram::FBattlingGameProgram(FGameSession& InSession) : Session(InSession)
 	{
+		// The gears, their trails and the fire, but for what each upload below names.
+		Screen.SetUploadKind(EVramUploadKind::ModelsAndEffects);
 	}
 
 	FBattlingGameProgram::~FBattlingGameProgram() = default;
@@ -184,6 +186,8 @@ namespace Weltall
 		Program->Text.State = &Session.Names();
 		Program->Text.ButtonMap = MesKernelButtonMap;
 		Program->Text.Speed = Session.Settings().TextSpeed;
+		Program->Text.AutoAdvance = Session.Settings().AutoAdvance;
+		Program->Text.Log = Session.MessageLog();
 
 		Program->Bout = std::make_unique<FBattlingFight>(Files.Tables, Files.Terrain, Session.Random(), *Program->Sound);
 		FBattlingFight& Fight = *Program->Bout;
@@ -216,14 +220,21 @@ namespace Weltall
 		Fight.DefeatedGears = Session.Game().ArenaDefeatedGears();
 		Fight.bArgentoUnlocked = (Session.Game().ArenaSettings() & SettingsArgento) != 0;
 
-		for (const FVramImage& Upload : Files.ArenaTextures.Uploads)
 		{
-			Program->Screen.Upload(Upload);
+			const FVram::FKindScope SceneryKind(Program->Screen, EVramUploadKind::Scenery);
+			for (const FVramImage& Upload : Files.ArenaTextures.Uploads)
+			{
+				Program->Screen.Upload(Upload);
+			}
 		}
-		Program->Screen.Upload(BattlingNamePaletteUpload(Files.ArenaTables));
+		{
+			const FVram::FKindScope TextKind(Program->Screen, EVramUploadKind::Text);
+			Program->Screen.Upload(BattlingNamePaletteUpload(Files.ArenaTables));
+		}
 		Program->Screen.Upload(BattlingFirePaletteUpload(Files.ArenaTables));
 		// The kernel's text palettes, which the program loads for its message windows.
 		const std::array<uint16, 32>& TextPalettes = Session.FieldTables().TextClut;
+		const FVram::FKindScope TextKind(Program->Screen, EVramUploadKind::Text);
 		Program->Screen.Upload({{FBattlingTutorial::PalettesX, FBattlingTutorial::PalettesY, static_cast<int16>(TextPalettes.size()), 1},
 			std::vector<uint16>(TextPalettes.begin(), TextPalettes.end())});
 		Program->Drawing = std::make_unique<FBattlingDrawing>(Files.ArenaTables, Files.ArenaTextures, Files.Terrain, Session.Arctangents());
@@ -291,6 +302,7 @@ namespace Weltall
 			{
 				return Portraits.Error();
 			}
+			const FVram::FKindScope FacesKind(Program->Screen, EVramUploadKind::Portraits);
 			for (const FVramImage& Upload : *Portraits)
 			{
 				Program->Screen.Upload(Upload);
@@ -337,6 +349,7 @@ namespace Weltall
 			{
 				Screen.Upload(Upload);
 			}
+			const FVram::FKindScope HudKind(Screen, EVramUploadKind::MenusAndHud);
 			for (const FVramImage& Upload : BattlingGearHudUploads(GearFiles[Side], static_cast<int32>(Side)))
 			{
 				Screen.Upload(Upload);
@@ -558,14 +571,18 @@ namespace Weltall
 			}
 		}
 		Drawing->TypeWindows(Fight, TypedLines);
-		for (const FVramImage& Typed : TypedLines)
 		{
-			Screen.Upload(Typed);
+			const FVram::FKindScope TextKind(Screen, EVramUploadKind::Text);
+			for (const FVramImage& Typed : TypedLines)
+			{
+				Screen.Upload(Typed);
+			}
 		}
 		if (Fight.Menus.Gears.bPortraitsUploadPending)
 		{
 			// The gear choice's portraits, every gear's, as it first opens after the menus start.
 			Fight.Menus.Gears.bPortraitsUploadPending = false;
+			const FVram::FKindScope FacesKind(Screen, EVramUploadKind::Portraits);
 			for (const FVramImage& Upload : MenuPortraits)
 			{
 				Screen.Upload(Upload);

@@ -5,17 +5,18 @@
 #include "Field/FieldFollowers.h"
 #include "Field/FieldLayers.h"
 #include "Field/FieldMapChange.h"
+#include "Field/FieldMapStory.h"
 #include "Field/FieldModels.h"
 #include "Field/FieldPartySprites.h"
 #include "Field/FieldReturn.h"
 #include "Field/FieldScene.h"
-#include "Field/FieldScriptFixes.h"
 #include "Field/FieldSpriteFiles.h"
 #include "Field/FieldSprites.h"
+#include "Foundation/Crc32.h"
 #include "Game/GameState.h"
 #include "Game/PsxRandom.h"
 #include "Graphics/GteVectors.h"
-#include "Story/DiscText.h"
+#include "Input/KernelPad.h"
 #include "Story/StoryPacks.h"
 #include "Text/MessageTable.h"
 
@@ -28,6 +29,7 @@ namespace Weltall
 	{
 		constexpr int32 MapBits = 0xFFF;
 		constexpr int32 GearModeBits = 0xC000;
+		/** The pad's directions, logical bits 12-15. */
 		/** Where a map's encounter section keeps the weights of its 16 formations. */
 		constexpr std::size_t EncounterWeightsAt = 0x200;
 		/** The projection distance the GTE holds for the scripts of a map's init. */
@@ -40,63 +42,6 @@ namespace Weltall
 		FError LoadError(int32 Number, const std::string& What)
 		{
 			return MakeError("field map " + std::to_string(Number & MapBits) + ": " + What);
-		}
-
-		/**
-		 * A map of its own over its base map's parts: another map's encounter section when the document names one,
-		 * and, for a map made from its base, the document's scripts and messages in place of the base's (a map over
-		 * its base keeps them, and the document is added to them once they are read: AddToBaseScripts). Its script
-		 * actors are the base's first actor definitions, so it may have no more than the base map's scripts have.
-		 */
-		std::optional<FError> BuildMapOfItsOwn(const FStoryDocument& Document, FFieldMap& Map, const FCdImage& Image, const FGameFileIndex& Index,
-			const IDiscText& DiscText)
-		{
-			if (!Document.Patch.KeepsBaseScripts())
-			{
-				TResult<FFieldMapOfItsOwn> Built = Document.Patch.Build(&DiscText);
-				if (!Built)
-				{
-					return MakeError(Document.Name + ": " + Built.Error().Message);
-				}
-				const TResult<FEventScripts> Base = FEventScripts::Parse(Map.EventScripts);
-				const TResult<FEventScripts> Own = FEventScripts::Parse(Built->EventScripts);
-				if (!Base || !Own)
-				{
-					return MakeError(Document.Name + ": its scripts or its base map's cannot be read");
-				}
-				if (Own->ActorCount() > Base->ActorCount())
-				{
-					return MakeError(Document.Name + ": " + std::to_string(Own->ActorCount()) + " script actors, more than the " + std::to_string(Base->ActorCount())
-						+ " of field map " + std::to_string(*Document.Patch.Base()));
-				}
-				Map.EventScripts = std::move(Built->EventScripts);
-				Map.Messages = std::move(Built->Messages);
-			}
-			if (const std::optional<int32> From = Document.Patch.EncountersFrom())
-			{
-				TResult<FFieldArchive> Other = LoadFieldArchive(Image, Index, *From);
-				if (!Other)
-				{
-					return Other.Error();
-				}
-				Map.Encounters = std::move(Other->Section(EFieldSection::Encounters));
-			}
-			return std::nullopt;
-		}
-
-		/** A map over its base: the document added to the base map's scripts and messages, which must be the ones it was written for. */
-		std::optional<FError> AddToBaseScripts(const FStoryDocument& Document, FEventScripts& Scripts, std::vector<uint8>& Messages, const IDiscText& DiscText)
-		{
-			const TResult<bool> Added = Document.Patch.Apply(Scripts, Messages, &DiscText);
-			if (!Added)
-			{
-				return MakeError(Document.Name + ": " + Added.Error().Message);
-			}
-			if (!*Added)
-			{
-				return MakeError(Document.Name + ": field map " + std::to_string(*Document.Patch.Base()) + " or the disc's text is not what it expects");
-			}
-			return std::nullopt;
 		}
 	}
 
@@ -201,45 +146,27 @@ namespace Weltall
 
 	std::optional<FError> FFieldRuntime::LoadMap(int32 Number, const FEventContext* Before, const FFieldKernelState* Kernel, bool bReturning)
 	{
-		const bool bExpandedStory = Services.Game != nullptr && Services.Game->StoryMode() == EStoryMode::Expanded;
-		const FStoryDocument* Own = Services.Story != nullptr ? Services.Story->MapOfItsOwn(Number & MapBits, bExpandedStory) : nullptr;
-		auto Loaded = LoadFieldMap(*Services.Image, *Services.Index, Own != nullptr ? *Own->Patch.Base() : Number & MapBits);
+		const FFieldMapStory Story{Services.Story, Services.Options, Services.Game != nullptr && Services.Game->StoryMode() == EStoryMode::Expanded};
+		auto Loaded = LoadFieldMap(*Services.Image, *Services.Index, FieldMapReadFrom(Number & MapBits, Story));
 		if (!Loaded)
 		{
 			return Loaded.Error();
 		}
-		// The disc's own text, for the documents that name a message of it.
-		const FGameDiscText DiscText(*Services.Image, *Services.Index);
-		if (Own != nullptr)
+		std::vector<const FStoryDocument*> LeftOut;
+		auto Parsed = PutStoryInFieldMap(Number & MapBits, *Loaded, *Services.Image, *Services.Index, Story, LeftOut);
+		if (!Parsed)
 		{
-			if (const std::optional<FError> Unbuilt = BuildMapOfItsOwn(*Own, *Loaded, *Services.Image, *Services.Index, DiscText))
-			{
-				return LoadError(Number, Unbuilt->Message);
-			}
+			return LoadError(Number, Parsed.Error().Message);
 		}
-		auto Parsed = FEventScripts::Parse(Loaded->EventScripts);
-		if (Parsed)
+		// A map of its own is its document: over a base that is not the one it was written for, there is nothing to play.
+		const auto Unmade = std::find_if(LeftOut.begin(), LeftOut.end(), [](const FStoryDocument* Document) { return Document->Patch.Base().has_value(); });
+		if (Unmade != LeftOut.end())
 		{
-			// A map over its base runs the base map's scripts, so it takes that map's fixes before the document is added.
-			const bool bOverBase = Own != nullptr && Own->Patch.KeepsBaseScripts();
-			ApplyFieldScriptFixes(bOverBase ? *Own->Patch.Base() : Number & MapBits, *Parsed, Services.Options);
-			if (bOverBase)
-			{
-				if (const std::optional<FError> Unfit = AddToBaseScripts(*Own, *Parsed, Loaded->Messages, DiscText))
-				{
-					return LoadError(Number, Unfit->Message);
-				}
-			}
-			const std::optional<FError> Unfit = Services.Story != nullptr
-				? Services.Story->ApplyToMap(Number & MapBits, *Parsed, Loaded->Messages, Services.Options, bExpandedStory, &DiscText) : std::nullopt;
-			if (Unfit)
-			{
-				return LoadError(Number, "an addition to it: " + Unfit->Message);
-			}
+			return LoadError(Number, (*Unmade)->Name + ": field map " + std::to_string(*(*Unmade)->Patch.Base()) + " or the disc's text is not what it expects");
 		}
 		auto Files = ParseFieldSpriteFiles(Loaded->SpriteSets);
 		auto Messages = FMessageTable::Parse(Loaded->Messages);
-		if (!Parsed || !Files || !Messages)
+		if (!Files || !Messages)
 		{
 			return LoadError(Number, "its scripts, sprite files or messages cannot be read");
 		}
@@ -280,6 +207,7 @@ namespace Weltall
 		}
 		FEventContext& Context = FieldContext;
 		Context.Scripts = Scripts.get();
+		Context.ScriptsKey = Crc32(MapData->EventScripts);
 		Context.MapNumber = Number;
 		Context.RunningMap = Number & MapBits;
 		Context.Zones = MapData->Zones;
@@ -362,6 +290,8 @@ namespace Weltall
 	std::optional<FError> FFieldRuntime::FinishLoad(int32 Number, bool bReturning)
 	{
 		FEventContext& Context = FieldContext;
+		// A map the party comes back to (after a battle, a menu) has nothing new waiting: no pause there.
+		DoorPauseLeft = bReturning ? 0 : DoorPauseVblanks;
 		if (Context.Camera.FollowedActor >= Context.Actors.size())
 		{
 			// The original would read a record past its actors'.

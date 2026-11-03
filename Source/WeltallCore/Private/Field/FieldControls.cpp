@@ -183,11 +183,13 @@ namespace Weltall
 		FFieldControls& Controls = Context.Controls;
 		const uint16 Mask = Controls.ScriptMask & Controls.WalkMask;
 		Context.PadHeld = Words.Held & Mask;
+		Context.PadZoomHeld = Words.ZoomHeld & Mask;
 		Controls.Pressed = Words.Pressed & Mask;
 		Controls.Repeated = Words.Repeated & Mask;
 		if (Context.SettleTicks != 0)
 		{
 			Context.PadHeld = 0;
+			Context.PadZoomHeld = 0;
 			Controls.Pressed = 0;
 			Controls.Repeated = 0;
 		}

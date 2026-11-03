@@ -32,6 +32,8 @@ namespace Weltall
 	 */
 	struct FFieldSnapshot
 	{
+		/** The map's scripts the actors' threads ran in (FEventContext::ScriptsKey). */
+		uint32 ScriptsKey = 0;
 		std::vector<FFieldSavedActor> Actors;
 		std::vector<uint32> WalkAttributes;
 		FEventVariables Variables;

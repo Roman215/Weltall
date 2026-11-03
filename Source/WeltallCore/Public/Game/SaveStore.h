@@ -57,8 +57,6 @@ namespace Weltall
 		std::filesystem::path SlotFile(int32 Slot) const;
 		std::filesystem::path LastSavedFile() const;
 		std::filesystem::path ImportFolderFile() const;
-		/** Bytes written to a file beside Path, then put in its place. */
-		static std::optional<FError> Replace(const std::filesystem::path& Path, std::span<const uint8> Bytes);
 
 		std::filesystem::path Root;
 	};

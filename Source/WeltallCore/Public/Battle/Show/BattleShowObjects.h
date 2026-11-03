@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Battle/Show/BattleGearDress.h"
 #include "Battle/Show/BattleObjectFiles.h"
 #include "Battle/Show/BattleObjectParts.h"
 #include "Battle/Show/BattleObjectsFrame.h"
@@ -177,6 +178,9 @@ namespace Weltall
 		 * each with the colours its CLUT held once the making had uploaded them.
 		 */
 		std::shared_ptr<const std::vector<FTexturePictureSeed>> TextureSeeds;
+		/** The model drawn over its bones in place of its own, and that model's bones as last placed over them; none drawn for most. */
+		std::shared_ptr<const FBattleGearDress> Dress;
+		std::vector<FGearBone> DressBones;
 	};
 
 	/** Key event 1's spawn of an effect sprite at a bone: what the sprite follows when it follows the bone. */
@@ -249,6 +253,8 @@ namespace Weltall
 		virtual void FadeSound(uint32 Sound, int32 Volume, int32 Steps) = 0;
 		/** VRAM: a block uploaded at its place, a copy (MoveImage), a rectangle read and written (StoreImage, LoadImage). */
 		virtual void UploadImage(const FGearTextureBlock& Block, int16 X, int16 Y) = 0;
+		/** A block of the port's own at its place in the port's rows (Y counted from the console's top): nothing of the game's. */
+		virtual void UploadToPortRows(const FGearTextureBlock& Block, int16 X, int16 Y) = 0;
 		virtual void MoveImage(const FVramRect& Rect, int32 X, int32 Y) = 0;
 		virtual void StoreImage(const FVramRect& Rect, std::span<uint16> Into) = 0;
 		virtual void LoadImage(const FVramRect& Rect, std::span<const uint16> From) = 0;
@@ -256,6 +262,8 @@ namespace Weltall
 		virtual TResult<FBattleModelFiles> ReadGear(int32 Gear, int32 Variant) = 0;
 		virtual TResult<FBattleModelFiles> ReadSpecialModel(int32 Model) = 0;
 		virtual TResult<FBattleSequenceExtension> ReadExtension(int32 File) = 0;
+		/** A battle scene's model entry (the port's: a model worn by a look, as Id's red gears are). */
+		virtual TResult<FBattleModelFiles> ReadSceneModel(int32 Scene, int32 Entry) = 0;
 		/** Op 07: the reads under way are abandoned. */
 		virtual void AbortReads() = 0;
 		/** The sprite that stands in for slot Slot's object in the sprites' code. */
@@ -484,6 +492,8 @@ namespace Weltall
 		void DrawObject(int32 Slot, const FGteMatrix& View, int32 CatchUp);
 		/** The trails: the pool's quads into the frame under View, aged by the step's ticks. */
 		void DrawTrails(const FGteMatrix& View, int32 Ticks);
+		/** The model a gear's files have it wear over the performer's moves, made for Place; none where they ask for none or it cannot be made. */
+		static std::shared_ptr<const FBattleGearDress> MakeDress(FBattleModelFiles& Files, FGearMotionPack& Motion, const FGearTexturePlace& Place);
 		/** The gear model files read and waiting to be made, by party slot. */
 		std::array<std::optional<FBattleModelFiles>, 3> GearFiles;
 		std::optional<FBattleModelFiles> SpecialFiles;

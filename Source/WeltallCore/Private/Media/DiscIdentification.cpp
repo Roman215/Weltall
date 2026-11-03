@@ -20,9 +20,9 @@ namespace Weltall
 		};
 
 		constexpr std::array KnownDiscs = {
-			FKnownDisc{{EDiscRelease::UsaDisc1, 1, "Xenogears (USA) Disc 1"},
+			FKnownDisc{{EDiscRelease::UsaDisc1, 1, "Xenogears (USA) Disc 1", false, false, true},
 				"SLUS_006.64", "560bbdbeb9264c935294ecad5a3d4ab230a006a9"},
-			FKnownDisc{{EDiscRelease::UsaDisc2, 2, "Xenogears (USA) Disc 2"},
+			FKnownDisc{{EDiscRelease::UsaDisc2, 2, "Xenogears (USA) Disc 2", false, false, true},
 				"SLUS_006.69", "a378608389f04456925c6afaccb644ab90eaff30"},
 			FKnownDisc{{EDiscRelease::UndubDisc1, 1, "Xenogears (USA undub) Disc 1"},
 				"SLUS_006.64", "1e21636bc067bd3873b78be3d72978c8038daca0"},
@@ -48,10 +48,15 @@ namespace Weltall
 		 * changes zeroed (CodeSha1), the rest being its code.
 		 */
 		constexpr std::array PatchableDiscs = {
-			FKnownDisc{{EDiscRelease::UsaDisc1, 1, "Xenogears (USA, patched) Disc 1", true},
+			FKnownDisc{{EDiscRelease::UsaDisc1, 1, "Xenogears (USA, patched) Disc 1", true, false, true},
 				"SLUS_006.64", "433428236a2ff61fe404ffd93cc04e275b0df673"},
-			FKnownDisc{{EDiscRelease::UsaDisc2, 2, "Xenogears (USA, patched) Disc 2", true},
+			FKnownDisc{{EDiscRelease::UsaDisc2, 2, "Xenogears (USA, patched) Disc 2", true, false, true},
 				"SLUS_006.69", "8abdb9f6c3f4ff167cfd82957dd27350cdbd13fd"},
+			// The Italian translation's Japanese commands: the USA's code but for the face buttons' swap.
+			FKnownDisc{{EDiscRelease::UsaDisc1, 1, "Xenogears (USA, patched, Japanese commands) Disc 1", true, true, true},
+				"SLUS_006.64", "ef4d489877b05f1405cb8e7abc097bc0763aaf3b"},
+			FKnownDisc{{EDiscRelease::UsaDisc2, 2, "Xenogears (USA, patched, Japanese commands) Disc 2", true, true, true},
+				"SLUS_006.69", "52d15f103d870878df721e877858c302826b4228"},
 		};
 
 		/**

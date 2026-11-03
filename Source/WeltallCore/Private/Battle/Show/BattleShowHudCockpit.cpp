@@ -4,6 +4,7 @@
 #include "Battle/Show/BattleHudDigits.h"
 #include "Battle/Show/BattleHudGpu.h"
 #include "Battle/Show/BattleHudLists.h"
+#include "Battle/Show/BattleRegurus.h"
 #include "Battle/Show/BattleShowHud.h"
 #include "Text/MesRender.h"
 
@@ -319,9 +320,9 @@ namespace Weltall
 		Runs[ERun::Digits].Buffer = Buffer;
 	}
 
-	void FBattleHud::LinkCockpitRun(FBattleHudCockpit::ERun Run)
+	void FBattleHud::LinkCockpitRun(FBattleHudCockpit::ERun Run, uint32 Key)
 	{
-		LinkPairs(Cockpit.Room(Run), Cockpit.Runs[Run].Count, Cockpit.Runs[Run].Buffer);
+		LinkPairs(Cockpit.Room(Run), Cockpit.Runs[Run].Count, Cockpit.Runs[Run].Buffer, Key);
 	}
 
 	void FBattleHud::LinkCockpit()
@@ -351,10 +352,12 @@ namespace Weltall
 			Cockpit.LampTicks = 0;
 		}
 		for (const ERun Run : {ERun::Booster, ERun::Unused, ERun::Attack, ERun::InfinityChance, ERun::ArmorBreak, ERun::Agility, ERun::Shade, ERun::Elevation,
-				 ERun::Bearing, ERun::Reticle, ERun::Sight})
+				 ERun::Bearing})
 		{
 			LinkCockpitRun(Run);
 		}
+		LinkCockpitRun(ERun::Reticle, BattleHudBlendKeys::Reticle(0));
+		LinkCockpitRun(ERun::Sight, BattleHudBlendKeys::Sight(0));
 	}
 
 	bool FBattleHud::GearAttackLearned(uint8 Slot, uint32 Attack)
@@ -471,7 +474,9 @@ namespace Weltall
 			}
 		};
 		InitQuads(Hints.Names[At], Plane != 0);
-		const std::span<const uint8> Name = TableString(GearAttackNameTables + Battle->Combatants[Slot].Gear, Battle->Program->GearAttacks[Attack]);
+		const uint8 Performing = Battle->PartyLooks().PerformingGear(Battle->Combatants[Slot].Gear);
+		const uint8 Naming = Settings.bRegurusNamedAsVierge ? BattleRegurus::NamingGear(Performing) : Performing;
+		const std::span<const uint8> Name = TableString(GearAttackNameTables + Naming, Battle->Program->GearAttacks[Attack]);
 		if (FaultState != EBattleHudFault::None)
 		{
 			return Hint + 1;

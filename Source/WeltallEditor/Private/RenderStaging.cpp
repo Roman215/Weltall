@@ -19,12 +19,61 @@
 #include <filesystem>
 #include <vector>
 #include <initializer_list>
+#include <span>
 #include <utility>
 
 DEFINE_LOG_CATEGORY_STATIC(LogRenderStaging, Log, All);
 
 namespace
 {
+	/**
+	 * Every character and gear far stronger than the story's battles ask for, as the story sweep makes them: full points
+	 * at their caps, attack, defense and ether well above any enemy's, a gear's armor, output and fuel likewise.
+	 */
+	void MakeMightyParty(Weltall::FGameState& State)
+	{
+		constexpr std::size_t Characters = 0x26C;
+		constexpr std::size_t Gears = 0x978;
+		constexpr std::size_t RecordSize = 0xA4;
+		constexpr std::size_t CharacterCount = 11;
+		constexpr std::size_t GearCount = 20;
+		const std::span<uint8> Block = State.Block();
+		const auto Put16 = [](std::span<uint8> Record, std::size_t At, uint16 Value) { Weltall::LittleEndian::WriteU16(Record, At, Value); };
+		const auto Put32 = [](std::span<uint8> Record, std::size_t At, uint32 Value) { Weltall::LittleEndian::WriteU32(Record, At, Value); };
+		for (std::size_t Character = 0; Character < CharacterCount; ++Character)
+		{
+			const std::span<uint8> Record = Block.subspan(Characters + Character * RecordSize, RecordSize);
+			Put16(Record, 0x4C, 999);
+			Put16(Record, 0x4E, 999);
+			Put16(Record, 0x50, 99);
+			Put16(Record, 0x52, 99);
+			// Attack, defense, agility as far as a battle counts it, ether, ether defense, hit, evade.
+			for (const auto& [At, Value] : {std::pair<std::size_t, uint8>{0x58, 150}, {0x59, 150}, {0x5A, 16}, {0x5B, 150}, {0x5C, 150}, {0x5E, 99}, {0x5F, 90}})
+			{
+				Record[At] = Value;
+			}
+		}
+		for (std::size_t Gear = 0; Gear < GearCount; ++Gear)
+		{
+			const std::span<uint8> Record = Block.subspan(Gears + Gear * RecordSize, RecordSize);
+			Put16(Record, 0x38, 30000);
+			Put16(Record, 0x3A, 30000);
+			Record[0x3C] = 250;
+			Put32(Record, 0x60, 60000);
+			Put32(Record, 0x64, 60000);
+			Put16(Record, 0x70, 20000);
+			Put16(Record, 0x72, 20000);
+		}
+		// Every gear Deathblow and the three Infinity attacks a pilot learns at levels 50, 60 and 70.
+		constexpr std::size_t LearnedGearDeathblows = 0x16C0 + 4;
+		constexpr std::size_t LearnedSize = 0x20;
+		constexpr uint16 EveryGearAttack = 0x1FFE;
+		for (std::size_t Character = 0; Character < CharacterCount; ++Character)
+		{
+			Put16(Block, LearnedGearDeathblows + Character * LearnedSize, EveryGearAttack);
+		}
+	}
+
 	/** The state block's places the state's accessors do not name. */
 	constexpr std::size_t CharacterRecords = 0x26C;
 	constexpr std::size_t CharacterRecordSize = 0xA4;
@@ -145,18 +194,27 @@ bool FRenderStaging::Parse(const FString& Params, FRenderStaging& Staging)
 		Staging.bRisingParty = State == TEXT("Rising");
 		Staging.bStrongParty = Staging.bRisingParty || State == TEXT("Strong");
 	}
-	// The world map's own screen takes -Party for the party it starts with. Its dash keeps a setting's key ending in "party"
+	Staging.bMightyParty = FParse::Param(*Params, TEXT("Mighty"));
+	FParse::Value(*Params, TEXT("PartyAp="), Staging.PartyAp);
+	if (Staging.PartyAp < 0 || Staging.PartyAp > 7)
+	{
+		UE_LOG(LogRenderStaging, Error, TEXT("-PartyAp takes 3 to 7"));
+		return false;
+	}
+	// The world map's own screen takes -Party for the party it starts with, and -Looks. Its dash keeps a setting's key ending in "party"
 	// (-Setting=...rebalanced_party=true) from reading as the option.
 	FString Screen;
 	FParse::Value(*Params, TEXT("Screen="), Screen);
 	FString Party;
+	FString Cards;
+	const bool bSavedState = FParse::Value(*Params, TEXT("FieldCards="), Cards);
 	if (Screen != TEXT("WorldMap") && FParse::Value(*Params, TEXT("-Party="), Party, false))
 	{
 		TArray<FString> Parts;
 		Party.ParseIntoArray(Parts, TEXT(","));
-		if (Parts.Num() != 3 || !Staging.bFullState)
+		if (Parts.Num() != 3 || !(Staging.bFullState || bSavedState))
 		{
-			UE_LOG(LogRenderStaging, Error, TEXT("-Party takes a,b,c and a -State"));
+			UE_LOG(LogRenderStaging, Error, TEXT("-Party takes a,b,c and a -State or a save (-FieldCards)"));
 			return false;
 		}
 		for (const FString& Part : Parts)
@@ -195,6 +253,16 @@ bool FRenderStaging::Parse(const FString& Params, FRenderStaging& Staging)
 			}
 			Staging.GearOf.Add(FCString::Atoi(*Parts[0]));
 			Staging.GearOf.Add(FCString::Atoi(*Parts[1]));
+		}
+	}
+	FString Looks;
+	if (Screen != TEXT("WorldMap") && FParse::Value(*Params, TEXT("Looks="), Looks, false))
+	{
+		TArray<FString> Parts;
+		Looks.ParseIntoArray(Parts, TEXT(","));
+		for (const FString& Part : Parts)
+		{
+			Staging.Looks.Add(FCString::Atoi(*Part));
 		}
 	}
 	FString Order;
@@ -265,6 +333,31 @@ bool FRenderStaging::Parse(const FString& Params, FRenderStaging& Staging)
 	if (FParse::Value(*Params, TEXT("Saves="), Saves, false))
 	{
 		Staging.Saves.emplace(std::filesystem::path(*FPaths::ConvertRelativePathToFull(Saves)));
+	}
+	FString States;
+	if (FParse::Value(*Params, TEXT("States="), States, false))
+	{
+		Staging.States.emplace(std::filesystem::path(*FPaths::ConvertRelativePathToFull(States)));
+	}
+	FString StateKeys;
+	if (FParse::Value(*Params, TEXT("StateKeys="), StateKeys, false))
+	{
+		TArray<FString> Presses;
+		StateKeys.ParseIntoArray(Presses, TEXT(","));
+		for (const FString& Press : Presses)
+		{
+			FString At;
+			FString Key;
+			const TMap<FString, Weltall::EControlAction> Named{{TEXT("Save"), Weltall::EControlAction::SaveState},
+				{TEXT("Load"), Weltall::EControlAction::LoadState}, {TEXT("Next"), Weltall::EControlAction::NextStateSlot},
+				{TEXT("Previous"), Weltall::EControlAction::PreviousStateSlot}, {TEXT("Log"), Weltall::EControlAction::MessageLog}};
+			if (!Press.Split(TEXT(":"), &At, &Key) || !At.IsNumeric() || !Named.Contains(Key))
+			{
+				UE_LOG(LogRenderStaging, Error, TEXT("-StateKeys takes S:Key, each after a ',', Key Save, Load, Next, Previous or Log: '%s'"), *Press);
+				return false;
+			}
+			Staging.StateKeys.Add({FCString::Atod(*At), Named[Key]});
+		}
 	}
 	FString Menu;
 	if (FParse::Value(*Params, TEXT("Menu="), Menu, false))
@@ -340,6 +433,10 @@ void FRenderStaging::Begin(FGameLoopScreen& Screen)
 	{
 		Screen.SetSaves(&*Saves);
 	}
+	if (States)
+	{
+		Screen.SetSaveStates(&*States);
+	}
 	if (bIcons)
 	{
 		Screen.SetButtonGlyphs(&Glyphs);
@@ -379,6 +476,22 @@ void FRenderStaging::Begin(FGameLoopScreen& Screen)
 			SetWord(*State, LearnedSkills + Elly * LearnedSkillsSize + LearnedAbilities, 0);
 		}
 	}
+	else if (Weltall::FGameState* Own = Screen.GameState(); Own != nullptr && (!Party.IsEmpty() || !Ride.IsEmpty() || !GearOf.IsEmpty() || !Looks.IsEmpty()))
+	{
+		// The game's own state, with what is staged of its party.
+		ApplyParty(*Own);
+	}
+	if (Weltall::FGameState* Mighty = Screen.GameState(); Mighty != nullptr && bMightyParty)
+	{
+		MakeMightyParty(*Mighty);
+	}
+	if (Weltall::FGameState* State = Screen.GameState(); State != nullptr && PartyAp != 0)
+	{
+		for (int32 Character = 0; Character < Characters; ++Character)
+		{
+			State->Block()[LearnedSkills + Character * LearnedSkillsSize + ApPerTurn] = static_cast<uint8>(PartyAp);
+		}
+	}
 	if (Weltall::FGameState* State = Screen.GameState(); State != nullptr && !Order.IsEmpty())
 	{
 		std::vector<uint8> Shown;
@@ -414,6 +527,15 @@ void FRenderStaging::ApplyParty(Weltall::FGameState& State) const
 	for (int32 Pair = 0; Pair + 1 < GearOf.Num(); Pair += 2)
 	{
 		State.SetCharacterGear(GearOf[Pair], static_cast<uint8>(GearOf[Pair + 1]));
+	}
+	if (!Looks.IsEmpty())
+	{
+		Weltall::FCharacterLooks Switched;
+		for (const int32 Character : Looks)
+		{
+			Switched.Switch(static_cast<uint8>(Character));
+		}
+		State.SetCharacterLooks(Switched);
 	}
 }
 
@@ -452,6 +574,12 @@ void FRenderStaging::Advance(FGameLoopScreen& Screen, double Elapsed)
 		if (Weltall::FGameState* State = Screen.GameState())
 		{
 			ApplyParty(*State);
+			// The field writes its own party back every frame: the battle takes the staged one only if the field holds it too.
+			Weltall::FGameLoop* Loop = Screen.Loop();
+			if (Weltall::FFieldProgram* Field = Loop != nullptr ? Loop->Field() : nullptr; Field != nullptr && Party.Num() == 3)
+			{
+				Field->Runtime().Context().PartyCharacters = State->Party();
+			}
 			// A map's entry may have healed the party: a point from death again as the battle starts.
 			for (int32 Character = 0; bWeakParty && Character < Characters; ++Character)
 			{
@@ -479,6 +607,14 @@ void FRenderStaging::Advance(FGameLoopScreen& Screen, double Elapsed)
 	if (CardChapter > 0 && !bCardShown && Elapsed >= CardAt)
 	{
 		bCardShown = Screen.ShowChapterCard(CardChapter, CardSubtitle);
+	}
+	for (FStateKey& Key : StateKeys)
+	{
+		if (!Key.bPressed && Elapsed >= Key.At)
+		{
+			Screen.PressPortKey(Key.Action);
+			Key.bPressed = true;
+		}
 	}
 }
 

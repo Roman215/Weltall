@@ -170,6 +170,8 @@ namespace Weltall
 		int16 Character = None;
 		/** Reading, then Read (its file's memory goes the tick after), then Ready; None before its first face. */
 		int16 Load = None;
+		/** Which of the field's face reads put its faces here (0 before any): each read places them in VRAM again. */
+		uint32 ReadNumber = 0;
 
 		static constexpr int16 Ready = 0;
 		static constexpr int16 Reading = 1;
@@ -196,6 +198,8 @@ namespace Weltall
 		std::array<FFieldPortraitSlot, PortraitSlotCount> Portraits;
 		/** The slot the last face went to: the next goes to the first after it that no open window shows. */
 		int32 LastPortraitSlot = 0;
+		/** Faces read since the field began, emptied caches or not: the number the next read's slot takes. */
+		uint32 PortraitReads = 0;
 		/** The cursors' animation, shared by every window: ticks, and the frame (0-4) that advances every fourth. */
 		int32 CursorTicks = 0;
 		int32 CursorFrame = 0;
@@ -206,6 +210,8 @@ namespace Weltall
 		const FReplacedMessages* Replaced = nullptr;
 		/** The font and name tables the windows' text reads, the button map, and the number string they share. */
 		FMesContext Text;
+		/** Auto-advancing text: how long the windows the button reaches have waited for it. */
+		FMesReading Reading;
 
 		/** A map's load: every window closed and free, the faces' cache empty, the opening at its full length. */
 		WELTALLCORE_API void EnterMap();
@@ -242,7 +248,9 @@ namespace Weltall
 	/**
 	 * The windows' second step, after Tick: the player's button (Pressed & 0x20) on the frontmost or
 	 * focused window, the text typed, the opening and the cursors placed, a choice's cursor moved by
-	 * Up and Down on the repeat word; the windows then renumbered by age.
+	 * Up and Down on the repeat word; the windows then renumbered by age. With auto-advancing text the
+	 * button is pressed for the player once every window it reaches has waited for it, without a choice,
+	 * as long as the pace gives its glyphs; the tick lasts Vblanks.
 	 */
-	WELTALLCORE_API void UpdateFieldMessages(FEventContext& Context, uint16 Pressed, uint16 Repeat);
+	WELTALLCORE_API void UpdateFieldMessages(FEventContext& Context, uint16 Pressed, uint16 Repeat, int32 Vblanks);
 }

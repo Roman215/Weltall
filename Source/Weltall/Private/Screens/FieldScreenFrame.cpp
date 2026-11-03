@@ -28,21 +28,22 @@ TSharedRef<FFieldCoverPicture> FFieldCoverPicture::Make(TSharedPtr<const IScreen
 	});
 }
 
-FRDGTextureRef FFieldCoverPicture::Texture(FRDGBuilder& GraphBuilder, FIntPoint Size)
+FRDGTextureRef FFieldCoverPicture::Texture(FRDGBuilder& GraphBuilder, const FScreenArea& Area)
 {
-	return Draw(GraphBuilder, Size, Drawn);
+	return Draw(GraphBuilder, Area.At(FIntPoint::ZeroValue), Drawn);
 }
 
 FRDGTextureRef FFieldCoverPicture::ScreenPixels(FRDGBuilder& GraphBuilder)
 {
-	return Draw(GraphBuilder, FIntPoint(FieldScreen.Width, FieldScreen.Height), DrawnAtScreen);
+	return Draw(GraphBuilder, FScreenArea(FIntRect(0, 0, FieldScreen.Width, FieldScreen.Height)), DrawnAtScreen);
 }
 
-FRDGTextureRef FFieldCoverPicture::Draw(FRDGBuilder& GraphBuilder, FIntPoint Size, TRefCountPtr<IPooledRenderTarget>& Into)
+FRDGTextureRef FFieldCoverPicture::Draw(FRDGBuilder& GraphBuilder, const FScreenArea& Area, FDrawn& Into)
 {
-	if (Into.IsValid() && Into->GetDesc().Extent == Size)
+	const FIntPoint Size = Area.Size();
+	if (Into.Target.IsValid() && Into.Target->GetDesc().Extent == Size && Into.WholeScale == Area.WholeScale)
 	{
-		return GraphBuilder.RegisterExternalTexture(Into);
+		return GraphBuilder.RegisterExternalTexture(Into.Target);
 	}
 	if (!Shown.IsValid())
 	{
@@ -51,8 +52,9 @@ FRDGTextureRef FFieldCoverPicture::Draw(FRDGBuilder& GraphBuilder, FIntPoint Siz
 	FRDGTextureRef Picture = GraphBuilder.CreateTexture(
 		FRDGTextureDesc::Create2D(Size, PF_B8G8R8A8, FClearValueBinding::Black, TexCreate_RenderTargetable | TexCreate_ShaderResource), TEXT("FieldCoverPicture"));
 	AddClearRenderTargetPass(GraphBuilder, Picture, FLinearColor::Black);
-	Shown->AddPasses(GraphBuilder, Picture, FIntRect(FIntPoint::ZeroValue, Size));
-	GraphBuilder.QueueTextureExtraction(Picture, &Into);
+	Shown->AddPasses(GraphBuilder, Picture, Area);
+	GraphBuilder.QueueTextureExtraction(Picture, &Into.Target);
+	Into.WholeScale = Area.WholeScale;
 	return Picture;
 }
 
@@ -64,7 +66,7 @@ TSharedRef<FFieldStillFrame> FFieldStillFrame::Make(TSharedRef<const IScreenFram
 	});
 }
 
-void FFieldStillFrame::AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const
+void FFieldStillFrame::AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const
 {
 	const FRDGTextureDesc& Desc = Output->Desc;
 	if (Drawn.IsValid() && Drawn->GetDesc().Extent == Desc.Extent && Drawn->GetDesc().Format == Desc.Format && DrawnArea == Area)
@@ -128,14 +130,11 @@ FFieldScreenFrame::FFieldScreenFrame(TSharedRef<const FFieldSceneMesh> InMesh, T
 {
 }
 
-void FFieldScreenFrame::AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const
+void FFieldScreenFrame::AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const
 {
 	const bool bScreenPicture = Cover.bShown && Cover.bScreen && Picture.IsValid();
-	FRDGTextureRef PictureTexture = bScreenPicture ? Picture->Texture(GraphBuilder, Area.Size()) : nullptr;
-	const Weltall::FScreenLayout Layout = Weltall::FScreenLayout::Fit(Area.Width(), Area.Height(), FieldScreen);
-	const Weltall::FDisplayRect Placed = Layout.ToDisplay({0, 0, static_cast<int16>(FieldScreen.Width), static_cast<int16>(FieldScreen.Height)});
-	const FIntPoint Origin = Area.Min + FIntPoint(Placed.X, Placed.Y);
-	const FIntRect ScreenRect(Origin, Origin + FIntPoint(Placed.Width, Placed.Height));
+	FRDGTextureRef PictureTexture = bScreenPicture ? Picture->Texture(GraphBuilder, Area) : nullptr;
+	const FIntRect ScreenRect = Area.ScreenRect(FieldScreen);
 	if (MoviePicture.IsValid())
 	{
 		const Weltall::FScreenRect WholeScreen{0, 0, static_cast<int16>(FieldScreen.Width), static_cast<int16>(FieldScreen.Height)};
@@ -143,7 +142,7 @@ void FFieldScreenFrame::AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Outp
 	}
 	else
 	{
-		AddFieldScenePasses(GraphBuilder, *Mesh, *Vram, Draw, Output, Area);
+		AddFieldScenePasses(GraphBuilder, *Mesh, *Vram, Draw, Output, Area.Rows(FieldScreen));
 	}
 	FDrawListFrame Frame{&Layer, bPreviousLayer ? &PreviousLayer : nullptr, bPreviousLayer ? &Matches : nullptr, Alpha};
 	Frame.End = Cover.LayerIndex;

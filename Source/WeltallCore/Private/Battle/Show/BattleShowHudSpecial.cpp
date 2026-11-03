@@ -4,9 +4,12 @@
 #include "Battle/Show/BattleHudGpu.h"
 #include "Battle/Show/BattleHudLists.h"
 #include "Battle/Show/BattleShowHud.h"
+#include "Text/MesGlyphs.h"
 #include "Text/MesRender.h"
 
 #include <algorithm>
+#include <string_view>
+#include <vector>
 
 namespace Weltall
 {
@@ -30,6 +33,27 @@ namespace Weltall
 		 */
 		constexpr uint32 MostCostShown = 9999;
 		constexpr int16 SpecialRow = 16;
+
+		/** "True Id" in the message encoding, ended by 0: Xenogears' Infinity as Fei drawn as Id has it. */
+		std::span<const uint8> TrueIdName()
+		{
+			static const std::vector<uint8> Text = []
+			{
+				std::vector<uint8> Bytes;
+				for (const char Letter : std::string_view("True Id"))
+				{
+					const FMesCode Code = MesCodeOfCharacter(Letter).value_or(FMesCode{});
+					if (Code.Lead != 0)
+					{
+						Bytes.push_back(Code.Lead);
+					}
+					Bytes.push_back(Code.Code);
+				}
+				Bytes.push_back(0);
+				return Bytes;
+			}();
+			return Text;
+		}
 	}
 
 	bool FBattleHud::SpecialOffered(uint8 Slot, int32 Special)
@@ -40,7 +64,7 @@ namespace Weltall
 			FaultState = EBattleHudFault::IndexOutsideHud;
 			return false;
 		}
-		const bool bLearned = (BattleGameState::Word(*Battle->GameState, Offset) & (0x8000u >> Special)) != 0;
+		const bool bLearned = (BattleGameState::Word(*Battle->GameState, Offset) & (0x8000u >> Special)) != 0 || Battle->IsTrueId(Slot, Special);
 		const uint16 Switch = Battle->Program->CommandBits[SwitchCommands[static_cast<std::size_t>(Special)]];
 		return bLearned && (Battle->Combatants[Slot].DisabledCommands & Switch) == 0;
 	}
@@ -85,7 +109,9 @@ namespace Weltall
 			if (bOffered)
 			{
 				FVramImage Name = BlankImage(NarrowUnits);
-				RenderMesString(Text, ListTyping, TableString(SpecialNameTable, Battle->Combatants[Slot].Gear * Specials + Special), Name, 0);
+				const std::span<const uint8> Named = Battle->IsTrueId(Slot, Special) ? TrueIdName()
+																					  : TableString(SpecialNameTable, Battle->Combatants[Slot].Gear * Specials + Special);
+				RenderMesString(Text, ListTyping, Named, Name, 0);
 				Place(Name, 0x380, TextY, NarrowUnits, TextRows);
 			}
 			Place(BlankImage(0x1B, SpecialRow), HelpX, Top, 0x1B, SpecialRow);

@@ -26,7 +26,6 @@ namespace Weltall
 		constexpr int16 NameStripX = 0x180;
 		constexpr int16 NameStripWidth = 0x28;
 		constexpr int16 NameStripRows = 13;
-		constexpr std::size_t NameBytes = 20;
 		constexpr int32 NamePairs = 6;
 
 		namespace Effect
@@ -94,10 +93,7 @@ namespace Weltall
 			const bool bKept = Character != FGameState::EmptySlot && Available[Character];
 			Flags[static_cast<std::size_t>(MenuFlag::Party + Row)] = bKept ? Character : FGameState::EmptySlot;
 		}
-		for (const FVramImage& Image : Resources.ArchiveUploads())
-		{
-			Upload(Image);
-		}
+		UploadArchive();
 	}
 
 	void FMenuMember::DrawFrame()
@@ -159,10 +155,8 @@ namespace Weltall
 	void FMenuMember::RenderNamePair(int32 Pair)
 	{
 		std::fill(NameImage.Units.begin(), NameImage.Units.end(), uint16{0});
-		const std::span<const uint8> Block = Services.Game->Block();
-		const std::size_t First = static_cast<std::size_t>(Pair) * 2 * NameBytes;
-		RenderString(NameTyping, NameImage, Block.subspan(First), 0);
-		RenderString(NameTyping, NameImage, Block.subspan(First + NameBytes), 1);
+		RenderString(NameTyping, NameImage, ShownName(Pair * 2), 0);
+		RenderString(NameTyping, NameImage, ShownName(Pair * 2 + 1), 1);
 		const FMenuMemberTables& Tables = Resources.Member();
 		const std::size_t At = static_cast<std::size_t>(Pair);
 		NameImage.Rect = {static_cast<int16>(NameStripX + Tables.NameStripX[At]), static_cast<int16>(Tables.NameStripY[At]), NameStripWidth, NameStripRows};

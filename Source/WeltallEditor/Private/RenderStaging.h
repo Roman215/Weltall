@@ -1,6 +1,7 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Game/SaveStateSlots.h"
 #include "Game/SaveStore.h"
 #include "Input/ButtonGlyphs.h"
 #include "Menu/MenuAssetPages.h"
@@ -25,7 +26,10 @@ namespace Weltall
  * (a result screen with its level-ups); -Party=a,b,c, the staged state's party, set again as -Menu's menu or -Battle's
  * battle is asked for (a map's scripts choose their own), with -Ride=a,b,c whether each slot rides its gear then and
  * -GearOf=character:gear[,character:gear...] the gear a character has; -Order=a,b,... the order the player keeps the
- * staged party in (FPartyOrder: characters, the first shown first);
+ * staged party in (FPartyOrder: characters, the first shown first); -Looks=a,b,... the characters drawn in their other
+ * look (FCharacterLooks: 9 the second Citan without his sword, 10 the grown Emeralda as the child, 1 Elly's purple hair); -Mighty, every
+ * character and gear far stronger than the story asks, so that a battle a pad script fights is won (as the story
+ * sweep's -strong), set as play begins;
  * -Menu=Mode,Parameter, a
  * menu the field opens as its scripts would ask for it, -MenuAt=S seconds into play (0: at once);
  * -MenuArea=Screen|Wide, how far the menus draw on a display wider than the original's screen;
@@ -36,6 +40,8 @@ namespace Weltall
  * -Icons=Keyboard|Xbox|PlayStation|Nintendo|SteamDeck, the player's buttons shown with a set's icons
  * under the bindings the game has (without it, the game's own pictures);
  * -Saves=Folder, the folder the game keeps its saves in (without it the game has no save stores);
+ * -States=Folder, the folder of the game's save state slots (without it the states' keys do nothing), and
+ * -StateKeys=S:Key,S:Key,..., a state's key (Save, Load, Next, Previous) or the message log's (Log) pressed S seconds into play;
  * -Keys=a,b,..., the keys the options screen's Controls page hears, one each time it listens, a second after it
  * begins (an axis moved by its name and + or -: MouseX+); without it the screen has no Controls page;
  * -MenuAssets, an asset store that is ready and exports nothing, so the options screen has its Assets page.
@@ -90,6 +96,7 @@ class FRenderAssets final : public Weltall::IMenuAssets
 public:
 	virtual Weltall::FMenuAssetProgress Progress() const override { return {}; }
 	virtual bool StartExport(Weltall::EAssetExportKind) override { return false; }
+	virtual Weltall::EShareableStart StartShareable(std::string_view, bool) override { return Weltall::EShareableStart::Started; }
 	virtual void CancelExport() override {}
 };
 
@@ -99,12 +106,17 @@ struct FRenderStaging
 	bool bWeakParty = false;
 	bool bStrongParty = false;
 	bool bRisingParty = false;
+	bool bMightyParty = false;
+	/** -PartyAp=N: every character's AP per turn, after the rest of the staged state; 0 leaves it. */
+	int32 PartyAp = 0;
 	/** -Party: the characters of the staged state's party; empty for Fei, Elly and Citan. */
 	TArray<int32> Party;
 	/** -Ride: per party slot, whether it rides its gear into the battle; empty for the map's own state. */
 	TArray<int32> Ride;
 	/** -GearOf=character:gear[,...]: the gear each character named is given with the staged state, as a story script gives one; pairs. */
 	TArray<int32> GearOf;
+	/** -Looks: the characters switched to their other look with the party; empty for the state's own looks. */
+	TArray<int32> Looks;
 	/** -Order: the characters the player shows the party in, the first first; empty for the story's order. A screen of its own state (the world map's) reads it too. */
 	TArray<int32> Order;
 	/** -MenuArea=Wide: the menus drawn past the 320 x 224 screen's edges (Screen, the original's clip, by default). */
@@ -136,6 +148,15 @@ struct FRenderStaging
 	FRenderGlyphs Glyphs;
 	/** -Saves: the player's saves for the render. */
 	std::optional<Weltall::FSaveStore> Saves;
+	/** -States: the save state slots; -StateKeys: their keys pressed in play, each once. */
+	std::optional<Weltall::FSaveStateSlots> States;
+	struct FStateKey
+	{
+		double At = 0.0;
+		Weltall::EControlAction Action = Weltall::EControlAction::SaveState;
+		bool bPressed = false;
+	};
+	TArray<FStateKey> StateKeys;
 	/** -Keys: what the Controls page hears. */
 	bool bKeys = false;
 	FRenderKeys Keys;
@@ -146,7 +167,7 @@ struct FRenderStaging
 	/** The staging a command line asks for; false, logged, when it is malformed. */
 	static bool Parse(const FString& Params, FRenderStaging& Staging);
 
-	bool IsEmpty() const { return !bFullState && MenuMode < 0 && BattleFormation < 0 && LeaderAt.IsEmpty() && !Arena && CardChapter <= 0 && !bWideMenuArea && !bIcons && !Saves && !bKeys && !bMenuAssets; }
+	bool IsEmpty() const { return !bFullState && !bMightyParty && PartyAp == 0 && Looks.IsEmpty() && GearOf.IsEmpty() && MenuMode < 0 && BattleFormation < 0 && LeaderAt.IsEmpty() && !Arena && CardChapter <= 0 && !bWideMenuArea && !bIcons && !Saves && !States && StateKeys.IsEmpty() && !bKeys && !bMenuAssets; }
 
 	/** Before the game's first frame. */
 	void Begin(FGameLoopScreen& Screen);

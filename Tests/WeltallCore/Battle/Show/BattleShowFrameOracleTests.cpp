@@ -325,6 +325,8 @@ namespace
 			Setup.Kind = Case.Kind;
 			Setup.bEvent = Context->bEventBattle;
 			Setup.Sound = &Sound;
+			// The original's Regurus: a case drawing it waits for its opening for good.
+			Show->Options.bRegurusFightsAsVierge = false;
 			Show->Begin(Setup);
 		}
 

@@ -67,6 +67,8 @@ namespace Weltall
 
 			void Level(std::string_view Key, const int32& Value, int32, int32) { Line(Key, std::to_string(Value)); }
 
+			void Name(std::string_view Key, const std::string& Value) { Line(Key, Value); }
+
 			void Size(std::string_view Key, const FDisplaySize& Value)
 			{
 				Line(Key, Value.IsSet() ? std::to_string(Value.Width) + "x" + std::to_string(Value.Height) : std::string());
@@ -165,6 +167,14 @@ namespace Weltall
 					{
 						Value = std::clamp(Read, Min, Max);
 					}
+				}
+			}
+
+			void Name(std::string_view Key, std::string& Value)
+			{
+				if (const std::string* Text = Find(Key))
+				{
+					Value = *Text;
 				}
 			}
 
@@ -284,6 +294,7 @@ namespace Weltall
 			Visitor.Flag("display.full_screen", Settings.Display.bFullScreen);
 			Visitor.Size("display.window_size", Settings.Display.WindowSize);
 			Visitor.Choice("display.aspect", Settings.Display.Aspect, {"window", "16:9", "4:3"});
+			Visitor.Flag("display.integer_scaling", Settings.Display.bIntegerScaling);
 			Visitor.Choice("display.crt_filter", Settings.Display.Crt, {"off", "monitor", "tv", "custom"});
 			auto& Crt = Settings.Display.CustomCrt;
 			Visitor.Level("crt.scanlines", Crt.Scanlines, 0, FCrtLook::Steps);
@@ -322,9 +333,16 @@ namespace Weltall
 			Visitor.Choice("sound.subtitles_from", Settings.MovieSubtitleSource, {"automatic", "undub", "perfect_works"});
 			Visitor.Flag("assets.external", Settings.bExternalAssets);
 			Visitor.Flag("assets.capture_textures", Settings.bCaptureTextures);
+			Visitor.Flag("assets.packs.text", Settings.PackKinds.bText);
+			Visitor.Flag("assets.packs.portraits", Settings.PackKinds.bPortraits);
+			Visitor.Flag("assets.packs.menus_and_hud", Settings.PackKinds.bMenusAndHud);
+			Visitor.Flag("assets.packs.characters", Settings.PackKinds.bCharacters);
+			Visitor.Flag("assets.packs.scenery", Settings.PackKinds.bScenery);
+			Visitor.Flag("assets.packs.models_and_effects", Settings.PackKinds.bModelsAndEffects);
 
 			Visitor.Flag("game.chapter_cards", Settings.bChapterCards);
 			Visitor.Choice("game.text_speed", Settings.TextSpeed, {"original", "double", "quadruple", "instant"});
+			Visitor.Choice("game.auto_advance", Settings.AutoAdvance, {"off", "slow", "normal", "fast"});
 			Visitor.Choice("game.battle_speed", Settings.BattleSpeed, {"normal", "2x", "4x"});
 
 			auto& Balance = Settings.Balance;
@@ -345,6 +363,14 @@ namespace Weltall
 			Visitor.Flag("mods.perfect_works.emeralda_cafe", PerfectWorks.bEmeraldaCafe);
 			Visitor.Flag("mods.perfect_works.title_screen", PerfectWorks.bTitleScreen);
 
+			auto& Italian = Settings.Italian;
+			Visitor.Flag("mods.italian", Italian.bEnabled);
+			Visitor.Flag("mods.italian.japanese_voices", Italian.bJapaneseVoices);
+			Visitor.Flag("mods.italian.japanese_commands", Italian.bJapaneseCommands);
+			Visitor.Choice("mods.italian.movies", Italian.Movies, {"original", "english", "japanese"});
+			Visitor.Flag("mods.disc2_expansions", Settings.Expansions.bEnabled);
+			Visitor.Name("mods.disc2_expansion", Settings.Expansions.Folder);
+
 			auto& Camera = Settings.Camera;
 			Visitor.Number("camera.zoom", Camera.Zoom, FFieldCameraOffsets::MinZoom, FFieldCameraOffsets::MaxZoom);
 			Visitor.Number("camera.tilt", Camera.Tilt, FFieldCameraOffsets::MinTilt, FFieldCameraOffsets::MaxTilt);
@@ -359,6 +385,8 @@ namespace Weltall
 			Visitor.Flag("controls.always_run", Settings.Controls.bAlwaysRun);
 			Visitor.Flag("controls.analog_movement", Settings.Controls.bAnalogMovement);
 			Visitor.Flag("controls.walk_into_doors", Settings.Controls.bWalkIntoDoors);
+			Visitor.Level("controls.door_pause", Settings.Controls.DoorPause, NoDoorPause, LongestDoorPause);
+			Visitor.Choice("controls.camera_buttons", Settings.Controls.CameraButtons, {"rotate", "zoom"});
 			Visitor.Flag("controls.original_button_icons", Settings.Controls.bOriginalButtonIcons);
 			Visitor.Choice("controls.button_layout", Settings.Controls.ButtonLayout, {"usa", "circle_confirms", "japan"});
 			Visitor.Level("controls.mouse_sensitivity", Settings.Controls.MouseSensitivity, LowestSensitivity, HighestSensitivity);
@@ -368,12 +396,21 @@ namespace Weltall
 			Visitor.Flag("controls.touch_vibration", Settings.Controls.bTouchVibration);
 			constexpr std::array<std::string_view, ControlActionCount> ActionKeys{"controls.up", "controls.down", "controls.left", "controls.right",
 				"controls.cross", "controls.circle", "controls.square", "controls.triangle", "controls.l1", "controls.r1", "controls.l2", "controls.r2",
-				"controls.start", "controls.select", "controls.view_turn", "controls.view_tilt", "controls.view_zoom", "controls.view_reset"};
+				"controls.start", "controls.select", "controls.view_turn", "controls.view_tilt", "controls.view_zoom", "controls.view_reset",
+				"controls.save_state", "controls.load_state", "controls.next_state_slot", "controls.previous_state_slot", "controls.message_log"};
 			for (std::size_t Action = 0; Action < ActionKeys.size(); ++Action)
 			{
 				Visitor.Keys(ActionKeys[Action], Bindings[Action]);
 			}
 		}
+	}
+
+	uint8 FTexturePackKinds::Shown() const
+	{
+		const auto Bit = [](bool bShows, EVramUploadKind Kind) { return bShows ? static_cast<uint8>(1u << static_cast<uint32>(Kind)) : uint8{0}; };
+		return static_cast<uint8>(Bit(true, EVramUploadKind::Other) | Bit(bText, EVramUploadKind::Text) | Bit(bPortraits, EVramUploadKind::Portraits)
+			| Bit(bMenusAndHud, EVramUploadKind::MenusAndHud) | Bit(bCharacters, EVramUploadKind::Characters) | Bit(bScenery, EVramUploadKind::Scenery)
+			| Bit(bModelsAndEffects, EVramUploadKind::ModelsAndEffects));
 	}
 
 	std::string WritePlayerSettings(const FPlayerSettings& Settings)
@@ -394,6 +431,13 @@ namespace Weltall
 		FPlayerSettings Settings;
 		FBoundKeys Bindings;
 		FReader Reader(Text);
+		// The earlier On/Off row: Off was the original's, which a pause of none is; a pause the text names wins.
+		bool bStoppedAtDoors = true;
+		Reader.Flag("controls.stop_at_doors", bStoppedAtDoors);
+		if (!bStoppedAtDoors)
+		{
+			Settings.Controls.DoorPause = NoDoorPause;
+		}
 		VisitSettings(Settings, Reader, Bindings);
 		// The actions the text names take their keys after the defaults, a key named twice going to the
 		// last action that names it, as binding them one by one would.

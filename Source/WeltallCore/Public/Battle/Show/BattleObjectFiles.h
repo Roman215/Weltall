@@ -65,12 +65,25 @@ namespace Weltall
 		WELTALLCORE_API static TResult<FBattleGearVariant> Parse(std::span<const uint8> File);
 	};
 
-	/** A 3D object's two archives (the gears' model pack and motion pack), and a gear's variant. */
+	/** A gear's own model worn over another gear's moves (FBattleGearDress), and its motion pack, whose record 0 is the pose it was built in. */
+	struct FBattleGearDressFiles
+	{
+		/** The gear whose moves it is worn over, and its own. */
+		uint8 PerformerGear = 0;
+		uint8 Gear = 0;
+		FGearModelPack Model;
+		FGearMotionPack Motion;
+		/** The model is Id's red gear worn over Fei's own (FBattleGearDress::IdsPairing), not the gear's. */
+		bool bIdsGear = false;
+	};
+
+	/** A 3D object's two archives (the gears' model pack and motion pack), a gear's variant, and the model a gear wears over them. */
 	struct FBattleModelFiles
 	{
 		FGearModelPack Model;
 		FGearMotionPack Motion;
 		std::optional<FBattleGearVariant> Variant;
+		std::optional<FBattleGearDressFiles> Dress;
 	};
 
 	/**
@@ -123,6 +136,8 @@ namespace Weltall
 		 * from the data the battle keeps, its sequence archive; an error for another kind of entry.
 		 */
 		WELTALLCORE_API TResult<FBattleModelFiles> SceneModel(const FBattleSceneGraphics& Graphics, int32 Entry);
+		/** The same, read from scene Scene's graphics on the disc. */
+		WELTALLCORE_API TResult<FBattleModelFiles> ReadSceneModel(const FCdImage& Image, const FGameFileIndex& Index, int32 Scene, int32 Entry);
 	}
 
 	/**
@@ -138,6 +153,7 @@ namespace Weltall
 		WELTALLCORE_API TResult<FBattleModelFiles> ReadGear(int32 Gear, int32 Variant) const;
 		WELTALLCORE_API TResult<FBattleModelFiles> ReadSpecialModel(int32 Model) const;
 		WELTALLCORE_API TResult<FBattleSequenceExtension> ReadExtension(int32 File) const;
+		WELTALLCORE_API TResult<FBattleModelFiles> ReadSceneModel(int32 Scene, int32 Entry) const;
 
 	private:
 		const FCdImage* Image = nullptr;

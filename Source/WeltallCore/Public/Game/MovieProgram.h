@@ -11,7 +11,8 @@ namespace Weltall
 
 	/**
 	 * The Movie program: the movie the kernel's globals ask for, played to its end frame (233 unless
-	 * another is asked for), skippable with Cross or Start unless the request forbids it, a vertical blank
+	 * another is asked for), skippable with Cross or Start (Circle with the Italian translation's Japanese commands'
+	 * program) unless the request forbids it, a vertical blank
 	 * a frame; then the program the request names. A movie past the disc's is not played, and one whose
 	 * data is the disc's stand-in hands over to the debug menu.
 	 */

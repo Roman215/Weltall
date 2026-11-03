@@ -2,6 +2,7 @@
 
 #include "WorldMap/WorldMapCutscenes.h"
 
+#include "Field/IdsFieldSprite.h"
 #include "Foundation/LittleEndian.h"
 #include "Game/GameState.h"
 #include "WorldMap/WorldMapStateLayout.h"
@@ -269,7 +270,17 @@ namespace Weltall::WorldMapOps
 		FWorldMapTask& Task = Context.Tasks[static_cast<std::size_t>(Slot)];
 		std::unique_ptr<FSprite>& Sprite = Context.SpriteSlots[static_cast<std::size_t>(Slot)];
 		Sprite = std::make_unique<FSprite>();
-		Context.Sprites.Create(*Sprite, File, ClutX, ClutY, TextureX, TextureY);
+		Context.SpritePlaces[static_cast<std::size_t>(Slot)] = {static_cast<int16>(ClutX), static_cast<int16>(ClutY), static_cast<int16>(TextureX), static_cast<int16>(TextureY)};
+		// The one resident file a member has is Id's, which draws from his picture in the port's rows, his two palettes
+		// beside it (the slots' palettes lie only 16 colours apart).
+		if (File.IsResident(File.Tables()))
+		{
+			Context.Sprites.Create(*Sprite, File, FIdsFieldSprite::ClutX, FIdsFieldSprite::ClutY, FIdsFieldSprite::TextureX, FIdsFieldSprite::TextureY);
+		}
+		else
+		{
+			Context.Sprites.Create(*Sprite, File, ClutX, ClutY, TextureX, TextureY);
+		}
 		Context.Sprites.SetAnimation(*Sprite, Animation);
 		Context.Sprites.SetScale(*Sprite, Scale);
 		Sprite->DrawFlags &= ~WorldMapSpriteDrawFlag;

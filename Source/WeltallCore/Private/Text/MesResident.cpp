@@ -25,6 +25,7 @@ namespace Weltall
 		constexpr int32 FontFile = 6;
 		constexpr int32 NameTablesFile = 7;
 		constexpr uint32 BoxGlyphAddress = 0x800501D0;
+		constexpr uint32 TextClutAddress = 0x80050190;
 		/**
 		 * The French translation's message code, from its glyph widths' routine to the end of their table (one byte of
 		 * pixels per code from the font's first), and its SHA-1 in all four of its executables.
@@ -129,6 +130,16 @@ namespace Weltall
 		{
 			return ParsedNames.Error();
 		}
-		return FMesResident{std::move(*ParsedFont), std::move(*ParsedNames)};
+		const std::span<const uint8> Clut = Executable.Read(TextClutAddress, 64);
+		if (Clut.size() != 64)
+		{
+			return MakeError("the executable lacks the text's CLUTs");
+		}
+		FMesResident Resident{std::move(*ParsedFont), std::move(*ParsedNames), {}};
+		for (std::size_t Colour = 0; Colour < Resident.TextClut.size(); ++Colour)
+		{
+			Resident.TextClut[Colour] = LittleEndian::ReadU16(Clut, 2 * Colour);
+		}
+		return Resident;
 	}
 }

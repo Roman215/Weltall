@@ -23,9 +23,10 @@ void AddDisplayFramePasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, con
 	{
 		return;
 	}
-	const Weltall::FDisplayRect Placed = Weltall::FitAspect(Display.Width(), Display.Height(), Options.Aspect);
-	const FIntPoint Origin = Display.Min + FIntPoint(Placed.X, Placed.Y);
-	const FIntRect Area(Origin, Origin + FIntPoint(Placed.Width, Placed.Height));
+	const Weltall::FScreenSize Screen = Frame->ScreenSize();
+	const Weltall::FPictureArea Placed = Weltall::PictureArea(Display.Width(), Display.Height(), Options, Screen);
+	const FIntPoint Origin = Display.Min + FIntPoint(Placed.Rect.X, Placed.Rect.Y);
+	const FScreenArea Area(FIntRect(Origin, Origin + FIntPoint(Placed.Rect.Width, Placed.Rect.Height)), Placed.WholeScale);
 	if (Options.Crt == Weltall::ECrtFilter::Off)
 	{
 		Frame->AddPasses(GraphBuilder, Output, Area);
@@ -34,8 +35,8 @@ void AddDisplayFramePasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, con
 	FRDGTextureRef Picture = GraphBuilder.CreateTexture(FRDGTextureDesc::Create2D(Area.Size(), Output->Desc.Format, FClearValueBinding::Black,
 		TexCreate_RenderTargetable | TexCreate_ShaderResource), TEXT("CrtPicture"));
 	AddClearRenderTargetPass(GraphBuilder, Picture, FLinearColor::Black);
-	Frame->AddPasses(GraphBuilder, Picture, FIntRect(FIntPoint::ZeroValue, Area.Size()));
-	AddCrtPasses(GraphBuilder, Picture, Output, Area, Weltall::CrtParameters(Weltall::ShownCrtLook(Options)), Frame->ScreenSize());
+	Frame->AddPasses(GraphBuilder, Picture, Area.At(FIntPoint::ZeroValue));
+	AddCrtPasses(GraphBuilder, Picture, Output, Area, Weltall::CrtParameters(Weltall::ShownCrtLook(Options)), Screen);
 }
 
 void UGameScreenSubsystem::Show(TSharedRef<IGameScreen> InScreen)
@@ -72,7 +73,8 @@ void UGameScreenSubsystem::Tick(float DeltaTime)
 	const bool bHeld = Window != nullptr && Window->IsHeldInBackground();
 	if (UGameSoundSubsystem* Sound = GetGameInstance()->GetSubsystem<UGameSoundSubsystem>())
 	{
-		Sound->SetHeld(bHeld);
+		// A screen holding its game still (its motors off) makes no sound either, though it takes the player's buttons.
+		Sound->SetHeld(bHeld || Screen->HoldsGame());
 	}
 	UPadPortsSubsystem* Ports = GetGameInstance()->GetSubsystem<UPadPortsSubsystem>();
 	if (bHeld)
@@ -88,6 +90,16 @@ void UGameScreenSubsystem::Tick(float DeltaTime)
 	if (Controller != nullptr)
 	{
 		Screen->AddViewInput(Controller->ReadView(DeltaTime));
+		// A key pressed while the Controls page listens is the one it binds.
+		const UKeyListenerSubsystem* Listener = GetGameInstance()->GetSubsystem<UKeyListenerSubsystem>();
+		const bool bKeyTaken = Listener != nullptr && Listener->IsListening();
+		for (const Weltall::EControlAction Action : Controller->ReadPortKeys())
+		{
+			if (!bKeyTaken)
+			{
+				Screen->PressPortKey(Action);
+			}
+		}
 	}
 	FGamePads Pads;
 	const UButtonGlyphSubsystem* Glyphs = GetGameInstance()->GetSubsystem<UButtonGlyphSubsystem>();
@@ -106,7 +118,10 @@ void UGameScreenSubsystem::Tick(float DeltaTime)
 	Weltall::FPadState Held = Controller ? Controller->HeldPad() : Weltall::FPadState{};
 	if (UTouchControlsSubsystem* Touch = GetGameInstance()->GetSubsystem<UTouchControlsSubsystem>())
 	{
-		Held.Buttons |= Touch->TakeHeld().Buttons;
+		const uint16 Touched = Touch->TakeHeld().Buttons;
+		Held.Buttons |= Touched;
+		// The touch screen's camera buttons always turn: it has no stick to turn with.
+		Held.ZoomButtons &= static_cast<uint16>(~Touched);
 	}
 	// A gamepad in use is a DualShock in analog mode to the game; the keyboard and the touch screen's pad are digital pads.
 	Held.bAnalog = Glyphs != nullptr && Glyphs->GamepadInUse().IsValid();

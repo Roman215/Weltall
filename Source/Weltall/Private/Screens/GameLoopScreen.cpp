@@ -4,6 +4,8 @@
 #include "BattleView.h"
 #include "BattlingView.h"
 #include "ChapterCardView.h"
+#include "MessageLogView.h"
+#include "StateNoticeView.h"
 #include "TitleMarkView.h"
 #include "FieldView.h"
 #include "MenuView.h"
@@ -18,6 +20,8 @@
 #include "Game/GamePace.h"
 #include "Game/GameSession.h"
 #include "Game/MovieProgram.h"
+#include "Game/SaveState.h"
+#include "Game/SaveStateSlots.h"
 #include "Game/WorldMapProgram.h"
 #include "Media/GameFileIndex.h"
 #include "Media/Iso9660.h"
@@ -29,13 +33,18 @@
 #include "Rendering/SharedRenderResource.h"
 #include "Screens/DrawListScreenFrame.h"
 #include "Screens/MovieScreen.h"
+#include "Shell/ExpansionTrials.h"
+#include "Shell/GameModsSubsystem.h"
 #include "Shell/StoryDocuments.h"
-#include "Story/StoryPacks.h"
+#include "Story/StoryLibrary.h"
+#include "Text/MessageLog.h"
 #include "Timing/PsxTiming.h"
 #include "WeltallLog.h"
 
 #include <algorithm>
+#include <filesystem>
 #include <string>
+#include <vector>
 
 namespace
 {
@@ -61,7 +70,7 @@ namespace
 	class FBlankScreenFrame final : public IScreenFrame
 	{
 	public:
-		virtual void AddPasses(FRDGBuilder&, FRDGTextureRef, const FIntRect&) const override {}
+		virtual void AddPasses(FRDGBuilder&, FRDGTextureRef, const FScreenArea&) const override {}
 	};
 }
 
@@ -158,11 +167,11 @@ std::optional<Weltall::FError> FGameLoopScreen::ReadOtherDisc()
 void FGameLoopScreen::SeekDisc(int32 Number)
 {
 	// The other disc of the kind played first (a translation's with Japanese voices after its own), then of the other kind.
-	const bool bUndub = Release == Weltall::EDiscRelease::UndubDisc1 || Release == Weltall::EDiscRelease::UndubDisc2;
+	const bool bUndub = Identity.Release == Weltall::EDiscRelease::UndubDisc1 || Identity.Release == Weltall::EDiscRelease::UndubDisc2;
 	const Weltall::EDiscRelease Usa = Number == 0 ? Weltall::EDiscRelease::UsaDisc1 : Weltall::EDiscRelease::UsaDisc2;
 	const Weltall::EDiscRelease Undub = Number == 0 ? Weltall::EDiscRelease::UndubDisc1 : Weltall::EDiscRelease::UndubDisc2;
 	const Weltall::EDiscRelease Wanted = bUndub ? Undub : Usa;
-	if (!DiscSought || OtherIndex || !Session || Wanted == Release)
+	if (!DiscSought || OtherIndex || !Session || Wanted == Identity.Release)
 	{
 		return;
 	}
@@ -183,7 +192,14 @@ void FGameLoopScreen::SeekDisc(int32 Number)
 	}
 	Session->AddDisc(Number, OtherDisc->Image(), *OtherIndex);
 	RefreshVoiceDiscs();
+	TryExpansions();
 	UE_LOG(LogWeltall, Log, TEXT("Disc %d was found where the game asked for it"), Number + 1);
+}
+
+void FGameLoopScreen::TryExpansions()
+{
+	// A game of the second disc reads its files from the first where it has it, so the first coming later is tried again.
+	ExpansionTrials->Start(*Story, Session->Image(), Session->Index(), Session->Settings().Fixes.Field);
 }
 
 void FGameLoopScreen::SetDiscSought(FDiscSought InDiscSought)
@@ -260,15 +276,19 @@ FGameLoopScreen::FGameLoopScreen(const Weltall::FIso9660& InDisc, FStartSound In
 	  ChapterCard(MakeUnique<FChapterCardView>()),
 	  TitleMark(MakeUnique<FTitleMarkView>()),
 	  BattleSpeedMark(MakeUnique<FBattleSpeedMarkView>()),
+	  StateNotice(MakeUnique<FStateNoticeView>()),
+	  MessageLog(std::make_unique<Weltall::FMessageLog>()),
+	  LogView(MakeUnique<FMessageLogView>()),
 	  Blank(MakeShared<FBlankScreenFrame>())
 {
+	ExpansionTrials = MakeUnique<FExpansionTrials>();
 	HeldPerVblank.reserve(MostVblanksPerFrame);
 	SecondHeldPerVblank.reserve(MostVblanksPerFrame);
 }
 
 FGameLoopScreen::~FGameLoopScreen() = default;
 
-std::optional<Weltall::FError> FGameLoopScreen::Start(std::optional<uint16> FieldMap)
+std::optional<Weltall::FError> FGameLoopScreen::Start(std::optional<uint16> FieldMap, const Weltall::FSaveState* State)
 {
 	// The old console goes before its sound does; the new one keeps what the player chose on the old.
 	if (Session)
@@ -280,8 +300,8 @@ std::optional<Weltall::FError> FGameLoopScreen::Start(std::optional<uint16> Fiel
 	if (!Index)
 	{
 		auto Read = Weltall::ReadBootExecutable(Disc);
-		auto Identity = Weltall::IdentifyDisc(Disc);
-		if (!Read || !Identity)
+		auto Identified = Weltall::IdentifyDisc(Disc);
+		if (!Read || !Identified)
 		{
 			return Weltall::MakeError("the disc's program cannot be read");
 		}
@@ -303,10 +323,27 @@ std::optional<Weltall::FError> FGameLoopScreen::Start(std::optional<uint16> Fiel
 			return Weltall::MakeError("the port's story cannot be read: " + Documents.Error().Message);
 		}
 		UE_LOG(LogWeltall, Log, TEXT("Story documents read: %d"), Documents->DocumentCount());
-		Story = std::make_unique<Weltall::FStoryPacks>(std::move(*Documents));
+		const std::vector<Weltall::FExpansionMod> Expansions = Weltall::FindExpansionMods(std::filesystem::path(*UGameModsSubsystem::ModsFolder()));
+		Story = std::make_unique<Weltall::FStoryLibrary>(std::move(*Documents), Expansions);
+		for (const Weltall::FStoryLibrary::FExpansion& Expansion : Story->Expansions())
+		{
+			if (Expansion.bUnchanged)
+			{
+				UE_LOG(LogWeltall, Log, TEXT("Disc 2 in Mods/%hs is as Export Disc 2 wrote it: it plays as the original until one of its files is edited"),
+					Expansion.Mod.Folder.c_str());
+				continue;
+			}
+			if (Expansion.Problem)
+			{
+				UE_LOG(LogWeltall, Warning, TEXT("The Disc 2 expansion in Mods/%hs cannot be played: %hs"), Expansion.Mod.Folder.c_str(), Expansion.Problem->Message.c_str());
+				continue;
+			}
+			UE_LOG(LogWeltall, Log, TEXT("Disc 2 expansion found: %hs, in Mods/%hs (%d documents)"), Expansion.Mod.Info.Name.c_str(), Expansion.Mod.Folder.c_str(),
+				Expansion.Packs->DocumentCount() - Story->Own().DocumentCount());
+		}
 		Executable = std::make_unique<Weltall::FPsxExecutable>(std::move(*Read));
 		Index = std::make_unique<Weltall::FGameFileIndex>(std::move(*FileIndex));
-		Release = Identity->Release;
+		Identity = *Identified;
 		Menus = std::make_unique<Weltall::FMenuGameMenus>(*Executable);
 		FollowMenuServices();
 	}
@@ -315,7 +352,7 @@ std::optional<Weltall::FError> FGameLoopScreen::Start(std::optional<uint16> Fiel
 	{
 		return Weltall::MakeError("the game's sound cannot start");
 	}
-	auto Started = Weltall::FGameSession::PowerOn(Disc.Image(), *Index, *Executable, Release, *Sound);
+	auto Started = Weltall::FGameSession::PowerOn(Disc.Image(), *Index, *Executable, Identity, *Sound);
 	if (!Started)
 	{
 		return Started.Error();
@@ -323,7 +360,7 @@ std::optional<Weltall::FError> FGameLoopScreen::Start(std::optional<uint16> Fiel
 	Session = std::move(*Started);
 	if (OtherIndex)
 	{
-		Session->AddDisc(Weltall::DiscNumberOfRelease(Release) == 2 ? 0 : 1, OtherDisc->Image(), *OtherIndex);
+		Session->AddDisc(Weltall::DiscNumberOfRelease(Identity.Release) == 2 ? 0 : 1, OtherDisc->Image(), *OtherIndex);
 	}
 	if (!Drive)
 	{
@@ -338,14 +375,20 @@ std::optional<Weltall::FError> FGameLoopScreen::Start(std::optional<uint16> Fiel
 	Session->Unreached().bStops = false;
 #endif
 	Session->SetButtonGlyphs(Glyphs);
+	Menu->SetJapaneseCommands(Identity.bJapaneseCommands);
+	Battle->SetJapaneseCommands(Identity.bJapaneseCommands);
 	Session->SetSaves(Saves);
+	Session->SetMessageLog(MessageLog.get());
 	Session->SetMenus(Menus.get());
-	Session->SetStory(Story.get());
+	Session->SetStoryLibrary(Story.get());
+	TryExpansions();
 	if (FieldMap && StateStaged)
 	{
 		StateStaged(*Session);
 	}
-	auto Loop = FieldMap ? Weltall::FGameLoop::EnterField(*Session, *FieldMap) : Weltall::FGameLoop::PowerOn(*Session, *Executable);
+	auto Loop = State != nullptr ? Weltall::LoadSaveState(*Session, *State)
+		: FieldMap				 ? Weltall::FGameLoop::EnterField(*Session, *FieldMap)
+								 : Weltall::FGameLoop::PowerOn(*Session, *Executable);
 	if (!Loop)
 	{
 		return Loop.Error();
@@ -371,6 +414,29 @@ void FGameLoopScreen::Stop(const Weltall::FError& Error)
 
 void FGameLoopScreen::Update(double DeltaSeconds, Weltall::FPadState Held)
 {
+	StateNotice->Advance(DeltaSeconds);
+	ExpansionTrials->Take();
+	if (Session)
+	{
+		if (Weltall::FToldLine Told = Session->TakeTold(); !Told.Line.empty())
+		{
+			Weltall::FSaveStateTold Line;
+			Line.Line = std::move(Told.Line);
+			Line.Why = std::move(Told.Why);
+			Tell(Line);
+		}
+	}
+	LastHeld = Held.Buttons;
+	if (LogView->IsOpen())
+	{
+		LogView->Update(DeltaSeconds, Held);
+		HeldThroughLog = Held.Buttons;
+		return;
+	}
+	// The buttons that closed the log reach the game once let go.
+	HeldThroughLog &= Held.Buttons;
+	Held.Buttons &= static_cast<uint16>(~HeldThroughLog);
+	Held.StickButtons &= static_cast<uint16>(~HeldThroughLog);
 	Pace = 1;
 	if (!GameLoop || HasStopped())
 	{
@@ -447,7 +513,7 @@ bool FGameLoopScreen::ReadsSecondPad() const
 
 std::array<bool, 2> FGameLoopScreen::Motors() const
 {
-	if (!Session || !GameLoop || HasStopped())
+	if (!Session || !GameLoop || HasStopped() || LogView->IsOpen())
 	{
 		return {};
 	}
@@ -456,6 +522,17 @@ std::array<bool, 2> FGameLoopScreen::Motors() const
 
 void FGameLoopScreen::AddViewInput(const Weltall::FFieldViewInput& Input)
 {
+	if (LogView->IsOpen())
+	{
+		// Each of the wheel's notches a few lines.
+		constexpr int32 LinesPerNotch = 3;
+		LogWheel += Input.Wheel;
+		const int32 Notches = static_cast<int32>(LogWheel);
+		LogView->Scroll(Notches * LinesPerNotch);
+		LogWheel -= static_cast<float>(Notches);
+		return;
+	}
+	LogWheel = 0.0f;
 	if (!GameLoop || HasStopped())
 	{
 		return;
@@ -568,7 +645,15 @@ TSharedRef<const IScreenFrame> FGameLoopScreen::CaptureFrame() const
 {
 	TSharedRef<const IScreenFrame> Frame = CaptureProgramFrame();
 	Shown = Frame;
-	return Pace > 1 && Session ? BattleSpeedMark->Capture(*Session, MoveTemp(Frame)) : Frame;
+	if (!Session)
+	{
+		return Frame;
+	}
+	if (Pace > 1)
+	{
+		Frame = BattleSpeedMark->Capture(*Session, MoveTemp(Frame));
+	}
+	return LogView->Capture(Glyphs, StateNotice->Capture(Session->Text().Font, MoveTemp(Frame)));
 }
 
 TSharedRef<const IScreenFrame> FGameLoopScreen::CaptureProgramFrame() const
@@ -769,6 +854,14 @@ void FGameLoopScreen::FollowMenuServices()
 		Menus->SetMods(nullptr);
 	}
 	Menus->SetKeys(MenuKeys);
+	if (HasExampleScenes())
+	{
+		Menus->SetExampleScenes([](bool bReplace) { return CopyExampleScenes(UGameModsSubsystem::ModsFolder(), bReplace); });
+	}
+	else
+	{
+		Menus->SetExampleScenes(nullptr);
+	}
 	if (Quit)
 	{
 		Menus->SetQuit([this]() { Quit(); });
@@ -877,15 +970,6 @@ bool FGameLoopScreen::ShowChapterCard(int32 Chapter, int32 Subtitle)
 
 TOptional<int32> FGameLoopScreen::WaitingMessageGlyphs() const
 {
-	const auto GlyphsShown = [](const Weltall::FMesWindow& Window)
-	{
-		int32 Glyphs = 0;
-		for (int32 Row = 0; Row < Window.Lines(); ++Row)
-		{
-			Glyphs += static_cast<int32>(Window.Row(Row).Glyphs.size());
-		}
-		return Glyphs;
-	};
 	if (!GameLoop)
 	{
 		return {};
@@ -896,7 +980,7 @@ TOptional<int32> FGameLoopScreen::WaitingMessageGlyphs() const
 		{
 			if (Window.bOpen && Window.bTextWaits && Window.Text)
 			{
-				return GlyphsShown(*Window.Text);
+				return Weltall::MesShownGlyphs(*Window.Text);
 			}
 		}
 	}
@@ -905,7 +989,7 @@ TOptional<int32> FGameLoopScreen::WaitingMessageGlyphs() const
 		const Weltall::FBattleEventWork& Event = BattleProgram->Runtime().Context().Event;
 		if (Event.bKeyWait && Event.Text)
 		{
-			return GlyphsShown(*Event.Text);
+			return Weltall::MesShownGlyphs(*Event.Text);
 		}
 	}
 	return {};

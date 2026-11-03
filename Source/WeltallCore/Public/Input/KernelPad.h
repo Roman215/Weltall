@@ -22,6 +22,8 @@ namespace Weltall
 		uint8 StickX = FPadState::StickCentre;
 		uint8 StickY = FPadState::StickCentre;
 		bool bAnalog = false;
+		/** L1 and R1 among Held that zoom the view (FPadState::ZoomButtons). */
+		uint16 ZoomHeld = 0;
 
 		bool operator==(const FKernelPadWords&) const = default;
 	};
@@ -33,7 +35,8 @@ namespace Weltall
 	 * the port's last new press, then on every vertical blank whose count is a multiple of 4), both ports' words
 	 * queued together for the mode's next tick; a queue already holding 16 loses the new ones and marks the
 	 * overflow, which only a reset clears. Every mode reads the first port; the arena reads both, and a gamepad's
-	 * stick with them, as a DualShock's in analog mode.
+	 * stick with them, as a DualShock's in analog mode. A kernel with the Japanese commands swaps the first port's
+	 * face buttons before the map, the second's not.
 	 */
 	class FKernelPad
 	{
@@ -51,6 +54,26 @@ namespace Weltall
 
 		/** The game's logical buttons for a report word: the face buttons through the release's map. */
 		WELTALLCORE_API static uint16 LogicalButtons(uint16 Report);
+
+		/**
+		 * A report word with its face buttons swapped as the Italian translation's Japanese commands swap the first
+		 * port's before the release's map: Circle with Cross, Square with Triangle. Each pair's second test undoes the
+		 * first's where both are held, so Circle and Cross together read as Circle alone, Square and Triangle as Square.
+		 */
+		WELTALLCORE_API static uint16 SwapFaceButtons(uint16 Report);
+
+		/** The game's logical buttons for a report word of the first port, as a kernel with or without the Japanese commands reads it. */
+		static uint16 FirstPortButtons(uint16 Report, bool bJapaneseCommands)
+		{
+			return LogicalButtons(bJapaneseCommands ? SwapFaceButtons(Report) : Report);
+		}
+
+		/** Whether the kernel has the Japanese commands (FDiscIdentity::bJapaneseCommands); set at power-on. */
+		bool HasJapaneseCommands() const { return bJapaneseCommands; }
+		void SetJapaneseCommands(bool bInJapaneseCommands) { bJapaneseCommands = bInJapaneseCommands; }
+
+		/** The first port's logical buttons for what its controller holds, as this kernel reads them. */
+		uint16 FirstPortButtons(FPadState Held) const { return FirstPortButtons(ReportWord(Held), bJapaneseCommands); }
 
 		/**
 		 * One vertical blank with Held down on the first port's controller and SecondHeld on the second's;
@@ -108,9 +131,10 @@ namespace Weltall
 			bool bMotor = false;
 		};
 
-		FKernelPadWords Read(FPort& Port, FPadState Held, uint32 VblankCount);
+		FKernelPadWords Read(FPort& Port, uint16 Logical, FPadState Held, uint32 VblankCount);
 
 		std::array<FPort, Ports> State{};
+		bool bJapaneseCommands = false;
 		/** The repeat's delay and step at the pace set, in vertical blanks. */
 		int32 PacedDelay = RepeatDelay;
 		uint32 PacedEvery = RepeatEvery;

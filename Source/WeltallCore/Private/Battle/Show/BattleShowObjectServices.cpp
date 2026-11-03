@@ -98,6 +98,13 @@ namespace Weltall
 		Vram.Upload(UploadScratch);
 	}
 
+	void FBattleShow::UploadToPortRows(const FGearTextureBlock& Block, int16 X, int16 Y)
+	{
+		UploadScratch.Rect = {X, Y, Block.Width, Block.Height};
+		UploadScratch.Units.assign(Block.Pixels.begin(), Block.Pixels.end());
+		Vram.UploadToPortRows(UploadScratch);
+	}
+
 	void FBattleShow::StoreImage(const FVramRect& Rect, std::span<uint16> Into)
 	{
 		Vram.NoteReadback(Rect);
@@ -131,6 +138,11 @@ namespace Weltall
 	TResult<FBattleSequenceExtension> FBattleShow::ReadExtension(int32 File)
 	{
 		return ObjectFiles->ReadExtension(File);
+	}
+
+	TResult<FBattleModelFiles> FBattleShow::ReadSceneModel(int32 Scene, int32 Entry)
+	{
+		return ObjectFiles->ReadSceneModel(Scene, Entry);
 	}
 
 	void FBattleShow::CreateProxy(int32 Slot)

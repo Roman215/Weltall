@@ -1,5 +1,6 @@
 #pragma once
 
+#include "Game/ClearGame.h"
 #include "Menu/MenuModuleParts.h"
 
 #include <array>
@@ -24,6 +25,8 @@ namespace Weltall
 		int32 Slot = 0;
 		/** Read and its icon loaded: drawn in its cells. */
 		bool bShown = false;
+		/** What the save's game is after the ending (Weltall's part of it): its details star any but none. */
+		EClearGame ClearGame = EClearGame::None;
 	};
 
 	/** A cell of a card as drawn: its file's icon, the cursor's grey over it and that grey's drawing mode, its outline in two lines. */

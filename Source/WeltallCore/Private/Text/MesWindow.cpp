@@ -196,6 +196,8 @@ namespace Weltall
 	{
 		bDrew = false;
 		bStepped = false;
+		bTook = false;
+		bCleared = false;
 		Typed.clear();
 		TypedOn.clear();
 		if ((Flags & FlagHasText) == 0)
@@ -212,6 +214,7 @@ namespace Weltall
 			}
 			Current = std::move(Queued.front());
 			Queued.pop_front();
+			bTook = true;
 			Text = Current;
 			Position = 0;
 			Flags = static_cast<uint16>((Flags & FlagNoBox) | FlagHasText | FlagClearPending);
@@ -252,6 +255,7 @@ namespace Weltall
 				Entries.front().Strip = 0;
 			}
 			Flags &= ~(FlagClearPending | FlagScrolling);
+			bCleared = true;
 		}
 		for (int32 Row = 0; Row < LineCount; ++Row)
 		{
@@ -496,7 +500,7 @@ namespace Weltall
 				// Lines typed one after the other never share a strip.
 				if (TypedOn.empty() || TypedOn.back().Strip != Entry.Strip)
 				{
-					TypedOn.push_back({static_cast<int32>(Typed.size()), 0, Entry.Strip});
+					TypedOn.push_back({static_cast<int32>(Typed.size()), 0, Entry.Strip, LinesTyped});
 				}
 				++TypedOn.back().Count;
 				Typed.push_back({Glyph, X, Left});

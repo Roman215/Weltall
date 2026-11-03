@@ -1,6 +1,7 @@
 #include "WorldMap/WorldMapRuntime.h"
 
 #include "Foundation/LittleEndian.h"
+#include "Game/EllysHair.h"
 #include "Game/GameState.h"
 #include "Game/PsxRandom.h"
 #include "Input/KernelPad.h"
@@ -461,6 +462,9 @@ namespace Weltall
 		};
 		// The world map's logic reads none of its sprites: whose files they show is the drawing's alone.
 		MembersShown = ShownMembers();
+		LooksShown = Services.Game->CharacterLooks();
+		bIdShown = false;
+		++PartyLoadCount;
 		for (int32 Slot = 0; Slot < 3; ++Slot)
 		{
 			const uint8 Character = PartyCharacter(Context, Slot);
@@ -472,10 +476,25 @@ namespace Weltall
 				continue;
 			}
 			const uint8 Shown = MembersShown[static_cast<std::size_t>(Slot)];
-			TResult<FSpriteFile> Member = ReadSprite(Shown + WorldMapFiles::CharacterSpriteBase);
+			if (LooksShown.IsId(Shown) && !Id)
+			{
+				// Without his sprite he is drawn as Fei.
+				TResult<FIdsFieldSprite> Loaded = FIdsFieldSprite::Load(*Services.Image, *Services.Index);
+				if (Loaded)
+				{
+					Id.emplace(std::move(*Loaded));
+				}
+			}
+			const bool bAsId = LooksShown.IsId(Shown) && Id;
+			bIdShown = bIdShown || bAsId;
+			TResult<FSpriteFile> Member = bAsId ? TResult<FSpriteFile>(Id->File()) : ReadSprite(LooksShown.Drawn(Shown) + WorldMapFiles::CharacterSpriteBase);
 			if (!Member)
 			{
 				return Member.Error();
+			}
+			if (LooksShown.HasPurpleHair(Shown))
+			{
+				EllysHair::RecolourSpriteFile(*Member);
 			}
 			Context.MemberFiles[static_cast<std::size_t>(Slot)] = std::move(*Member);
 			++Context.MemberCount;
@@ -508,7 +527,7 @@ namespace Weltall
 
 	std::optional<FError> FWorldMapRuntime::ShowArrangedParty()
 	{
-		if (ShownMembers() == MembersShown)
+		if (ShownMembers() == MembersShown && Services.Game->CharacterLooks() == LooksShown)
 		{
 			return std::nullopt;
 		}
@@ -516,7 +535,7 @@ namespace Weltall
 		struct FKept
 		{
 			int32 Slot = 0;
-			FSpriteResource Places;
+			FWorldMapSpritePlace Places;
 			int32 Animation = 0;
 			int16 Facing = 0;
 			int16 Scale = 0;
@@ -533,7 +552,7 @@ namespace Weltall
 			{
 				continue;
 			}
-			Kept.push_back({Slot, *Sprite->Resource, SpriteAnimation(Context, Task), Sprite->Facing, Sprite->Scale});
+			Kept.push_back({Slot, Context.SpritePlaces[static_cast<std::size_t>(Slot)], SpriteAnimation(Context, Task), Sprite->Facing, Sprite->Scale});
 			Context.Sprites.Free(*Sprite);
 		}
 		if (auto Error = LoadParty())
@@ -721,6 +740,7 @@ namespace Weltall
 		MapContext->Pad.StickHeld = Words.StickHeld;
 		MapContext->Pad.StickX = Words.StickX;
 		MapContext->Pad.StickY = Words.StickY;
+		MapContext->Pad.ZoomHeld = Words.ZoomHeld;
 		MapContext->Stick = MapContext->bAnalogMovement ? ReadAnalogStick(Words.Held, Words.StickHeld, Words.StickX, Words.StickY) : std::nullopt;
 	}
 

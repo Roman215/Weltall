@@ -1,6 +1,8 @@
 #include "Field/FieldPilotStandIns.h"
 #include "Field/FieldPlay.h"
 #include "Field/FieldSprites.h"
+#include "Game/CharacterLooks.h"
+#include "Game/GameState.h"
 #include "Game/PsxRandom.h"
 #include "Graphics/Texture.h"
 #include "Support/FieldPlaySession.h"
@@ -172,4 +174,36 @@ TEST_CASE("In gears, a member on foot is drawn with its own sprite at about its 
 	CHECK(Members == 2);
 	CHECK(Walking > 20);
 	CHECK(Unfollowed == 0);
+}
+
+TEST_CASE("In gears with Fei drawn as Id, his pilot is drawn with Id's own sprite", "[Field][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	// Whether the leader's pilot is drawn with a resident sprite file: Id's is one (his file of map 682), Fei's own is not.
+	const auto LeaderFromResidentFile = [&Disc](bool bId)
+	{
+		auto Detailed = Testing::EnterFieldMap(*Disc, HangarMap, [bId](FGameState& Game)
+		{
+			FCharacterLooks Looks;
+			if (bId)
+			{
+				REQUIRE(Looks.Switch(FCharacterLooks::Fei));
+			}
+			Game.SetCharacterLooks(Looks);
+		});
+		Detailed->Play->Drawing().SetPilotStandIns(true);
+		for (int32 Tick = 0; Tick < 30; ++Tick)
+		{
+			std::vector<FPadState> Held(static_cast<std::size_t>(Detailed->Play->VblanksPerTick()));
+			REQUIRE_FALSE(Detailed->Play->Tick(Held, EFieldCulling::InRange, Detailed->Frame));
+		}
+		const FSprite* StandIn = Detailed->Play->Drawing().PilotStandIns()->Of(0);
+		REQUIRE(StandIn != nullptr);
+		REQUIRE(StandIn->Resource != nullptr);
+		REQUIRE(StandIn->Resource->File != nullptr);
+		CHECK(Detailed->Play->Drawing().PilotStandIns()->CharacterOf(0) == FCharacterLooks::Fei);
+		return StandIn->Resource->File->IsResident(StandIn->Resource->Tables);
+	};
+	CHECK_FALSE(LeaderFromResidentFile(false));
+	CHECK(LeaderFromResidentFile(true));
 }

@@ -203,7 +203,15 @@ namespace Weltall::EventOps
 			Advance(Context, 5);
 		}
 
-		/** FE C7: a character's gear, FF for none (and for no character). */
+		/** Vierge, and Regurus: Elly's Omnigear in the clear game, whose field sprite file is Vierge's. */
+		constexpr uint8 Vierge = 2;
+		constexpr uint8 Regurus = 10;
+
+		/**
+		 * FE C7: a character's gear, FF for none (and for no character). Regurus reads as Vierge, whose pictures the field
+		 * has for it: the Yggdrasil's hangar, the one map that reads Elly's gear, parks it in Vierge's place rather than
+		 * leaving the place empty as for a gear without a hangar picture.
+		 */
 		void GetCharacterGear(FEventContext& Context)
 		{
 			FGameState* State = GameStateOf(Context);
@@ -221,7 +229,7 @@ namespace Weltall::EventOps
 					Fail(Context, EEventFault::TableIndexOutOfRange, static_cast<uint32>(Character));
 					return;
 				}
-				Gear = *Held;
+				Gear = *Held == Regurus ? Vierge : *Held;
 			}
 			// The one destination past the variables any script names is a slip for FE A1, which would set the gear
 			// the character already holds; the original stores it in the field's heap, which the port does not keep.

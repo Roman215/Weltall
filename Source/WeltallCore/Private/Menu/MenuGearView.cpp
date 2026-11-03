@@ -13,7 +13,7 @@ namespace Weltall
 		/** The menu's projection distance, which the shop's drawing keeps. */
 		constexpr uint16 MenuProjectionDistance = 0x200;
 
-		/** The shop's one light: its direction in the light matrix's first row, its grey on the colour matrix's diagonal, its ambient. */
+		/** The shop's one light: its direction in the light matrix's first row, its grey in the colour matrix's first column, its ambient. */
 		FFieldGearLights ShopLights()
 		{
 			FFieldGearLights Lights;
@@ -21,7 +21,7 @@ namespace Weltall
 			for (int32 Axis = 0; Axis < 3; ++Axis)
 			{
 				Lights.Words[static_cast<std::size_t>(FFieldGearLights::DirectionWord(0, Axis))] = FGearShopModel::LightDirection[static_cast<std::size_t>(Axis)];
-				Lights.Words[static_cast<std::size_t>(FFieldGearLights::MatrixWords + 4 * Axis)] = FGearShopModel::ColorScale;
+				Lights.Words[static_cast<std::size_t>(FFieldGearLights::ColorWord(0, Axis))] = FGearShopModel::ColorScale;
 			}
 			Lights.Ambient.fill(FGearShopModel::Ambient);
 			return Lights;

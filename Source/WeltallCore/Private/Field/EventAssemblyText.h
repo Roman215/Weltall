@@ -1,10 +1,12 @@
 #pragma once
 
+#include "Foundation/LittleEndian.h"
 #include "Foundation/NumberText.h"
 #include "Foundation/Types.h"
 
 #include <algorithm>
 #include <array>
+#include <span>
 #include <string_view>
 #include <vector>
 
@@ -49,6 +51,31 @@ namespace Weltall::EventAssemblyText
 			Line.remove_prefix(End);
 		}
 		return Words;
+	}
+
+	/**
+	 * Whether an entrance table's record can be one: positions stay within the map and a map has at most four walkmesh
+	 * layers. What tells the table, whose length is not recorded, from the code after it.
+	 */
+	inline bool CanBeEntrance(std::span<const uint8> Record)
+	{
+		constexpr int32 Reach = 0x3000;
+		constexpr uint8 Layers = 4;
+		const int32 X = LittleEndian::ReadS16(Record, 0);
+		const int32 Z = LittleEndian::ReadS16(Record, 2);
+		return X > -Reach && X < Reach && Z > -Reach && Z < Reach && Record[4] < Layers;
+	}
+
+	/** The entrance records a bytecode that starts with the table's mark holds before End (its first reached instruction); 0 without the mark. */
+	inline std::size_t EntranceRecords(std::span<const uint8> Code, std::size_t End)
+	{
+		std::size_t Records = 0;
+		for (std::size_t At = 1; !Code.empty() && Code[0] == EntranceMark && At + EntranceBytes <= std::min(End, Code.size())
+			&& CanBeEntrance(Code.subspan(At, EntranceBytes)); At += EntranceBytes)
+		{
+			++Records;
+		}
+		return Records;
 	}
 
 	/** A name a text may give a place, an operand or a message: letters, digits, '_' and '.', a letter or '_' first. */

@@ -4,6 +4,7 @@
 #include "Battle/Show/BattleSceneGraphics.h"
 #include "Battle/Show/BattleShow.h"
 #include "Battle/Show/BattleStageFiles.h"
+#include "Battle/Show/IdsBattleSprite.h"
 #include "Foundation/Result.h"
 #include "Foundation/Types.h"
 
@@ -121,6 +122,7 @@ namespace Weltall
 		std::vector<uint8> StartSeds;
 		std::optional<FBattleStageFiles> Stage;
 		std::optional<FBattleSceneGraphics> SceneGraphics;
+		std::optional<FIdsBattleSprite> IdsSprite;
 		bool bBegun = false;
 		bool bPaused = false;
 	};

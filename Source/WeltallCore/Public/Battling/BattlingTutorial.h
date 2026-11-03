@@ -91,6 +91,9 @@ namespace Weltall
 
 		/** The message window under the arena, and its top on the screen (two lines lower for the lesson menu's prompt). */
 		FMesWindow Text{TextWidth, TextLines};
+		/** Auto-advancing text: how long a lesson's page has waited for the button, and whether this tick turns it. */
+		FMesReading Reading;
+		bool bPageRead = false;
 		int16 TextY = 154;
 		/** Where the pass drew the message window: its place as the pass began, which a lesson can change later in the pass. */
 		int16 TextDrawnY = 154;

@@ -399,75 +399,95 @@ TEST_CASE("The battle's show sorts a stage's quads by their average depth, as th
 	CHECK(NearestRoof < NearestBanner);
 }
 
+namespace
+{
+	/**
+	 * Map 15's formation 1 on Disc, the kernel with or without the Japanese commands, Confirm pressed now and then:
+	 * Kept is the first frame of the HUD that shows the ring's four face buttons with the symbol of an attack button
+	 * pressed, Loaded the battle's files; false when the battle never showed one.
+	 */
+	bool ShowAttackRing(const FIso9660& Disc, bool bJapaneseCommands, Testing::FBattleProgramDisc& Loaded, FMenuFrame& Kept)
+	{
+		constexpr int32 Map = 15;
+		constexpr int32 Formation = 1;
+		constexpr std::array<int32, 1> Maps{Map};
+		if (!Testing::LoadBattleProgramDisc(Disc, Maps, Loaded))
+		{
+			return false;
+		}
+
+		FGameState Game = *Loaded.NewGame;
+		Game.SetParty({0, 1, 2});
+		Game.SetJoinedCharacters(0x1FF);
+		FPsxRandom Random(0x1234);
+		FKernelPad Pad;
+		Pad.SetJapaneseCommands(bJapaneseCommands);
+		FGameStateNames Names(Game);
+		FMesContext Text;
+		Text.Font = &Loaded.Resident.Font;
+		Text.Tables = &Loaded.Resident.NameTables;
+		Text.State = &Names;
+		Text.ButtonMap = MesKernelButtonMap;
+		FKernelState Kernel;
+		Kernel.InitNewGame();
+
+		FBattleRequest Request;
+		const std::vector<uint8>& Encounters = Loaded.Encounters.at(Map);
+		std::copy_n(Encounters.begin() + Formation * static_cast<std::ptrdiff_t>(FBattleFormation::RecordSize), FBattleFormation::RecordSize,
+			Request.Formation.begin());
+		Testing::FBattleSoundRecorder Sound;
+		FBattleHudSettings Settings{Kernel.WindowColour, Kernel.BattleWindowBlend};
+		Settings.bJapaneseCommands = bJapaneseCommands;
+		FBattleGameHud Hud(*Loaded.HudResources, Text, Settings);
+		const auto Presentation = std::make_unique<FBattlePresentation>(Loaded.PresentationFiles(), &Sound, &Hud);
+		FBattleRuntimeServices Services;
+		Services.Image = &Disc.Image();
+		Services.Index = &*Loaded.Index;
+		Services.Game = &Game;
+		Services.Random = &Random;
+		Services.Pad = &Pad;
+		Services.Show = Presentation.get();
+		Services.Tables = &*Loaded.Tables;
+		Services.Program = &*Loaded.Program;
+		Services.Growth = &*Loaded.Growth;
+		Services.Events = &*Loaded.Events;
+		Services.Arctangents = &*Loaded.Arctangents;
+		auto Runtime = FBattleRuntime::Begin(Request, Services);
+		REQUIRE(Runtime);
+		const uint16 Confirm = FPadState::Bit(MenuRoleButton(0x20, bJapaneseCommands));
+
+		// Confirm now and then takes Attack and strikes: the frame kept is the first that shows the ring's four face buttons
+		// with the symbol of an attack button pressed.
+		const auto Count = [](const FMenuFrame& Frame, EMenuIconSlot Slot) {
+			return std::count_if(Frame.Primitives.begin(), Frame.Primitives.end(),
+				[Slot](const FMenuPrimitive& Primitive) { return Primitive.ButtonRole != 0 && Primitive.ButtonSlot == Slot; });
+		};
+		for (int32 Frame = 0; Frame < 1500 && !(*Runtime)->IsOver() && Kept.Primitives.empty(); ++Frame)
+		{
+			for (int32 Vblank = (*Runtime)->VblanksPerFrame(); Vblank > 0; --Vblank)
+			{
+				Pad.Vblank(FPadState{static_cast<uint16>(Frame % 24 < 2 ? Confirm : 0u)}, Game.PlayTime());
+			}
+			(*Runtime)->Frame();
+			REQUIRE((*Runtime)->Fault() == EBattleFault::None);
+			FMenuFrame Shown;
+			const std::span<const FMenuPrimitive> Primitives = Presentation->Show.Frame().Hud.Primitives;
+			Shown.Primitives.assign(Primitives.begin(), Primitives.end());
+			if (Count(Shown, EMenuIconSlot::FaceButton) >= 4 && Count(Shown, EMenuIconSlot::Symbol) >= 1)
+			{
+				Kept = std::move(Shown);
+			}
+		}
+		return !Kept.Primitives.empty();
+	}
+}
+
 TEST_CASE("The battle HUD's button pictures are shown as the player's controller prints the bound buttons", "[Battle][Content]")
 {
 	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
-	constexpr int32 Map = 15;
-	constexpr int32 Formation = 1;
-	constexpr std::array<int32, 1> Maps{Map};
 	Testing::FBattleProgramDisc Loaded;
-	REQUIRE(Testing::LoadBattleProgramDisc(*Disc, Maps, Loaded));
-
-	FGameState Game = *Loaded.NewGame;
-	Game.SetParty({0, 1, 2});
-	Game.SetJoinedCharacters(0x1FF);
-	FPsxRandom Random(0x1234);
-	FKernelPad Pad;
-	FGameStateNames Names(Game);
-	FMesContext Text;
-	Text.Font = &Loaded.Resident.Font;
-	Text.Tables = &Loaded.Resident.NameTables;
-	Text.State = &Names;
-	Text.ButtonMap = MesKernelButtonMap;
-	FKernelState Kernel;
-	Kernel.InitNewGame();
-
-	FBattleRequest Request;
-	const std::vector<uint8>& Encounters = Loaded.Encounters.at(Map);
-	std::copy_n(Encounters.begin() + Formation * static_cast<std::ptrdiff_t>(FBattleFormation::RecordSize), FBattleFormation::RecordSize,
-		Request.Formation.begin());
-	Testing::FBattleSoundRecorder Sound;
-	FBattleGameHud Hud(*Loaded.HudResources, Text, FBattleHudSettings{Kernel.WindowColour, Kernel.BattleWindowBlend});
-	const auto Presentation = std::make_unique<FBattlePresentation>(Loaded.PresentationFiles(), &Sound, &Hud);
-	FBattleRuntimeServices Services;
-	Services.Image = &Disc->Image();
-	Services.Index = &*Loaded.Index;
-	Services.Game = &Game;
-	Services.Random = &Random;
-	Services.Pad = &Pad;
-	Services.Show = Presentation.get();
-	Services.Tables = &*Loaded.Tables;
-	Services.Program = &*Loaded.Program;
-	Services.Growth = &*Loaded.Growth;
-	Services.Events = &*Loaded.Events;
-	Services.Arctangents = &*Loaded.Arctangents;
-	auto Runtime = FBattleRuntime::Begin(Request, Services);
-	REQUIRE(Runtime);
-
-	// Cross now and then takes Attack and strikes: the frame kept is the first that shows the ring's four face buttons
-	// with the symbol of an attack button pressed.
-	const auto Count = [](const FMenuFrame& Frame, EMenuIconSlot Slot) {
-		return std::count_if(Frame.Primitives.begin(), Frame.Primitives.end(),
-			[Slot](const FMenuPrimitive& Primitive) { return Primitive.ButtonRole != 0 && Primitive.ButtonSlot == Slot; });
-	};
 	FMenuFrame Kept;
-	for (int32 Frame = 0; Frame < 1500 && !(*Runtime)->IsOver() && Kept.Primitives.empty(); ++Frame)
-	{
-		for (int32 Vblank = (*Runtime)->VblanksPerFrame(); Vblank > 0; --Vblank)
-		{
-			Pad.Vblank(FPadState{static_cast<uint16>(Frame % 24 < 2 ? 1u << 14 : 0u)}, Game.PlayTime());
-		}
-		(*Runtime)->Frame();
-		REQUIRE((*Runtime)->Fault() == EBattleFault::None);
-		FMenuFrame Shown;
-		const std::span<const FMenuPrimitive> Primitives = Presentation->Show.Frame().Hud.Primitives;
-		Shown.Primitives.assign(Primitives.begin(), Primitives.end());
-		if (Count(Shown, EMenuIconSlot::FaceButton) >= 4 && Count(Shown, EMenuIconSlot::Symbol) >= 1)
-		{
-			Kept = std::move(Shown);
-		}
-	}
-	REQUIRE_FALSE(Kept.Primitives.empty());
+	REQUIRE(ShowAttackRing(*Disc, false, Loaded, Kept));
 	Kept.Number = 1;
 	FMenuDrawBuilder Builder;
 	FDrawList Original;
@@ -499,16 +519,18 @@ TEST_CASE("The battle HUD's button pictures are shown as the player's controller
 	}
 	CHECK(Pictures.Pictures().Revision() == 0);
 
-	// Confirm and cancel swapped: the ring's two pictures change places, and the pressed button, a circle the sheet has
-	// no symbol of, is the port's picture.
+	// Confirm and cancel swapped: the ring's two pictures change places, and the pressed button is the sheet's circle,
+	// which no attack of the game draws.
 	PlayStation.Bind({{EPadButton::Cross, "Circle"}, {EPadButton::Circle, "Cross"}, {EPadButton::Square, "Square"}, {EPadButton::Triangle, "Triangle"}});
 	List = Original;
 	Pictures.Apply(List, Icons, PlayStation, Sheet, BattleHudButtonPictures);
 	CHECK(List.Primitives[RingCross].Corners[0].U == Original.Primitives[RingCircle].Corners[0].U);
 	CHECK(List.Primitives[RingCircle].Corners[0].U == Original.Primitives[RingCross].Corners[0].U);
 	CHECK(List.Primitives[RingCross].Texture->Vram == 0);
-	CHECK(List.Primitives[Pressed].Texture->Vram == FMenuButtonIcons::PicturesVram);
-	CHECK(Pictures.Pictures().Revision() == 1);
+	const FMenuSpritePart& SheetCircle = Sheet.Frame(0x60).back();
+	CHECK(List.Primitives[Pressed].Texture->Vram == 0);
+	CHECK(std::min(List.Primitives[Pressed].Corners[0].U, List.Primitives[Pressed].Corners[1].U) == SheetCircle.U);
+	CHECK(Pictures.Pictures().Revision() == 0);
 
 	// An Xbox pad: the port's pictures everywhere, each as dimmed and blended as the game's was.
 	Testing::FBoundGlyphs Xbox(EButtonIconSet::Xbox);
@@ -548,7 +570,8 @@ TEST_CASE("The battle HUD's button pictures are shown as the player's controller
 		CHECK(List.Primitives[Cell].Corners[0].U == Original.Primitives[Shown].Corners[0].U);
 		CHECK(List.Primitives[Cell].Corners[0].V == Original.Primitives[Shown].Corners[0].V);
 	}
-	CHECK(List.Primitives[Pressed].Texture->Vram == FMenuButtonIcons::PicturesVram);
+	CHECK(List.Primitives[Pressed].Texture->Vram == 0);
+	CHECK(std::min(List.Primitives[Pressed].Corners[0].U, List.Primitives[Pressed].Corners[1].U) == SheetCircle.U);
 
 	// The prompt's words go with the button of the command they name (cancel's with the circle), and the Japanese layout
 	// sets each button out with its words at its symbol's place on the pad, as the Japanese release draws them.
@@ -574,6 +597,56 @@ TEST_CASE("The battle HUD's button pictures are shown as the player's controller
 	Placed = Kept.Primitives;
 	Pictures.PlacePrompt(Placed, PlayStation);
 	CHECK(Find(Placed, 0x20, false) == Find(Kept.Primitives, 0x40, false));
+}
+
+TEST_CASE("With the Japanese commands the battle HUD's pictures are the game's own for a PlayStation pad, its prompt as drawn", "[Battle][Content]")
+{
+	REQUIRE_ITALIAN_JP_DISC(Disc, EDiscRelease::UsaDisc1);
+	Testing::FBattleProgramDisc Loaded;
+	FMenuFrame Kept;
+	REQUIRE(ShowAttackRing(*Disc, true, Loaded, Kept));
+	Kept.Number = 1;
+	FMenuDrawBuilder Builder;
+	FDrawList Original;
+	Builder.Build(Kept, nullptr, 1.0f, Original);
+	const std::vector<FMenuDrawnIcon> Icons = Builder.Icons;
+	const FMenuSpriteSheet& Sheet = Loaded.HudResources->Sheet;
+	const auto Drawn = [&Icons, &Original](uint16 Role, EMenuIconSlot Slot) {
+		const auto Found = std::find_if(Icons.begin(), Icons.end(), [Role, Slot](const FMenuDrawnIcon& Icon) { return Icon.Role == Role && Icon.Slot == Slot; });
+		REQUIRE(Found != Icons.end());
+		const FDrawPrimitive& Primitive = Original.Primitives[Found->Primitive];
+		return std::pair{std::min(Primitive.Corners[0].U, Primitive.Corners[1].U), std::min(Primitive.Corners[0].V, Primitive.Corners[2].V)};
+	};
+	const auto FrameTexels = [&Sheet](int32 Frame) { return std::pair{static_cast<float>(Sheet.Frame(Frame).back().U), static_cast<float>(Sheet.Frame(Frame).back().V)}; };
+	// The ring's circle confirms and is the fierce attack, its cross cancels; the fierce attack pressed is the translation's circle.
+	CHECK(Drawn(0x20, EMenuIconSlot::FaceButton) == FrameTexels(0x0B));
+	CHECK(Drawn(0x40, EMenuIconSlot::FaceButton) == FrameTexels(0x0C));
+	CHECK(Drawn(0x20, EMenuIconSlot::Symbol) == FrameTexels(0x5D));
+
+	// A PlayStation pad bound as the console's: every picture the game's own, as drawn.
+	Testing::FBoundGlyphs PlayStation(EButtonIconSet::PlayStation);
+	PlayStation.Bind({{EPadButton::Cross, "Cross"}, {EPadButton::Circle, "Circle"}, {EPadButton::Square, "Square"}, {EPadButton::Triangle, "Triangle"}});
+	FMenuButtonIcons Pictures;
+	Pictures.SetJapaneseCommands(true);
+	FDrawList List = Original;
+	Pictures.Apply(List, Icons, PlayStation, Sheet, BattleHudJapaneseCommandsPictures);
+	for (const FMenuDrawnIcon& Icon : Icons)
+	{
+		INFO("role " << Icon.Role << ", slot " << static_cast<int32>(Icon.Slot));
+		CHECK(List.Primitives[Icon.Primitive].Texture == Original.Primitives[Icon.Primitive].Texture);
+		CHECK(List.Primitives[Icon.Primitive].Corners[0].U == Original.Primitives[Icon.Primitive].Corners[0].U);
+		CHECK(List.Primitives[Icon.Primitive].Corners[0].V == Original.Primitives[Icon.Primitive].Corners[0].V);
+	}
+	CHECK(Pictures.Pictures().Revision() == 0);
+
+	// The translation's prompt sets the buttons out as the Japanese release does: as the pad has them, so they stay.
+	std::vector<FMenuPrimitive> Placed = Kept.Primitives;
+	Pictures.PlacePrompt(Placed, PlayStation);
+	for (std::size_t Index = 0; Index < Placed.size(); ++Index)
+	{
+		CHECK(Placed[Index].Corners[0].X == Kept.Primitives[Index].Corners[0].X);
+		CHECK(Placed[Index].Corners[0].Y == Kept.Primitives[Index].Corners[0].Y);
+	}
 }
 
 TEST_CASE("A scripted battle's message is typed in its window by the game's HUD and goes on at the player's button", "[Battle][Content]")

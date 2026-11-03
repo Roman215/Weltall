@@ -195,4 +195,10 @@ namespace Weltall
 			VramOperations.push_back(Operation);
 		}
 	}
+
+	void FFieldRenderState::StreamTexturesAgain()
+	{
+		++TextureStreams;
+		bDefeatPicture = false;
+	}
 }

@@ -8,7 +8,6 @@ namespace Weltall::EventOps
 	{
 		constexpr uint8 MostOfAnItem = 99;
 		constexpr int32 MostGold = 9999999;
-		constexpr uint8 NoItem = 0xFF;
 
 		/** An item code: the inventory list in its high byte, the item's number in the list in its low byte. */
 		struct FItemCode
@@ -120,15 +119,7 @@ namespace Weltall::EventOps
 			{
 				return;
 			}
-			const int32 Slot = FindItem(*State, *Code);
-			if (Slot != -1)
-			{
-				uint8& Count = State->InventoryCounts(Code->List)[static_cast<std::size_t>(Slot)];
-				if (--Count == 0)
-				{
-					State->InventoryItems(Code->List)[static_cast<std::size_t>(Slot)] = NoItem;
-				}
-			}
+			State->TakeItem(Code->List, Code->Item);
 			Advance(Context, 3);
 		}
 

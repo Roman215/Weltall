@@ -82,6 +82,7 @@ namespace Weltall
 
 	void FFieldPresenter::ApplyGearVramChanges(const FEventContext& Context)
 	{
+		const FVram::FKindScope ModelsKind(FieldVram, EVramUploadKind::ModelsAndEffects);
 		if (!Context.Gears.Models)
 		{
 			return;

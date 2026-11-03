@@ -30,7 +30,7 @@ entrance table and actor scripts. Messages are numbered from 0 in document order
 `encounters from K` to take random battle formations and their weights from map K instead of the base map.
 
 The Mass Driver's three rooms are examples:
-`Content/Story/disc2/mass-driver-airlock.txt` uses map 382, `mass-driver-corridor.txt` uses map 384 with
+`Content/Examples/disc2/mass-driver-airlock.txt` uses map 382, `mass-driver-corridor.txt` uses map 384 with
 map 629's encounters, and `mass-driver-control-room.txt` uses map 369. Compare them with the base map
 listings, such as `WeltallMapText 382`, to see how the geometry is reused with new scripts.
 
@@ -89,7 +89,7 @@ An `over` document keeps the base map's scripts and messages, then applies a pat
 to patch instructions, or replace individual scripts. This is useful when you need the base map's
 actor setup, cameras and effects.
 
-`Content/Story/disc2/rematch-lead-in.txt` and `rematch-aftermath.txt` reuse map 613, the sky scene from
+`Content/Examples/disc2/rematch-lead-in.txt` and `rematch-aftermath.txt` reuse map 613, the sky scene from
 the final chase on Disc 1. They keep its cockpits, Gears and cameras while adding new dialogue.
 
 The base scripts still run at the story value you enter with. Read their conditions and disable any
@@ -98,5 +98,6 @@ pose. Replace the relevant actor script or prevent it from starting.
 
 ## Using Disc 1 maps on Disc 2
 
-The game starts with Disc 1 and reads its files from that disc. Disc 2's duplicate files are used for
-movies. A new map on Disc 2 can therefore use any Disc 1 map as its base.
+When Disc 1 is in `Games`, the game reads every field map from it, so a new map on Disc 2 can use any
+Disc 1 map as its base. With only Disc 2 available, you can use only the maps that disc contains.
+A new map built on a missing base can't be entered, and the Modding page lists its expansion as **Other disc**.

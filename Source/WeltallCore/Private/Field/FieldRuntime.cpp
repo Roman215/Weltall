@@ -28,6 +28,8 @@ namespace Weltall
 		constexpr int32 OverFieldPassVblanks = 1;
 		constexpr int32 FullScreenPassVblanks = 2;
 		constexpr int32 MovieSkipVblanks = 5;
+		/** The pad's four directions, which the pause after a map change keeps from the field. */
+		constexpr uint16 DirectionButtons = 0xF000;
 		/** The menu's shading takes a vertical blank a step. */
 		constexpr int32 MenuShadeVblanks = 1;
 		/** The variable the field sets on every pass of its main loop on the retail discs. */
@@ -158,6 +160,7 @@ namespace Weltall
 			// The console counts the vertical blank before it reads the pad: the repeat keeps to the count.
 			Game.SetPlayTime(Game.PlayTime() + 1);
 			Services.Pad->Vblank(Held, Game.PlayTime());
+			DoorPauseLeft = std::max(DoorPauseLeft - 1, 0);
 			if (DefeatHoldVblanks != 0)
 			{
 				--DefeatHoldVblanks;
@@ -180,7 +183,9 @@ namespace Weltall
 		FFieldTickInput Input;
 		if (!bDefeatHeldUntilReleased)
 		{
-			Input.Pad = {Words.Held, Words.Pressed, Words.Repeated, Words.StickHeld, Words.StickX, Words.StickY};
+			const uint16 Kept = DoorPauseLeft > 0 ? static_cast<uint16>(~DirectionButtons) : uint16{0xFFFF};
+			Input.Pad = {static_cast<uint16>(Words.Held & Kept), static_cast<uint16>(Words.Pressed & Kept), static_cast<uint16>(Words.Repeated & Kept),
+				static_cast<uint16>(Words.StickHeld & Kept), Words.StickX, Words.StickY, Words.ZoomHeld};
 		}
 		Input.Clock = *Services.Clock;
 		Input.ViewTurn = ViewTurn;
@@ -443,6 +448,11 @@ namespace Weltall
 		PendingRequest = Request;
 		ResumeStep = ResumeAt;
 		Phase = EPhase::Stopped;
+	}
+
+	std::optional<FError> FFieldRuntime::SaveForReturn(FFieldSnapshot& Saved)
+	{
+		return SaveFieldForReturn(FieldContext, *ActorSprites, Saved);
 	}
 
 	std::optional<FError> FFieldRuntime::LeaveField(FFieldRequest Request)

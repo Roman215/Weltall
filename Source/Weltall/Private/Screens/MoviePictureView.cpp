@@ -1,7 +1,6 @@
 #include "Screens/MoviePictureView.h"
 
 #include "Media/MoviePlayer.h"
-#include "Presentation/ScreenLayout.h"
 #include "Rendering/MovieRendering.h"
 #include "Rendering/SharedRenderResource.h"
 
@@ -9,16 +8,13 @@
 class FMoviePictureFrame final : public IScreenFrame
 {
 public:
-	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override
+	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override
 	{
 		if (!Picture.IsValid())
 		{
 			return;
 		}
-		const Weltall::FScreenLayout Layout = Weltall::FScreenLayout::Fit(Area.Width(), Area.Height(), Screen);
-		const Weltall::FDisplayRect Placed = Layout.ToDisplay({0, 0, static_cast<int16>(Screen.Width), static_cast<int16>(Screen.Height)});
-		const FIntPoint Origin = Area.Min + FIntPoint(Placed.X, Placed.Y);
-		AddMoviePasses(GraphBuilder, *Picture, Output, FIntRect(Origin, Origin + FIntPoint(Placed.Width, Placed.Height)), Screen, Window);
+		AddMoviePasses(GraphBuilder, *Picture, Output, Area.ScreenRect(Screen), Screen, Window);
 	}
 
 	virtual Weltall::FScreenSize ScreenSize() const override

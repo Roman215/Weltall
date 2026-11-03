@@ -369,6 +369,7 @@ bool AWeltallGameMode::StartGame()
 	const TSharedRef<FGameLoopScreen> Screen = *Started;
 	Screen->SetButtonGlyphs(Game->GetSubsystem<UButtonGlyphSubsystem>());
 	Screen->SetSaves(&Game->GetSubsystem<USaveStoreSubsystem>()->Store());
+	Screen->SetSaveStates(&Game->GetSubsystem<USaveStoreSubsystem>()->States());
 	Screen->SetCameraMoved([Settings](const Weltall::FFieldCameraOffsets& Field, const Weltall::FWorldMapCameraOffsets& WorldMap)
 	{
 		Settings->KeepCameraOffsets(Field, WorldMap);

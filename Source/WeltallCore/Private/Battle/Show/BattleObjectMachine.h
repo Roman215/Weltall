@@ -93,8 +93,11 @@ namespace Weltall::BattleObjectMachine
 	 */
 	void DrawPart(FBattleObjects& Objects, FBattleObjectsFrame& Frame, std::vector<FGteProjection>& Projected, const FGte& Gte, const FBattleDrawnPart& Part,
 		const FPartDrawing& How);
-	/** The packets an object's making built for bone Bone's part, looked for from Cursor on (the bones are drawn in order); none faults. */
-	const FGearBonePackets* BonePackets(FBattleObjects& Objects, const FBattleObject& Object, std::size_t Bone, std::size_t& Cursor);
+	/**
+	 * The packets a making built for bone Bone's part (Packets: an object's own or its dress's), looked for from Cursor on (the
+	 * bones are drawn in order); none faults, naming the object's slot.
+	 */
+	const FGearBonePackets* BonePackets(FBattleObjects& Objects, std::span<const FGearBonePackets> Packets, int32 Slot, std::size_t Bone, std::size_t& Cursor);
 	/** The stage object's shown bones' parts under View into the frame, each by its draw kind. */
 	void DrawStageModel(FBattleObjects& Objects, FBattleObjectsFrame& Frame, std::vector<FGteProjection>& Projected, const FBattleObject& Stage,
 		const FGteMatrix& View);

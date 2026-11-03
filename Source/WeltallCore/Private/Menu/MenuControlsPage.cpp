@@ -22,8 +22,10 @@ namespace Weltall
 			AlwaysRun,
 			AnalogMovement,
 			WalkIntoDoors,
+			StopAtDoors,
 			OriginalButtonIcons,
 			ButtonLayout,
+			CameraButtons,
 			MouseSensitivity,
 			StickSensitivity,
 			TouchMovement,
@@ -51,7 +53,7 @@ namespace Weltall
 			return {Kind, Words.Label, &Words};
 		}
 
-		constexpr std::array<FControlsRow, 33> PageRows{{
+		constexpr std::array<FControlsRow, 41> PageRows{{
 			{ERowKind::Device, Text::Device},
 			{ERowKind::Heading, Text::ButtonsHeading},
 			KeysOf(Text::Up, EControlAction::Up),
@@ -68,9 +70,11 @@ namespace Weltall
 			KeysOf(Text::GearRight, EControlAction::R2),
 			KeysOf(Text::Pause, EControlAction::Start),
 			KeysOf(Text::Map, EControlAction::Select),
+			KeysOf(Text::MessageLog, EControlAction::MessageLog),
 			Setting(ERowKind::AlwaysRun, Text::AlwaysRun),
 			Setting(ERowKind::AnalogMovement, Text::AnalogMovement),
 			Setting(ERowKind::WalkIntoDoors, Text::WalkIntoDoors),
+			Setting(ERowKind::StopAtDoors, Text::StopAtDoors),
 			Setting(ERowKind::OriginalButtonIcons, Text::OriginalButtonIcons),
 			Setting(ERowKind::ButtonLayout, Text::ButtonLayout),
 			{ERowKind::Heading, Text::CameraHeading},
@@ -78,8 +82,14 @@ namespace Weltall
 			KeysOf(Text::Tilt, EControlAction::ViewTilt),
 			KeysOf(Text::Zoom, EControlAction::ViewZoom),
 			KeysOf(Text::ResetCamera, EControlAction::ViewReset),
+			Setting(ERowKind::CameraButtons, Text::CameraButtons),
 			Setting(ERowKind::MouseSensitivity, Text::MouseSensitivity),
 			Setting(ERowKind::StickSensitivity, Text::StickSensitivity),
+			{ERowKind::Heading, Text::StatesHeading},
+			KeysOf(Text::SaveState, EControlAction::SaveState),
+			KeysOf(Text::LoadState, EControlAction::LoadState),
+			KeysOf(Text::NextSlot, EControlAction::NextStateSlot),
+			KeysOf(Text::PreviousSlot, EControlAction::PreviousStateSlot),
 			{ERowKind::Heading, Text::TouchHeading},
 			Setting(ERowKind::TouchMovement, Text::TouchMovement),
 			Setting(ERowKind::TouchOpacity, Text::TouchOpacity),
@@ -93,6 +103,9 @@ namespace Weltall
 		/** The menus' logical Square, which clears a key, and Triangle, which swaps a row's two. */
 		constexpr uint16 ClearRole = 0x80;
 		constexpr uint16 SwapRole = 0x10;
+		/** The field's logical Cross, which runs, and Circle, which talks and opens a door. */
+		constexpr uint16 RunRole = 0x40;
+		constexpr uint16 ConfirmRole = 0x20;
 
 		/** The axes a camera action can take. */
 		constexpr std::array<std::string_view, 7> ViewAxes{
@@ -170,9 +183,21 @@ namespace Weltall
 		{
 			return Kind == ERowKind::MouseSensitivity ? &Bindings.MouseSensitivity : Kind == ERowKind::StickSensitivity ? &Bindings.StickSensitivity : nullptr;
 		}
+
+		/** The door pause's value: Off for none, else its seconds to a tenth. */
+		std::string DoorPauseName(int32 Tenths)
+		{
+			if (Tenths == NoDoorPause)
+			{
+				return std::string(OptionsText::Off);
+			}
+			const std::string Seconds = std::to_string(Tenths / 10) + "." + std::to_string(Tenths % 10);
+			return OptionsText::Fill(Text::DoorPauseSeconds, {Seconds});
+		}
 	}
 
-	FMenuControlsPage::FMenuControlsPage(IMenuKeys& InKeys) : Keys(InKeys), Shown(InKeys.LastFamily()), PadIcons(InKeys.GamepadIcons())
+	FMenuControlsPage::FMenuControlsPage(IMenuKeys& InKeys, bool bInJapaneseCommands)
+		: Keys(InKeys), bJapaneseCommands(bInJapaneseCommands), Shown(InKeys.LastFamily()), PadIcons(InKeys.GamepadIcons())
 	{
 	}
 
@@ -218,6 +243,12 @@ namespace Weltall
 			case ERowKind::WalkIntoDoors:
 				Made.Value = std::string(Bindings.bWalkIntoDoors ? OptionsText::On : OptionsText::Off);
 				break;
+			case ERowKind::StopAtDoors:
+				Made.Value = DoorPauseName(Bindings.DoorPause);
+				break;
+			case ERowKind::CameraButtons:
+				Made.Value = SettingsRows::ChoiceName(Bindings.CameraButtons, Text::CameraButtonsValues);
+				break;
 			case ERowKind::OriginalButtonIcons:
 				Made.Value = std::string(Bindings.bOriginalButtonIcons ? OptionsText::On : OptionsText::Off);
 				break;
@@ -262,10 +293,10 @@ namespace Weltall
 															 : OptionsText::Fill(Text::PressKey, {Noun});
 			return {Asked, std::string(Text::StopListening), ""};
 		}
-		// The buttons the menus clear and swap with, by their rows' names.
-		const auto NameOf = [](uint16 Role)
+		// The buttons the game reads for the parts the help names, by their rows' names.
+		const auto NameOf = [this](uint16 Role)
 		{
-			const std::optional<EControlAction> Action = ActionOf(MenuRoleButton(Role));
+			const std::optional<EControlAction> Action = ActionOf(MenuRoleButton(Role, bJapaneseCommands));
 			return Action ? LabelOf(*Action) : std::string_view();
 		};
 		switch (At->Kind)
@@ -278,12 +309,14 @@ namespace Weltall
 			Lines[1] = OptionsText::Fill(Text::ClearAndSwap, {NameOf(ClearRole), NameOf(SwapRole)});
 			break;
 		case ERowKind::AlwaysRun:
-			Lines = OptionsText::Fill(At->Words->Help, {Noun, LabelOf(EControlAction::Circle)});
+			Lines = OptionsText::Fill(At->Words->Help, {Noun, NameOf(RunRole)});
 			break;
 		case ERowKind::WalkIntoDoors:
-			Lines = OptionsText::Fill(At->Words->Help, {LabelOf(EControlAction::Cross)});
+			Lines = OptionsText::Fill(At->Words->Help, {NameOf(ConfirmRole)});
 			break;
 		case ERowKind::AnalogMovement:
+		case ERowKind::StopAtDoors:
+		case ERowKind::CameraButtons:
 		case ERowKind::OriginalButtonIcons:
 		case ERowKind::ButtonLayout:
 		case ERowKind::MouseSensitivity:
@@ -334,6 +367,19 @@ namespace Weltall
 			return true;
 		case ERowKind::WalkIntoDoors:
 			Bindings.bWalkIntoDoors = !Bindings.bWalkIntoDoors;
+			return true;
+		case ERowKind::StopAtDoors:
+		{
+			const int32 Next = std::clamp(Bindings.DoorPause + Direction, NoDoorPause, LongestDoorPause);
+			if (Next == Bindings.DoorPause)
+			{
+				return false;
+			}
+			Bindings.DoorPause = Next;
+			return true;
+		}
+		case ERowKind::CameraButtons:
+			SettingsRows::StepChoice(Bindings.CameraButtons, Direction, static_cast<int32>(Text::CameraButtonsValues.size()));
 			return true;
 		case ERowKind::OriginalButtonIcons:
 			Bindings.bOriginalButtonIcons = !Bindings.bOriginalButtonIcons;
@@ -424,6 +470,13 @@ namespace Weltall
 			return true;
 		case ERowKind::WalkIntoDoors:
 			Bindings.bWalkIntoDoors = !Bindings.bWalkIntoDoors;
+			return true;
+		case ERowKind::StopAtDoors:
+			// Confirm steps up, from the longest back round to none.
+			Bindings.DoorPause = Bindings.DoorPause == LongestDoorPause ? NoDoorPause : Bindings.DoorPause + 1;
+			return true;
+		case ERowKind::CameraButtons:
+			SettingsRows::StepChoice(Bindings.CameraButtons, 1, static_cast<int32>(Text::CameraButtonsValues.size()));
 			return true;
 		case ERowKind::OriginalButtonIcons:
 			Bindings.bOriginalButtonIcons = !Bindings.bOriginalButtonIcons;

@@ -53,7 +53,7 @@ namespace Weltall
 			}
 			else if (Game.ProgramResult == 2)
 			{
-				co_await RequireDisc(Game.SavedDisc());
+				co_await RequireLoadedGameDisc();
 			}
 		}
 		else if (Request.Mode == EMenuMode::Normal)
@@ -62,12 +62,16 @@ namespace Weltall
 			co_await MainMenu();
 			if (bGameLoaded && Services.Disc != Game.SavedDisc() + 1)
 			{
-				co_await RequireDisc(Game.SavedDisc());
+				co_await RequireLoadedGameDisc();
 			}
 		}
 		else if (Request.Mode == EMenuMode::DiscChange)
 		{
 			co_await ChangeDisc();
+		}
+		else if (Request.Mode == EMenuMode::ClearFile)
+		{
+			co_await SaveClearFile();
 		}
 		else
 		{
@@ -147,10 +151,7 @@ namespace Weltall
 
 	void FMenuMain::LoadResources()
 	{
-		for (const FVramImage& Image : Resources.ArchiveUploads())
-		{
-			Upload(Image);
-		}
+		UploadArchive();
 		for (int32 Slot = 0; Slot < 3; ++Slot)
 		{
 			const uint8 Character = Member(Slot);

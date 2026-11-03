@@ -4,6 +4,7 @@
 #include "Battle/Show/BattleSceneGraphics.h"
 #include "Battle/Show/BattleSceneModels.h"
 #include "Battle/Show/BattleShowVram.h"
+#include "Battle/Show/IdsBattleSprite.h"
 #include "Foundation/LittleEndian.h"
 
 namespace Weltall
@@ -30,7 +31,7 @@ namespace Weltall
 	}
 
 	FBattleShowLoad::FBattleShowLoad(FBattleShow& InShow, const FBattleShowSetup& Setup)
-		: Show(InShow), SpriteFiles(Setup.SpriteFiles), Scene(Setup.SceneGraphics), Kind(Setup.Kind)
+		: Show(InShow), SpriteFiles(Setup.SpriteFiles), Scene(Setup.SceneGraphics), IdsSprite(Setup.IdsSprite), Kind(Setup.Kind)
 	{
 	}
 
@@ -47,6 +48,11 @@ namespace Weltall
 		return Record.Occupant < PartyTypes && Record.InGear == 0;
 	}
 
+	bool FBattleShowLoad::DrawnAsId(int32 Slot) const
+	{
+		return IdsSprite != nullptr && Show.Context->PartyLooks().IsId(Show.Context->PartyCharacters[static_cast<std::size_t>(Slot)]);
+	}
+
 	void FBattleShowLoad::Update()
 	{
 		// Each step runs once the disc has delivered what the step before read: in the port, at the next frame.
@@ -59,16 +65,20 @@ namespace Weltall
 				return;
 			}
 			CreateEnemies();
-			// The party's sprites: the members on foot's sprite files.
+			// The party's sprites: the members on foot's sprite files, as the player has them drawn.
 			for (int32 Slot = 0; Slot < PartySlots && Step != EStep::Done; ++Slot)
 			{
 				if (OnFoot(Slot))
 				{
-					TResult<FBattleSpriteFile> File = SpriteFiles->ReadCharacterSprite(Show.Context->Slots[static_cast<std::size_t>(Slot)].Occupant);
+					TResult<FBattleSpriteFile> File = DrawnAsId(Slot) ? IdsSprite->File() : SpriteFiles->ReadCharacterSprite(Show.Context->DrawnOccupant(Slot));
 					if (!File)
 					{
 						Fail(EBattleShowFault::File);
 						return;
+					}
+					if (Show.Context->PartyLooks().HasPurpleHair(Show.Context->DrawnOccupant(Slot)))
+					{
+						File->RecolourPurpleHair();
 					}
 					PartyFiles[static_cast<std::size_t>(Slot)] = std::move(*File);
 					Resources[static_cast<std::size_t>(Slot)] = {&*PartyFiles[static_cast<std::size_t>(Slot)], 0, 0, 0};
@@ -242,7 +252,7 @@ namespace Weltall
 			{
 				continue;
 			}
-			const uint8 Character = Show.Context->Slots[static_cast<std::size_t>(Slot)].Occupant;
+			const uint8 Character = Show.Context->DrawnOccupant(Slot);
 			if (Character >= FBattleSpriteFiles::WidthCount || Character >= FBattleSpriteFiles::CharacterCount)
 			{
 				Fail(EBattleShowFault::File);
@@ -252,6 +262,15 @@ namespace Weltall
 			Resource.TextureX = static_cast<int16>(PartyTextureX + Column);
 			Resource.TextureY = PartyTextureY;
 			Column = static_cast<uint16>(Column + SpriteFiles->TextureWidth(Character));
+			if (DrawnAsId(Slot))
+			{
+				Resource.TextureX = FIdsBattleSprite::TextureX;
+				Resource.TextureY = FIdsBattleSprite::TextureY;
+				for (const FVramImage& Picture : IdsSprite->Images())
+				{
+					Show.Vram.UploadToPortRows(Picture);
+				}
+			}
 			CreateSprite(Slot, Resource);
 			if (Step == EStep::Done)
 			{

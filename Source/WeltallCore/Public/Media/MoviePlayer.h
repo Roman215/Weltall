@@ -31,16 +31,26 @@ namespace Weltall
 		bool bSound = true;
 		/** Cross or Start skips it, as the Movie program reads the pad (a held one only once its auto-repeat fires). */
 		bool bSkippable = false;
+		/**
+		 * The Italian translation's Japanese commands' Movie program, whose skip tests Circle in the reading now where the
+		 * game's tests Cross: Circle held while Cross was not at the reading before skips, so a held Circle skips at once.
+		 */
+		bool bCircleSkips = false;
 	};
 
 	/**
 	 * A movie as the game's movie player plays it, a vertical blank at a time: its pictures at 15 a
 	 * second, the pace the drive delivers them at (picture n shows from the first vertical blank at or
-	 * past (n - 1) / 15 seconds), until it shows its end frame (or runs out). Its sound goes from the
-	 * same moment into the SPU's CD input, as the drive's does, at the CD volume the player sets:
-	 * silent at first, faded in once a picture past the start frame shows and out from three pictures
-	 * before the end frame. A skip fades the sound out over the 5 vertical blanks before the movie
-	 * stops. Either way it stops on the picture it showed last, and its sound stops with it.
+	 * past (n - 1) / 15 seconds of the movie's time), until it shows its end frame (or runs out). Its
+	 * sound goes from the same moment into the SPU's CD input, as the drive's does, at the CD volume
+	 * the player sets: silent at first, faded in once a picture past the start frame shows and out from
+	 * three pictures before the end frame. A skip fades the sound out over the 5 vertical blanks before
+	 * the movie stops. Either way it stops on the picture it showed last, and its sound stops with it.
+	 *
+	 * The movie's time is the vertical blanks' while nothing hears the game's sound or takes the movie's
+	 * from the CD input; while the host plays it to a listener, the time follows the sound heard (taken,
+	 * less the host's latency), as the drive keeps picture and sound together: a stall of the vertical
+	 * blanks no longer leaves the pictures behind, and sound held back holds them.
 	 */
 	class FMoviePlayer
 	{
@@ -95,6 +105,10 @@ namespace Weltall
 		TResult<bool> DecodeNext();
 		TResult<bool> ShowDue();
 		TResult<bool> ReadAhead();
+		/** A vertical blank of the movie's time, steered to its sound heard while the SPU takes it. */
+		void AdvanceClock();
+		/** The movie's time its sound heard stands for; none while nothing takes it, or all of it has been taken. */
+		std::optional<int64> HeardTime();
 		void PollSkip(FPadState Buttons);
 		/** The CD volume the player sets as a picture of the frame shows. */
 		void FadeFor(uint32 Frame);
@@ -125,6 +139,14 @@ namespace Weltall
 		uint32 PicturesShown = 0;
 		/** The vertical blanks since the movie's first picture. */
 		uint64 Vblanks = 0;
+		/** The movie's time since its first picture, in 1 / (44,100 x the GPU's clock rate) seconds. */
+		int64 Clock = 0;
+		/** The movie time, in sound frames, of the first frame the movie's sound has queued since it last started. */
+		int64 SoundOrigin = 0;
+		/** The frames queued since then, and how many of them the SPU had taken when last looked at, in which vertical blank. */
+		uint64 SoundQueued = 0;
+		uint64 SoundTaken = 0;
+		uint64 SoundTakenVblank = 0;
 		/** The last reading; before the first, every button, so one held from the start is no press. */
 		uint32 Polled = ~0u;
 		int32 RepeatCount = 0;

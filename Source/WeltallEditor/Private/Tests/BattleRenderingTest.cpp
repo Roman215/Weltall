@@ -281,7 +281,7 @@ bool FBattleLayersRenderingTest::RunTest(const FString&)
 		const FIntPoint Size(BattleScreenWidth, BattleScreenHeight);
 		const TArray<FColor> Pixels = RenderPassesOffscreen(Size, [&NoMesh, &Units, &Draw, Size](FRDGBuilder& GraphBuilder, FRDGTextureRef Output)
 		{
-			AddBattleFramePasses(GraphBuilder, NoMesh, Units, Units, Draw, Output, FIntRect(FIntPoint::ZeroValue, Size));
+			AddBattleFramePasses(GraphBuilder, NoMesh, Units, Units, Draw, Output, FScreenArea(FIntRect(FIntPoint::ZeroValue, Size)));
 		});
 		if (!TestEqual(TEXT("The frame was read back"), Pixels.Num(), BattleScreenWidth * BattleScreenHeight))
 		{
@@ -301,6 +301,32 @@ bool FBattleLayersRenderingTest::RunTest(const FString&)
 		Near(TEXT("the HUD over the fade"), 150, 110, 0, 0, 255);
 		Near(TEXT("the number over the HUD"), 190, 140, 255, 0, 0);
 		Near(TEXT("the number over the fade"), 210, 160, 255, 0, 0);
+
+		// In a 4:3 picture's 240 lines, the scene, its fade and the HUD on the battle's 224 rows alike, eight lines down,
+		// black above and below them.
+		const FIntPoint Tall(BattleScreenWidth, 240);
+		const TArray<FColor> InTall = RenderPassesOffscreen(Tall, [&NoMesh, &Units, &Draw, Tall](FRDGBuilder& GraphBuilder, FRDGTextureRef Output)
+		{
+			AddBattleFramePasses(GraphBuilder, NoMesh, Units, Units, Draw, Output, FScreenArea(FIntRect(FIntPoint::ZeroValue, Tall)));
+		});
+		if (!TestEqual(TEXT("The tall frame was read back"), InTall.Num(), Tall.X * Tall.Y))
+		{
+			bPassed = false;
+			break;
+		}
+		const auto NearInTall = [this, &InTall, Tall](const TCHAR* What, int32 X, int32 Y, int32 R, int32 G, int32 B)
+		{
+			const FColor& Pixel = InTall[Y * Tall.X + X];
+			const bool bNear = FMath::Abs(Pixel.R - R) <= 2 && FMath::Abs(Pixel.G - G) <= 2 && FMath::Abs(Pixel.B - B) <= 2;
+			TestTrue(FString::Printf(TEXT("In 240 lines, %s: (%d, %d, %d) near (%d, %d, %d)"), What, Pixel.R, Pixel.G, Pixel.B, R, G, B), bNear);
+		};
+		NearInTall(TEXT("above the rows"), 300, 7, 0, 0, 0);
+		NearInTall(TEXT("the fade over the clear colour"), 300, 8, 100, 0, 64);
+		NearInTall(TEXT("the sprite linked before the fade"), 95, 103, 0, 255, 0);
+		NearInTall(TEXT("the HUD over that sprite"), 110, 118, 0, 0, 255);
+		NearInTall(TEXT("the number over the HUD"), 190, 148, 255, 0, 0);
+		NearInTall(TEXT("the fade's last row"), 300, 231, 100, 0, 64);
+		NearInTall(TEXT("below the rows"), 300, 232, 0, 0, 0);
 	}
 	BeginReleaseResource(&Units);
 	FlushRenderingCommands();

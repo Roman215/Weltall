@@ -6,7 +6,10 @@
 
 class IImageWrapperModule;
 
-/** Whether File lies below Root, which is canonical already, with no link on the way to it: a mod folder cannot redirect a write or a read. */
+/**
+ * Whether File lies below Root, which is canonical already, with no link between Root and it: a mod folder cannot
+ * redirect a write or a read. Root itself may be reached through links.
+ */
 WELTALL_API bool IsSafeTexturePath(const FString& File, const std::filesystem::path& Root);
 
 /** Root as IsSafeTexturePath expects it, empty when it cannot be resolved. */

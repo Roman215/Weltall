@@ -5,7 +5,7 @@
 #include "Game/ChapterCardDrawing.h"
 #include "Media/GameFileIndex.h"
 #include "Media/PsxExecutable.h"
-#include "Story/StoryPacks.h"
+#include "Story/StoryLibrary.h"
 
 #include <algorithm>
 #include <string>
@@ -38,8 +38,9 @@ namespace Weltall
 	FGameSession::~FGameSession() = default;
 
 	TResult<std::unique_ptr<FGameSession>> FGameSession::PowerOn(const FCdImage& Image, const FGameFileIndex& Index, const FPsxExecutable& Executable,
-		EDiscRelease Release, FGameSoundSession& Sound)
+		const FDiscIdentity& Identity, FGameSoundSession& Sound)
 	{
+		const EDiscRelease Release = Identity.Release;
 		if (!IsPlayableRelease(Release))
 		{
 			return MakeError("playing requires a USA or supported undub disc");
@@ -83,6 +84,7 @@ namespace Weltall
 		std::unique_ptr<FGameSession> Session(new FGameSession(
 			Image, Index, Release, Sound, std::move(*Arctangents), std::move(*Text), std::move(*Tables), std::move(*Cues), std::move(*Battle)));
 		Session->KernelGlobals = FKernelState::PowerOn(DiscNumberOf(Release));
+		Session->KernelPad.SetJapaneseCommands(Identity.bJapaneseCommands);
 		Session->BattlingData = std::move(*Battling);
 		Session->ChapterList = std::move(*Chapters);
 		if (auto Error = Session->InitNewGame())
@@ -299,10 +301,37 @@ namespace Weltall
 		return Found != nullptr ? Found->Number : 0;
 	}
 
+	const FStoryPacks* FGameSession::Story() const
+	{
+		if (Library == nullptr)
+		{
+			return StoryPacks;
+		}
+		if (State.StoryMode() == EStoryMode::Expanded)
+		{
+			return &Library->For(State.Expansion());
+		}
+		const FStoryLibrary::FExpansion* Offered = Library->Offered(PlayerSettings.Expansions);
+		return Offered != nullptr ? &*Offered->Packs : &Library->Own();
+	}
+
+	bool FGameSession::PlaysExpansion(std::string_view Folder) const
+	{
+		const FStoryPacks* Packs = Library != nullptr ? &Library->For(PlayerSettings.Expansions.bEnabled ? Folder : std::string_view()) : StoryPacks;
+		return Packs != nullptr && Packs->HasExpansion();
+	}
+
+	const FExpansionMod* FGameSession::OfferedExpansion() const
+	{
+		const FStoryLibrary::FExpansion* Offered = Library != nullptr ? Library->Offered(PlayerSettings.Expansions) : nullptr;
+		return Offered != nullptr ? &Offered->Mod : nullptr;
+	}
+
 	int32 FGameSession::SubtitleAt(uint16 Story) const
 	{
 		const FChapter* Chapter = ChapterList.Find(Story);
-		const FStorySubtitle* Under = StoryPacks != nullptr ? StoryPacks->SubtitleAt(Story, State.StoryMode() == EStoryMode::Expanded) : nullptr;
+		const FStoryPacks* Packs = this->Story();
+		const FStorySubtitle* Under = Packs != nullptr ? Packs->SubtitleAt(Story, State.StoryMode() == EStoryMode::Expanded) : nullptr;
 		return Chapter != nullptr && Under != nullptr && Under->First >= Chapter->FirstProgress ? Under->First : 0;
 	}
 
@@ -320,8 +349,9 @@ namespace Weltall
 		}
 		const FChapter& Shown = List[static_cast<std::size_t>(Card.Shown() - 1)];
 		const uint16 First = static_cast<uint16>(Card.ShownSubtitle());
-		const FStorySubtitle* Subtitle = First != 0 && StoryPacks != nullptr ? StoryPacks->SubtitleAt(First, true) : nullptr;
-		return Subtitle != nullptr ? FChapterCardDrawing::Text(Shown, StoryPacks->SubtitlePart(First, Shown.FirstProgress), Subtitle->Text)
+		const FStoryPacks* Packs = Story();
+		const FStorySubtitle* Subtitle = First != 0 && Packs != nullptr ? Packs->SubtitleAt(First, true) : nullptr;
+		return Subtitle != nullptr ? FChapterCardDrawing::Text(Shown, Packs->SubtitlePart(First, Shown.FirstProgress), Subtitle->Text)
 								   : FChapterCardDrawing::Text(Shown);
 	}
 }

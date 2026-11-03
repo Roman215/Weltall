@@ -9,6 +9,7 @@
 #include <string>
 #include <string_view>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 namespace Weltall
@@ -80,4 +81,11 @@ namespace Weltall
 
 	/** A message table of Messages alone; none where its 16-bit offsets could not reach the last. */
 	WELTALLCORE_API std::optional<std::vector<uint8>> BuildMessageTable(std::span<const FAddedMessage> Messages);
+
+	/**
+	 * Table with each replacement's message in place of the one of its number and the others as they are, one the table
+	 * starts past its bytes still past them; none where the bytes are not a table, a number is past its count, or the
+	 * 16-bit offsets could not reach the last message.
+	 */
+	WELTALLCORE_API std::optional<std::vector<uint8>> ReplaceMessages(std::span<const uint8> Table, std::span<const std::pair<int32, FAddedMessage>> Replacements);
 }

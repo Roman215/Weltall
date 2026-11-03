@@ -40,6 +40,13 @@ namespace Weltall
 		 * own; or a translation's own program Weltall knows (the French translation's).
 		 */
 		bool bPatched = false;
+		/**
+		 * The Italian translation's Japanese commands: its kernel swaps the first controller's face buttons before the
+		 * release's map (FKernelPad::SwapFaceButtons), so Circle confirms and Square jumps, as in the Japanese release.
+		 */
+		bool bJapaneseCommands = false;
+		/** The USA release's program, its code byte for byte but where a patch of its data rewrites it (the Japanese commands' swap aside). */
+		bool bUsaProgram = false;
 	};
 
 	/**

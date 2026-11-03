@@ -36,7 +36,12 @@ namespace
 	{
 		const int64 Bytes = IFileManager::Get().FileSize(*File);
 		TArray<uint8> Compressed;
-		if (!IsSafeTexturePath(File, Root) || Bytes <= 0 || Bytes > MaxPictureBytes || !FFileHelper::LoadFileToArray(Compressed, *File))
+		if (!IsSafeTexturePath(File, Root))
+		{
+			UE_LOG(LogWeltall, Warning, TEXT("Texture replacement inside a linked folder, which is not read (copy the folder instead): %s"), *File);
+			return nullptr;
+		}
+		if (Bytes <= 0 || Bytes > MaxPictureBytes || !FFileHelper::LoadFileToArray(Compressed, *File))
 		{
 			UE_LOG(LogWeltall, Warning, TEXT("Cannot read texture replacement: %s"), *File);
 			return nullptr;
@@ -162,6 +167,7 @@ bool FBeetleTexturePacks::Add(const Weltall::FBeetleTextureName& Name, const FSt
 
 const FBeetleTexturePacks::FFile* FBeetleTexturePacks::FileOf(const Weltall::FBeetleTexturePart& Part, Weltall::FBeetleTextureName& Name) const
 {
+	if ((ShownKinds & (1u << static_cast<uint32>(Part.Kind))) == 0) return nullptr;
 	// A pack made with Beetle's Reduce Palette Range option names a part by the colours its upload uses, where it has such a file.
 	Name = {Part.Upload, Part.Palette};
 	const FFile* File = Files.Find(FileKey(Name));

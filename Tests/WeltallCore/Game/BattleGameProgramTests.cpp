@@ -3,8 +3,10 @@
 #include "Battle/Show/BattlePresentation.h"
 #include "Game/BattleGameProgram.h"
 #include "Game/FieldProgram.h"
+#include "Game/GameBalance.h"
 #include "Game/GameState.h"
 #include "Game/KernelState.h"
+#include "Game/PlayerSettings.h"
 #include "Game/WorldMapProgram.h"
 #include "Sound/GameSoundSession.h"
 #include "Sound/GameSoundSystem.h"
@@ -12,6 +14,7 @@
 #include "Sound/SoundDriver.h"
 #include "Support/GameDiscs.h"
 #include "Support/GameLoopSession.h"
+#include "Support/StorySweepStrength.h"
 #include "WorldMap/WorldMapContext.h"
 
 #include <catch_amalgamated.hpp>
@@ -30,6 +33,10 @@ namespace
 	/** Map 15: a forest whose random encounters the program's oracle fights; its formation 1. */
 	constexpr uint16 ForestMap = 15;
 	constexpr uint8 ForestFormation = 1;
+	/** Map 57's formation 0: four of Aveh's soldiers, whose records give 35 gold each, and a box that stays hidden. */
+	constexpr uint16 SoldiersMap = 57;
+	constexpr uint8 SoldiersFormation = 0;
+	constexpr uint32 SoldiersGold = 4 * 35;
 	constexpr uint16 TitleMap = 490;
 	/** The game state's characters' records, their status word's knocked-out bit and their EXP to the next level. */
 	constexpr std::size_t CharactersAt = 0x26C;
@@ -55,17 +62,22 @@ namespace
 		return Game.Loop->StopReason() ? Game.Loop->StopReason()->Message : std::string();
 	}
 
-	/** Enters the forest as a new game with a party of three, past the map's entry into the field's loop. */
-	void EnterForest(Testing::FGameLoopSession& Game)
+	/** Enters Map as a new game with a party of three, past the map's entry into the field's loop. */
+	void EnterMap(Testing::FGameLoopSession& Game, uint16 Map)
 	{
 		FGameState& State = Game.Session->Game();
 		State.SetParty({0, 1, 2});
 		State.SetJoinedCharacters(0x1FF);
-		Game.EnterField(ForestMap);
+		Game.EnterField(Map);
 		FFieldProgram* Field = Game.Loop->Field();
 		REQUIRE(Field != nullptr);
 		Game.RunUntil([&] { return Field->Runtime().Context().bFieldRunning; }, 100);
 		Game.Frame();
+	}
+
+	void EnterForest(Testing::FGameLoopSession& Game)
+	{
+		EnterMap(Game, ForestMap);
 	}
 
 	/** Asks the field for a battle of the map's formation as a script asks for one, and runs the loop into the Battle program. */
@@ -215,6 +227,31 @@ TEST_CASE("The field's battle is fought in the Battle program and the field come
 	CHECK(Game->Loop->Field()->Runtime().LightLeft() == FGteMatrix{});
 	CheckSoundAfterBattle(*Game);
 	Game->RunUntil([&] { return Game->Loop->Field()->Runtime().Context().bFieldRunning; }, 200);
+}
+
+TEST_CASE("A won battle's gold goes into the purse at the player's rate and stays there as the field comes back", "[Game][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	constexpr uint32 Purse = 1000;
+	const auto GoldWon = [&](ERewardRate Rate)
+	{
+		auto Game = Testing::FGameLoopSession::Start(*Disc);
+		FPlayerSettings Settings = Game->Session->Settings();
+		Settings.Balance.Gold = Rate;
+		Game->Session->SetSettings(Settings);
+		FGameState& State = Game->Session->Game();
+		EnterMap(*Game, SoldiersMap);
+		Testing::StrengthenParty(State);
+		State.SetGold(Purse);
+		StartBattle(*Game, SoldiersFormation);
+		Fight(*Game, true);
+		REQUIRE(Game->Loop->Program() == EGameProgram::Field);
+		CHECK(State.ProgramResult == 0);
+		Game->RunUntil([&] { return Game->Loop->Field()->Runtime().Context().bFieldRunning; }, 200);
+		return State.Gold() - Purse;
+	};
+	CHECK(GoldWon(ERewardRate::Original) == SoldiersGold);
+	CHECK(GoldWon(ERewardRate::Quadruple) == 4 * SoldiersGold);
 }
 
 TEST_CASE("A party knocked out before the battle loses it at once, and the field starts again on the title's map", "[Game][Content]")

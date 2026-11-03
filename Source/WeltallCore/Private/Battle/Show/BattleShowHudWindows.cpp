@@ -239,20 +239,22 @@ namespace Weltall
 	{
 		const bool bBattle = Battle->Party.InputMode == ModeBattle;
 		Link(PlainMode[Buffer]);
-		for (const FBattleHudPanel& Panel : Panels)
+		for (std::size_t Slot = 0; Slot < Panels.size(); ++Slot)
 		{
+			const FBattleHudPanel& Panel = Panels[Slot];
 			if (Panel.bGaugeShown && bBattle)
 			{
-				Link(Panel.Gauge[Panel.IconBuffer & 1]);
+				Link(Panel.Gauge[Panel.IconBuffer & 1], BattleHudBlendKeys::WaitGauge(static_cast<uint32>(Slot)));
 			}
 		}
 		if (bApBarShown && bBattle)
 		{
-			Link(ApBar[Flight.Buffer & 1]);
+			Link(ApBar[Flight.Buffer & 1], BattleHudBlendKeys::ApBar);
 		}
 		Link(GaugeMode[Buffer]);
-		for (const FBattleHudWindow& Window : Windows)
+		for (std::size_t Index = 0; Index < Windows.size(); ++Index)
 		{
+			const FBattleHudWindow& Window = Windows[Index];
 			if (!Window.bShown)
 			{
 				continue;
@@ -264,13 +266,18 @@ namespace Weltall
 				return;
 			}
 			const uint8 From = Window.Buffer;
-			LinkPairs(Window.Corners, Window.CornerCount, From);
+			const FMenuPrimitive& Fill = Window.Fill[From];
+			const int32 CentreX = (Fill.Corners[0].X + Fill.Corners[3].X) >> 1;
+			const int32 CentreY = (Fill.Corners[0].Y + Fill.Corners[3].Y) >> 1;
+			const auto Key = [Index, CentreX, CentreY](uint32 Part) { return BattleHudBlendKeys::Window(static_cast<uint32>(Index), Part, CentreX, CentreY); };
+			LinkPairs(Window.Corners, Window.CornerCount, From, Key(0));
 			for (const std::size_t Edge : {std::size_t{2}, std::size_t{3}, std::size_t{0}, std::size_t{1}})
 			{
-				Link(Window.Edges[Edge][0][From]);
-				Link(Window.Edges[Edge][1][From]);
+				const uint32 Half = BattleHudBlendKeys::WindowEdges + 2 * static_cast<uint32>(Edge);
+				Link(Window.Edges[Edge][0][From], Key(Half));
+				Link(Window.Edges[Edge][1][From], Key(Half + 1));
 			}
-			Link(Window.Fill[From]);
+			Link(Fill, Key(BattleHudBlendKeys::WindowFill));
 			Link(Window.FillMode[From]);
 		}
 	}

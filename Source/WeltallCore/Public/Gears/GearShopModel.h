@@ -60,8 +60,8 @@ namespace Weltall
 	 * the shop's cadence: the original passes the module a code address as its extra vblanks, so the
 	 * counter goes negative on one frame and wraps past its cap on the next, three ticks every other frame.
 	 *
-	 * The shop draws the model with one directional light (LightDirection, colour ColorScale on the
-	 * diagonal), the ambient Ambient, under its camera, into its own ordering table with the kernel's
+	 * The shop draws the model with one directional light (LightDirection, grey ColorScale in each
+	 * channel), the ambient Ambient, under its camera, into its own ordering table with the kernel's
 	 * ordering-table shift 0 (the field's is 2); the menu owns the camera and the rest of the screen.
 	 */
 	class FGearShopModel

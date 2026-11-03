@@ -124,4 +124,36 @@ namespace Weltall
 		}
 		return Hex;
 	}
+
+	std::optional<FSha1::FDigest> FSha1::FromHex(std::string_view Hex)
+	{
+		const auto Digit = [](char Character) -> int32
+		{
+			if (Character >= '0' && Character <= '9')
+			{
+				return Character - '0';
+			}
+			if (Character >= 'a' && Character <= 'f')
+			{
+				return Character - 'a' + 10;
+			}
+			return Character >= 'A' && Character <= 'F' ? Character - 'A' + 10 : -1;
+		};
+		FDigest Digest{};
+		if (Hex.size() != Digest.size() * 2)
+		{
+			return std::nullopt;
+		}
+		for (std::size_t Byte = 0; Byte < Digest.size(); ++Byte)
+		{
+			const int32 High = Digit(Hex[Byte * 2]);
+			const int32 Low = Digit(Hex[Byte * 2 + 1]);
+			if (High < 0 || Low < 0)
+			{
+				return std::nullopt;
+			}
+			Digest[Byte] = static_cast<uint8>(High << 4 | Low);
+		}
+		return Digest;
+	}
 }

@@ -106,7 +106,7 @@ namespace Weltall
 	}
 
 	const FSprite* FFieldPilotStandIns::Follow(const FEventContext& Context, const FFieldSprites& Sprites, int32 Actor, const FSprite& Pilot, uint32 Tick,
-		FVram& Vram, std::optional<int32> Shown)
+		FVram& Vram, std::optional<int32> Shown, const FSpriteFile* Looked, const FVramImage* Picture)
 	{
 		// A pilot that shows no frame (none built yet, or a script's frame 0) is drawn as it is: nothing.
 		const std::optional<int32> Slot = Pilot.PartCount() != 0 ? PilotSlot(Context, Sprites, Actor, Pilot) : std::nullopt;
@@ -117,7 +117,7 @@ namespace Weltall
 		}
 		const FEventActorState& State = Context.States[static_cast<std::size_t>(Actor)];
 		const int32 Character = Shown.value_or(State.Character);
-		const FSpriteFile* File = Character >= 0 && Character < FGameState::CharacterCount ? MemberFile(Character) : nullptr;
+		const FSpriteFile* File = Looked != nullptr ? Looked : Character >= 0 && Character < FGameState::CharacterCount ? MemberFile(Character) : nullptr;
 		if (File == nullptr)
 		{
 			return nullptr;
@@ -125,7 +125,7 @@ namespace Weltall
 		Characters[static_cast<std::size_t>(*Slot)] = Character;
 		// A drawn actor's animation runs after the drawing unless it is paused or frozen.
 		const bool bAnimates = (State.Flags1 & EventActorFlags1::AnimationPaused) == 0 && (State.Flags0 & EventActorFlags0::Frozen) == 0;
-		return StandIns.Follow(*Slot, *File, *Animation, Pilot, bAnimates, Scale, Tick, Context.Arctangents, Vram);
+		return StandIns.Follow(*Slot, *File, *Animation, Pilot, bAnimates, Scale, Tick, Context.Arctangents, Vram, Picture);
 	}
 
 	FFieldSpritePass FFieldPilotStandIns::PassFor(const FSprite& Pilot, const FSprite& StandIn, const FFieldSpritePass& Pass)

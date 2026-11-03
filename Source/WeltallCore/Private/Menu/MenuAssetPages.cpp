@@ -3,9 +3,18 @@
 #include "Menu/OptionsText.h"
 
 #include <algorithm>
+#include <array>
 
 namespace Weltall
 {
+	bool* AssetRowPackKind(FTexturePackKinds& Kinds, int32 Row)
+	{
+		const std::array<bool*, AssetRow::PackKinds> InOrder{
+			&Kinds.bText, &Kinds.bPortraits, &Kinds.bMenusAndHud, &Kinds.bCharacters, &Kinds.bScenery, &Kinds.bModelsAndEffects};
+		const int32 Kind = Row - AssetRow::FirstPackKind;
+		return Kind >= 0 && Kind < AssetRow::PackKinds ? InOrder[static_cast<std::size_t>(Kind)] : nullptr;
+	}
+
 	std::optional<EAssetExportKind> AssetRowExport(int32 Row)
 	{
 		switch (Row)
@@ -29,15 +38,23 @@ namespace Weltall
 			Row.bReadOnly = bRunning && Progress.Kind != Kind;
 			return Row;
 		};
-		std::vector<FSettingsRow> Rows{
-			{std::string(Text::External.Label), std::string(Settings.bExternalAssets ? OptionsText::On : OptionsText::Off), OptionsText::Fill(Text::External.Help)},
-			{std::string(Text::Capture.Label), std::string(Settings.bCaptureTextures ? OptionsText::On : OptionsText::Off), OptionsText::Fill(Text::Capture.Help)},
-			Action(EAssetExportKind::Textures, Text::Textures),
-			Action(EAssetExportKind::Text, Text::Text),
-			Action(EAssetExportKind::Dump, Text::Export),
-			Action(EAssetExportKind::Music, Text::Music),
-			{std::string(Text::Progress.Label), std::string(Text::States[static_cast<std::size_t>(Progress.State)]), OptionsText::Fill(Text::Progress.Help)},
+		std::vector<FSettingsRow> Rows;
+		const auto Switch = [&Rows](const OptionsText::FRow& Words, bool bOn)
+		{
+			Rows.push_back({std::string(Words.Label), std::string(bOn ? OptionsText::On : OptionsText::Off), OptionsText::Fill(Words.Help)});
 		};
+		Switch(Text::External, Settings.bExternalAssets);
+		Switch(Text::Capture, Settings.bCaptureTextures);
+		FTexturePackKinds Kinds = Settings.PackKinds;
+		for (int32 Kind = 0; Kind < AssetRow::PackKinds; ++Kind)
+		{
+			Switch(Text::PackKinds[static_cast<std::size_t>(Kind)], *AssetRowPackKind(Kinds, AssetRow::FirstPackKind + Kind));
+		}
+		Rows.push_back(Action(EAssetExportKind::Textures, Text::Textures));
+		Rows.push_back(Action(EAssetExportKind::Text, Text::Text));
+		Rows.push_back(Action(EAssetExportKind::Dump, Text::Export));
+		Rows.push_back(Action(EAssetExportKind::Music, Text::Music));
+		Rows.push_back({std::string(Text::Progress.Label), std::string(Text::States[static_cast<std::size_t>(Progress.State)]), OptionsText::Fill(Text::Progress.Help)});
 		Rows[AssetRow::Status].bReadOnly = true;
 		if (bRunning && Progress.Total != 0)
 		{

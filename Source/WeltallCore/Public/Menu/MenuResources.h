@@ -211,6 +211,8 @@ namespace Weltall
 		const FMessageTable& Text() const { return TextTable; }
 		/** A character's large portrait: a TIM. */
 		WELTALLCORE_API std::span<const uint8> Portrait(int32 Character) const;
+		/** Id's dialogue face, which his portraits are made from (IdsPictures); empty where the disc lacks it. */
+		std::span<const uint8> IdFace() const { return IdFaceBytes; }
 		/** The icon a save shows on a memory card (the data file's section 1): its 16 colours and its 16 x 16 pixels, 4 bits each. */
 		const std::array<uint8, 0x20>& SaveIconColours() const { return IconColours; }
 		const std::array<uint8, 0x80>& SaveIconPixels() const { return IconPixels; }
@@ -247,6 +249,11 @@ namespace Weltall
 		 * things otherwise for its variable-width text.
 		 */
 		bool IsFrench() const { return bFrench; }
+		/**
+		 * The Menu's main program shows a character's weight in kilograms, as the French and the Italian translations'
+		 * do (the same change in both): the game's own shows pounds.
+		 */
+		bool WeighsInKilograms() const { return bKilograms; }
 		/**
 		 * The title the French translation's Menu shows for a save made at a story value (event variable 0): its own
 		 * chapters' titles, each up to a story value, rather than the card's title. Empty for the game's own Menu.
@@ -312,6 +319,7 @@ namespace Weltall
 		std::vector<uint8> TextBytes;
 		FMessageTable TextTable;
 		std::vector<uint8> Portraits;
+		std::vector<uint8> IdFaceBytes;
 		std::array<uint8, 0x20> IconColours{};
 		std::array<uint8, 0x80> IconPixels{};
 		std::vector<uint8> PlaceNameBytes;
@@ -327,6 +335,7 @@ namespace Weltall
 		std::vector<uint8> NameEntryTable;
 		std::array<uint16, 32> TextColours{};
 		bool bFrench = false;
+		bool bKilograms = false;
 		/** The French Menu's chapters: the story value each ends before, and its title's codes ended by 00. */
 		std::vector<std::pair<uint16, std::vector<uint8>>> FrenchChapters;
 		FEquipmentTables EquipmentTables;

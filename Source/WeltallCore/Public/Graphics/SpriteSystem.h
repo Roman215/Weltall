@@ -423,7 +423,7 @@ namespace Weltall
 		WELTALLCORE_API void BuildPendingFrames();
 		/** The uploads asked for since the last flush, in the order they were asked for. */
 		const std::vector<FSpriteUpload>& Uploads() const { return UploadList; }
-		/** Makes the uploads the frames asked for, in the order the kernel makes them. */
+		/** Makes the uploads the frames asked for, in the order the kernel makes them; one at a place in the port's rows goes there. */
 		WELTALLCORE_API void FlushUploads(FVram& Vram);
 		/** The same into Into, which puts them where it keeps them (a sprite system of the port's own: VRAM's port rows). */
 		WELTALLCORE_API void FlushUploads(IVramUploads& Into);

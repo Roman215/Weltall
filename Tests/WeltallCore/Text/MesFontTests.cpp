@@ -166,3 +166,28 @@ TEST_CASE("The face buttons' glyphs are buttons only where the font draws their 
 	REQUIRE(Sheet.SetRows({0, 0x6E}, *Usa.Rows({0, Letter})));
 	CHECK(Sheet.FaceButton({0, 0x6E}) == EPadButton::Circle);
 }
+
+TEST_CASE("The font's star is found by its picture wherever the font draws it", "[Text][Content]")
+{
+	for (const EDiscRelease Release : {EDiscRelease::UsaDisc1, EDiscRelease::UsaDisc2})
+	{
+		REQUIRE_DISC(Disc, Release);
+		CHECK(Testing::LoadMesResident(*Disc).Font.Star() == FMesCode{0, 0x6D});
+	}
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const FMesResident Resident = Testing::LoadMesResident(*Disc);
+	const FMesFont& Usa = Resident.Font;
+
+	// As the translations' fonts have it: a letter at 6Dh, the star moved further on.
+	const uint8 Letter = MesCodeOfCharacter('I')->Code;
+	const FMesFont Moved = CopyFont(Usa, 0x7F, [Letter](uint8 Code) { return Code == 0x6D ? Letter : Code == 0x7E ? uint8{0x6D} : Code; });
+	CHECK(Moved.Star() == FMesCode{0, 0x7E});
+	const FMesFont Without = CopyFont(Usa, 0x7F, [Letter](uint8 Code) { return Code == 0x6D ? Letter : Code; });
+	CHECK_FALSE(Without.Star());
+}
+
+TEST_CASE("The French translation's font draws the star at D2h", "[Text][Content]")
+{
+	REQUIRE_PATCHED_DISC(Disc, EDiscRelease::UsaDisc1);
+	CHECK(Testing::LoadMesResident(*Disc).Font.Star() == FMesCode{0, 0xD2});
+}

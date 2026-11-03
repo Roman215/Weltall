@@ -79,12 +79,14 @@ namespace Weltall::Testing
 		void SetSoundVolume(uint32 Sound, int32 Volume) override { Add("volume", {static_cast<int32>(Sound), static_cast<int16>(Volume)}); }
 		void FadeSound(uint32 Sound, int32 Volume, int32 Steps) override { Add("fade", {static_cast<int32>(Sound), Volume, Steps}); }
 		void UploadImage(const FGearTextureBlock& Block, int16 X, int16 Y) override;
+		void UploadToPortRows(const FGearTextureBlock& Block, int16 X, int16 Y) override;
 		void MoveImage(const FVramRect& Rect, int32 X, int32 Y) override { Add("move", {Rect.X, Rect.Y, Rect.Width, Rect.Height, X, Y}); }
 		void StoreImage(const FVramRect& Rect, std::span<uint16> Into) override;
 		void LoadImage(const FVramRect& Rect, std::span<const uint16> From) override;
 		TResult<FBattleModelFiles> ReadGear(int32 Gear, int32 Variant) override;
 		TResult<FBattleModelFiles> ReadSpecialModel(int32 Model) override;
 		TResult<FBattleSequenceExtension> ReadExtension(int32 File) override;
+		TResult<FBattleModelFiles> ReadSceneModel(int32 Scene, int32 Entry) override;
 		void AbortReads() override { Add("abort", {}); }
 		void CreateProxy(int32) override {}
 

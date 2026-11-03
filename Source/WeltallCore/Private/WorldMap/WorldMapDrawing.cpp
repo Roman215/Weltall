@@ -642,6 +642,8 @@ namespace Weltall
 			Polygon.bSemiTransparent = (Quad.ColorCode & SemiTransparentCode) != 0;
 			Polygon.TexturePage = Quad.TexturePage;
 			Polygon.Clut = Quad.Clut;
+			// A sprite's parts may lie in VRAM's port rows (a member drawn as Id).
+			Polygon.bPortRows = true;
 			// The packet ends at the last texel; a part mirrored on screen starts a column lower, one at the page's first column a column narrower.
 			int32 First = Quad.U0;
 			int32 Across = Quad.U1 - Quad.U0 - 1;

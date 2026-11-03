@@ -19,7 +19,8 @@ namespace Weltall
 	 * keeps it in bytes the game leaves zero and never reads, so the game itself loads the save as any.
 	 * With WayBack (a game of the expanded second disc where the original stands elsewhere: FStoryWayBack), the save
 	 * is the original's at that point, and the bytes of the game's own place and story kept in the same unread bytes
-	 * go back over it when the port loads it (FOriginalSave::PlayedData).
+	 * go back over it when the port loads it (FOriginalSave::PlayedData). A clear game's save is likewise the original's
+	 * with Elly away (ClearFile::HideElly), her return kept beside it.
 	 */
 	WELTALLCORE_API FOriginalSave WriteOriginalSave(FGameState& State, int32 CardSlot, int32 Disc, const FMesNameTables& NameTables, uint8 LeadByte,
 		const FWayBackPoint* WayBack = nullptr);

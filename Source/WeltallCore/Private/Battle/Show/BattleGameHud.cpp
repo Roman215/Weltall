@@ -7,6 +7,8 @@
 #include "Formats/Tim.h"
 #include "Foundation/LittleEndian.h"
 
+#include <array>
+
 namespace Weltall
 {
 	namespace
@@ -22,14 +24,17 @@ namespace Weltall
 		/** A learned skill's cue: the skill's number, and whether it is an ability. */
 		constexpr uint8 GameHudLearnedSkill = 0x7F;
 		constexpr uint8 GameHudLearnedAbility = 0x80;
+		/** A message of no text: its zero byte alone. */
+		constexpr std::array<uint8, 1> GameHudNoText{0};
 	}
 
 	FBattleGameHud::FBattleGameHud(const FBattleHudResources& InResources, FMesContext& InText, const FBattleHudSettings& InSettings,
-		const FBattleEventFiles* InEventFiles)
+		const FBattleEventFiles* InEventFiles, FUnreachedCases* InUnreached)
 		: Resources(InResources)
 		, Text(InText)
 		, Settings(InSettings)
 		, EventFiles(InEventFiles)
+		, Unreached(InUnreached)
 	{
 	}
 
@@ -387,7 +392,11 @@ namespace Weltall
 
 	std::span<const uint8> FBattleGameHud::Entry(const std::optional<FMessageTable>& Table, uint8 Number)
 	{
-		if (!Table || Number >= Table->Count())
+		if (Table && Table->StartsPastBytes(Number) && RecoverUnreached(Unreached, "a battle message that starts past its table, typed as none"))
+		{
+			return GameHudNoText;
+		}
+		if (!Table || Number >= Table->Count() || Table->StartsPastBytes(Number))
 		{
 			TableFault = EBattleHudFault::MessageOutsideTable;
 			return {};

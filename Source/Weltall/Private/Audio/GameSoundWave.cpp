@@ -9,6 +9,8 @@ UGameSoundWave::UGameSoundWave(const FObjectInitializer& ObjectInitializer)
 	SetSampleRate(Weltall::IGameSound::SampleRate);
 	Duration = INDEFINITELY_LOOPING_DURATION;
 	bLooping = true;
+	// The engine's desktop default makes 93 ms at a time, which every sound would wait through before it is heard.
+	NumSamplesToGeneratePerCallback = ChunkFrames * NumChannels;
 	// The game's sound code goes on while its sound is silent, as it does on the console.
 	VirtualizationMode = EVirtualizationMode::PlayWhenSilent;
 	bCanProcessAsync = true;

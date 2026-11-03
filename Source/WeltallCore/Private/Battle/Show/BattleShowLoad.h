@@ -12,6 +12,7 @@
 namespace Weltall
 {
 	class FBattleSceneGraphics;
+	class FIdsBattleSprite;
 
 	/**
 	 * The battle setup's loads as the task the original runs them in, a step a
@@ -71,11 +72,14 @@ namespace Weltall
 		/** Slot Slot's combatant from resource Resource, facing its default target. */
 		void CreateSprite(int32 Slot, const FResource& Resource);
 		bool OnFoot(int32 Slot) const;
+		/** Whether the slot's member is Fei drawn as Id, with his own battle sprite. */
+		bool DrawnAsId(int32 Slot) const;
 		void Fail(EBattleShowFault Fault);
 
 		FBattleShow& Show;
 		const FBattleSpriteFiles* SpriteFiles = nullptr;
 		const FBattleSceneGraphics* Scene = nullptr;
+		const FIdsBattleSprite* IdsSprite = nullptr;
 		uint8 Kind = 0;
 		EStep Step = EStep::Scene;
 		int32 Countdown = 0;

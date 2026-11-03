@@ -366,29 +366,53 @@ namespace Weltall
 		}
 		const FGteMatrix RootLight = MulMatrix(LightMatrix, Root.World);
 		const BattleObjectMachine::FPartDrawing How{EFieldDrawMode::Relit, OrderingShift, 0, (Shown.Flags & BattleObjectFlags::NoBoxCulling) == 0};
-		std::size_t Cursor = 0;
-		for (std::size_t Bone = 1; Bone < Shown.Bones.size() && !Faulted(); ++Bone)
+		// A dressed object draws the dress's pieces, placed over its bones as they stand; its own are never drawn.
+		if (Shown.Dress != nullptr)
 		{
-			const FGearBone& Placed = Shown.Bones[Bone];
-			if (Placed.Part == FGearBone::NoPart || Placed.bShown == 0)
-			{
-				continue;
-			}
-			const FGearBonePackets* Packets = BattleObjectMachine::BonePackets(*this, Shown, Bone, Cursor);
-			if (Packets == nullptr)
-			{
-				return;
-			}
+			Shown.Dress->Place(Shown.Bones, Shown.DressBones);
+		}
+		const std::vector<FGearBone>& Bones = Shown.Dress != nullptr ? Shown.DressBones : Shown.Bones;
+		const std::span<const FGearBonePackets> AllPackets = Shown.Dress != nullptr ? std::span<const FGearBonePackets>(Shown.Dress->Packets()) : *Shown.Packets;
+		const FMdlModel& Model = Shown.Dress != nullptr ? Shown.Dress->Model().Model : Shown.Model->Model;
+		const auto DrawBonePart = [&](const FGearBone& Placed, const FMdlPart& Piece, const FGearBonePackets& Packets, std::size_t Number, bool bPortRows)
+		{
 			Drawing.LightMatrix = MulMatrix(RootLight, Placed.World);
 			Gte->LightMatrix = Drawing.LightMatrix;
-			FBattleDrawnPart Part{CompMatrix(ViewRoot, Placed.World), &Shown.Model->Model.Parts[Placed.Part], Packets, static_cast<uint8>(Slot),
-				static_cast<uint16>(Bone), Ambient};
+			FBattleDrawnPart Part{CompMatrix(ViewRoot, Placed.World), &Piece, &Packets, static_cast<uint8>(Slot), static_cast<uint16>(Number), Ambient,
+				bPortRows};
 			if (Placed.Billboard > 0)
 			{
 				Billboard(Part.Matrix, Placed.Billboard, Shown.Scale, ViewRoot);
 			}
 			Drawing.Transform = Part.Matrix;
 			BattleObjectMachine::DrawPart(*this, Drawn, Projected, Drawing, Part, How);
+		};
+		std::size_t Cursor = 0;
+		for (std::size_t Bone = 1; Bone < Bones.size() && !Faulted(); ++Bone)
+		{
+			const FGearBone& Placed = Bones[Bone];
+			if (Placed.Part == FGearBone::NoPart || Placed.bShown == 0)
+			{
+				continue;
+			}
+			const FGearBonePackets* Packets = BattleObjectMachine::BonePackets(*this, AllPackets, Slot, Bone, Cursor);
+			if (Packets == nullptr)
+			{
+				return;
+			}
+			DrawBonePart(Placed, Model.Parts[Placed.Part], *Packets, Bone, false);
+		}
+		// The performer's own pieces the dress keeps, on its own bones as they stand, whenever its moves show them.
+		if (Shown.Dress != nullptr)
+		{
+			for (const FGearBonePackets& Kept : Shown.Dress->PerformerPackets())
+			{
+				const FGearBone& Placed = Shown.Bones[Kept.Bone];
+				if (!Faulted() && Placed.Part != FGearBone::NoPart && Placed.bShown != 0)
+				{
+					DrawBonePart(Placed, Shown.Model->Model.Parts[Kept.Part], Kept, Bones.size() + Kept.Bone, true);
+				}
+			}
 		}
 		if (!Shown.Cloths.empty() && !Faulted())
 		{

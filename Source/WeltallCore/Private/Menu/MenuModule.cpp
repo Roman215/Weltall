@@ -1,7 +1,10 @@
 #include "Menu/MenuModule.h"
 
 #include "Formats/Tim.h"
+#include "Game/CharacterLooks.h"
+#include "Game/EllysHair.h"
 #include "Game/GameState.h"
+#include "Game/IdsPictures.h"
 #include "Input/KernelPad.h"
 
 namespace Weltall
@@ -172,13 +175,24 @@ namespace Weltall
 		}
 	}
 
-	void FMenuModule::Upload(const FVramImage& Image)
+	void FMenuModule::Upload(const FVramImage& Image, EVramUploadKind Kind)
 	{
-		MenuVram.Upload(Image);
-		if (UploadObserver != nullptr)
+		const auto Send = [this](const FVramImage& Tagged)
 		{
-			UploadObserver->Upload(Image);
+			MenuVram.Upload(Tagged);
+			if (UploadObserver != nullptr)
+			{
+				UploadObserver->Upload(Tagged);
+			}
+		};
+		if (Image.Kind != EVramUploadKind::Other)
+		{
+			Send(Image);
+			return;
 		}
+		FVramImage Tagged = Image;
+		Tagged.Kind = Kind;
+		Send(Tagged);
 	}
 
 	void FMenuModule::PlaySound(uint8 Sound)
@@ -232,17 +246,120 @@ namespace Weltall
 
 	void FMenuModule::UploadPortrait(int32 Slot, uint8 Character)
 	{
-		TResult<FTim> Portrait = ParseTim(Resources.Portrait(Character));
+		TResult<FTim> Portrait = DrawnAsId(Character) ? IdsPictures::Portrait(Resources.IdFace()) : ParseTim(Resources.Portrait(DrawnCharacter(Character)));
 		if (!Portrait || !Portrait->Clut)
 		{
 			return;
+		}
+		if (Services.Game != nullptr && Services.Game->CharacterLooks().HasPurpleHair(Character))
+		{
+			EllysHair::RecolourTim(*Portrait);
 		}
 		const FMenuSpriteTexture Place = Resources.Sheet().Texture(FirstPortraitFrame + Slot);
 		Portrait->Clut->Rect.X = static_cast<int16>(Place.ClutX);
 		Portrait->Clut->Rect.Y = static_cast<int16>(Place.ClutY);
 		Portrait->Image.Rect.X = static_cast<int16>(Place.VramX + (Slot == 1 ? SecondPortraitShift : 0));
 		Portrait->Image.Rect.Y = static_cast<int16>(Place.VramY);
-		Upload(*Portrait->Clut);
-		Upload(Portrait->Image);
+		Upload(*Portrait->Clut, EVramUploadKind::Portraits);
+		Upload(Portrait->Image, EVramUploadKind::Portraits);
+	}
+
+	void FMenuModule::UploadArchive()
+	{
+		for (const FVramImage& Image : Resources.ArchiveUploads())
+		{
+			Upload(Image, EVramUploadKind::MenusAndHud);
+		}
+		if (Services.Game != nullptr && Services.Game->CharacterLooks().HasPurpleHair(FCharacterLooks::Elly))
+		{
+			UploadFace(FCharacterLooks::Elly);
+		}
+		if (DrawnAsId(FCharacterLooks::Fei))
+		{
+			UploadFace(FCharacterLooks::Fei);
+		}
+	}
+
+	void FMenuModule::UploadFace(uint8 Character)
+	{
+		constexpr int32 FirstFaceFrame = 0x14E;
+		constexpr int32 FaceSize = 24;
+		constexpr int32 FaceDepth = 8;
+		constexpr int16 Colours = 256;
+		if (Services.Game == nullptr || Character >= FGameState::CharacterCount)
+		{
+			return;
+		}
+		const std::span<const FMenuSpritePart> Parts = Resources.Sheet().Frame(FirstFaceFrame + Character);
+		if (Parts.empty())
+		{
+			return;
+		}
+		// The face's first texel in VRAM (its page, then two 8-bit texels a unit), its pixels and CLUT row as the archive holds them.
+		const FMenuSpritePart& Part = Parts.front();
+		const int32 FaceX = (Part.ImageX & 0xFFC0) + (Part.U & 0xFF) / 2;
+		const int32 FaceY = (Part.ImageY & 0xFF00) + Part.V;
+		const auto Cut = [this](FVramRect Rect) {
+			FVramImage Piece{Rect, std::vector<uint16>(static_cast<std::size_t>(Rect.Width) * static_cast<std::size_t>(Rect.Height), 0)};
+			for (const FVramImage& Image : Resources.ArchiveUploads())
+			{
+				const FVramRect& From = Image.Rect;
+				if (Rect.X < From.X || Rect.Y < From.Y || Rect.X + Rect.Width > From.X + From.Width || Rect.Y + Rect.Height > From.Y + From.Height)
+				{
+					continue;
+				}
+				for (int32 Row = 0; Row < Rect.Height; ++Row)
+				{
+					const auto Start = Image.Units.begin() + (Rect.Y - From.Y + Row) * From.Width + (Rect.X - From.X);
+					std::copy(Start, Start + Rect.Width, Piece.Units.begin() + Row * Rect.Width);
+				}
+				return std::optional<FVramImage>(std::move(Piece));
+			}
+			return std::optional<FVramImage>();
+		};
+		std::optional<FVramImage> Pixels = Cut({static_cast<int16>(FaceX), static_cast<int16>(FaceY), FaceSize * FaceDepth / 16, FaceSize});
+		std::optional<FVramImage> Clut = Cut({static_cast<int16>(Part.ClutX), static_cast<int16>(Part.ClutY), Colours, 1});
+		if (!Pixels || !Clut)
+		{
+			return;
+		}
+		if (Services.Game->CharacterLooks().HasPurpleHair(Character))
+		{
+			FTim Face{static_cast<uint8>(FaceDepth), std::move(*Clut), std::move(*Pixels)};
+			EllysHair::RecolourTim(Face);
+			Clut = std::move(Face.Clut);
+			Pixels = std::move(Face.Image);
+		}
+		if (DrawnAsId(Character))
+		{
+			if (TResult<FTim> Face = IdsPictures::SmallFace(Resources.IdFace()))
+			{
+				Face->Clut->Rect = Clut->Rect;
+				Face->Image.Rect = Pixels->Rect;
+				Clut = std::move(Face->Clut);
+				Pixels = std::move(Face->Image);
+			}
+		}
+		Upload(*Clut, EVramUploadKind::Portraits);
+		Upload(*Pixels, EVramUploadKind::Portraits);
+	}
+
+	uint8 FMenuModule::DrawnCharacter(uint8 Character) const
+	{
+		return Services.Game != nullptr ? Services.Game->CharacterLooks().Drawn(Character) : Character;
+	}
+
+	bool FMenuModule::DrawnAsId(uint8 Character) const
+	{
+		return Services.Game != nullptr && Services.Game->CharacterLooks().IsId(Character) && !Resources.IdFace().empty();
+	}
+
+	std::span<const uint8> FMenuModule::ShownName(int32 Number) const
+	{
+		if (Number == FCharacterLooks::Fei && Services.Game->CharacterLooks().IsId(FCharacterLooks::Fei))
+		{
+			return IdsPictures::Name();
+		}
+		return Services.Game->Block().subspan(static_cast<std::size_t>(Number) * FGameState::NameBytes);
 	}
 }

@@ -2,10 +2,13 @@
 
 #include "Foundation/LittleEndian.h"
 #include "Foundation/Sha1.h"
+#include "Game/ClearFile.h"
 #include "Game/GearPartTables.h"
+#include "Game/KeepElly.h"
 #include "Game/OriginalSave.h"
 #include "Game/SaveWrite.h"
 #include "Game/WayBackPoint.h"
+#include "Mods/ExpansionMods.h"
 #include "Media/GameFileIndex.h"
 #include "Media/PsxExecutable.h"
 #include "Support/GameDiscs.h"
@@ -15,6 +18,7 @@
 #include <catch_amalgamated.hpp>
 
 #include <algorithm>
+#include <array>
 #include <vector>
 
 using namespace Weltall;
@@ -342,6 +346,53 @@ TEST_CASE("A save of the expanded second disc where the original stands elsewher
 	CHECK(Foreign.PlayedData() == Bytes(Foreign.Data()));
 }
 
+TEST_CASE("A save of the expanded second disc keeps its expansion's folder, and loads without it as the original's at its point", "[Game]")
+{
+	constexpr std::size_t ExpansionName = 0x1EB5;
+	const FMesNameTables NameTables = MakeNameTables();
+	auto First = LoadOriginalSave(FOriginalSave::WithChecksum(MakeSaveData()), MakeCurrent(), MakeTables(), NameTables);
+	REQUIRE(First);
+	FGameState State = *First;
+	State.SetStoryMode(EStoryMode::Expanded);
+	State.SetExpansion("Elly's errand");
+	State.SetPlace(735);
+	State.SetSavedEventVariable(0, 253);
+	const FWayBackPoint Chair{617, 2, 252};
+	const FOriginalSave Save = WriteOriginalSave(State, 4, 1, NameTables, 0xFE, &Chair);
+	CHECK(FOriginalSave::FromData(Save.Data()));
+	CHECK(Save.Expansion() == "Elly's errand");
+	const auto Played = LoadOriginalSave(Save, MakeCurrent(), MakeTables(), NameTables);
+	REQUIRE(Played);
+	CHECK(Played->Expansion() == "Elly's errand");
+	CHECK(Played->Place() == 735);
+
+	// Without its expansion the port plays what the original reads: the chair, the original's second disc.
+	const auto Without = LoadOriginalSave(Save, MakeCurrent(), MakeTables(), NameTables, {}, false);
+	REQUIRE(Without);
+	CHECK(Without->StoryMode() == EStoryMode::Original);
+	CHECK(Without->Expansion().empty());
+	CHECK(Without->Place() == 617);
+	CHECK(Without->SavedEventVariable(0) == 252);
+	// And a game of either other kind loads as it does with it.
+	FGameState Original = State;
+	Original.SetStoryMode(EStoryMode::Original);
+	const FOriginalSave OriginalSave = WriteOriginalSave(Original, 4, 1, NameTables, 0xFE);
+	CHECK(OriginalSave.Expansion().empty());
+	const auto OriginalWithout = LoadOriginalSave(OriginalSave, MakeCurrent(), MakeTables(), NameTables, {}, false);
+	REQUIRE(OriginalWithout);
+	CHECK(OriginalWithout->StoryMode() == EStoryMode::Original);
+	CHECK(OriginalWithout->Place() == 735);
+
+	// A save made before saves kept the expansion's folder has zeros there: the examples'.
+	std::vector<uint8> Unnamed = Bytes(Save.Data());
+	std::fill(Unnamed.begin() + ExpansionName, Unnamed.begin() + ExpansionName + ExpansionFolderBytes, uint8{0});
+	CHECK(FOriginalSave::WithChecksum(Unnamed).Expansion() == ExamplesFolder);
+	// A folder's name may fill the bytes kept for it, with no zero after it.
+	State.SetExpansion(std::string(ExpansionFolderBytes, 'L'));
+	const FOriginalSave Long = WriteOriginalSave(State, 4, 1, NameTables, 0xFE);
+	CHECK(Long.Expansion() == std::string(ExpansionFolderBytes, 'L'));
+}
+
 TEST_CASE("The new game saved and loaded back matches the Menu's own", "[Game][Content]")
 {
 	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
@@ -377,4 +428,140 @@ TEST_CASE("The new game saved and loaded back matches the Menu's own", "[Game][C
 	// The unnamed gear's name is glyph 0, which a save cannot keep.
 	CHECK(Loaded->Name(30).empty());
 	CHECK(Saved.Name(30).empty());
+}
+
+TEST_CASE("A save loads back how its player had Citan and Emeralda drawn, and a game's own save loads them as the story has them", "[Game]")
+{
+	const FMesNameTables NameTables = MakeNameTables();
+	FGameState Current = MakeCurrent();
+	FCharacterLooks Switched;
+	Switched.Switch(9);
+	Current.SetCharacterLooks(Switched);
+	const auto Plain = LoadOriginalSave(FOriginalSave::WithChecksum(MakeSaveData()), Current, MakeTables(), NameTables);
+	REQUIRE(Plain);
+	CHECK_FALSE(Plain->CharacterLooks().IsSet());
+
+	FGameState State = *Plain;
+	State.SetCharacterLooks(Switched);
+	const FOriginalSave Save = WriteOriginalSave(State, 4, 1, NameTables, 0xFE);
+	const auto Loaded = LoadOriginalSave(Save, MakeCurrent(), MakeTables(), NameTables);
+	REQUIRE(Loaded);
+	CHECK(Loaded->CharacterLooks() == Switched);
+	CHECK(Loaded->CharacterLooks().Drawn(9) == 2);
+	const bool bSameState = Bytes(Loaded->Block()) == Bytes(State.Block());
+	CHECK(bSameState);
+}
+
+TEST_CASE("A clear game's save is the original's with Elly away, and the port loads her back in the party in Regurus", "[Game]")
+{
+	constexpr std::size_t PortBytes = 0x1B5C;
+	constexpr std::size_t Checksum = FOriginalSave::DataSize - 1;
+	constexpr uint8 Fei = 0;
+	constexpr uint8 Elly = 1;
+	constexpr uint8 Citan = 2;
+	constexpr uint8 Bart = 3;
+	constexpr uint16 EllyBit = 1 << Elly;
+	const FMesNameTables NameTables = MakeNameTables();
+	auto First = LoadOriginalSave(FOriginalSave::WithChecksum(MakeSaveData()), MakeCurrent(), MakeTables(), NameTables);
+	REQUIRE(First);
+	FGameState State = *First;
+	State.SetJoinedCharacters(static_cast<uint16>(0x7FF & ~EllyBit));
+	State.SetMenuCharacters(static_cast<uint16>(0x7FF & ~EllyBit));
+	ClearFile::Make(State);
+	// The player took Bart along, riding, Elly between them.
+	State.SetParty({Fei, Elly, Bart});
+	State.SetPartySlotInGear(2, 1);
+	const FOriginalSave Save = WriteOriginalSave(State, 4, 1, NameTables, 0xFE);
+	CHECK(FOriginalSave::FromData(Save.Data()));
+	CHECK(Save.ClearGame() == EClearGame::ClearFile);
+
+	// The game reads the same game with Elly away: Citan, the first free, in her place, Bart riding after him, Elly not
+	// joined and in Vierge.
+	FGameState Away = State;
+	ClearFile::HideElly(Away);
+	CHECK(Away.Party() == std::array<uint8, 3>{Fei, Citan, Bart});
+	CHECK(Away.PartySlotInGear(1) == 0);
+	CHECK(Away.PartySlotInGear(2) == 1);
+	CHECK((Away.JoinedCharacters() & EllyBit) == 0);
+	CHECK(Away.CharacterGear(Elly) == 2);
+	std::vector<uint8> AsTheGameReads = Bytes(Save.Data());
+	std::fill(AsTheGameReads.begin() + PortBytes, AsTheGameReads.begin() + Checksum, uint8{0});
+	const auto Original = LoadOriginalSave(FOriginalSave::WithChecksum(AsTheGameReads), Away, MakeTables(), NameTables);
+	REQUIRE(Original);
+	CHECK(Bytes(Original->Block()) == Bytes(Away.Block()));
+	CHECK(Save.Party() == std::array<uint8, 3>{Fei, Citan, Bart});
+
+	// The port plays the game as it was saved, a clear game again.
+	const auto Played = LoadOriginalSave(Save, MakeCurrent(), MakeTables(), NameTables);
+	REQUIRE(Played);
+	CHECK(Bytes(Played->Block()) == Bytes(State.Block()));
+	CHECK(Played->ClearGame() == EClearGame::ClearFile);
+	CHECK(Played->Party() == std::array<uint8, 3>{Fei, Elly, Bart});
+	CHECK((Played->JoinedCharacters() & EllyBit) != 0);
+	CHECK(Played->CharacterGear(Elly) == 10);
+
+	// Saved again, the same; and a game that is not a clear game keeps no mark.
+	FGameState Again = *Played;
+	CHECK(WriteOriginalSave(Again, 4, 1, NameTables, 0xFE).ClearGame() == EClearGame::ClearFile);
+	FGameState Plain = *First;
+	CHECK(WriteOriginalSave(Plain, 4, 1, NameTables, 0xFE).ClearGame() == EClearGame::None);
+}
+
+TEST_CASE("A Keep Elly game's save is the original's with Elly away from her return on, and the port loads her back", "[Game]")
+{
+	constexpr std::size_t PortBytes = 0x1B5C;
+	constexpr std::size_t Checksum = FOriginalSave::DataSize - 1;
+	constexpr uint8 Fei = 0;
+	constexpr uint8 Elly = 1;
+	constexpr uint8 Bart = 3;
+	constexpr uint8 Citan = 9;
+	constexpr uint16 EllyBit = 1 << Elly;
+	constexpr uint8 Regurus = 10;
+	const FMesNameTables NameTables = MakeNameTables();
+	auto First = LoadOriginalSave(FOriginalSave::WithChecksum(MakeSaveData()), MakeCurrent(), MakeTables(), NameTables);
+	REQUIRE(First);
+
+	// Before her return the save is the game's own, marked.
+	FGameState Before = *First;
+	Before.SetClearGame(EClearGame::KeepElly);
+	Before.SetSavedEventVariable(0, KeepElly::ReturnStory - 1);
+	const FOriginalSave Early = WriteOriginalSave(Before, 4, 1, NameTables, 0xFE);
+	CHECK(Early.ClearGame() == EClearGame::KeepElly);
+	std::vector<uint8> EarlyAsTheGameReads = Bytes(Early.Data());
+	std::fill(EarlyAsTheGameReads.begin() + PortBytes, EarlyAsTheGameReads.begin() + Checksum, uint8{0});
+	const auto EarlyOriginal = LoadOriginalSave(FOriginalSave::WithChecksum(EarlyAsTheGameReads), Before, MakeTables(), NameTables);
+	REQUIRE(EarlyOriginal);
+	CHECK(Bytes(EarlyOriginal->Block()) == Bytes(Before.Block()));
+
+	// In Merkava, the player brought her in beside Fei and Citan.
+	FGameState State = *First;
+	State.SetClearGame(EClearGame::KeepElly);
+	State.SetSavedEventVariable(0, KeepElly::ReturnStory);
+	State.SetJoinedCharacters(static_cast<uint16>((1 << Fei) | (1 << Bart) | (1 << Citan)));
+	State.SetMenuCharacters(0x7FF);
+	State.SetParty({Fei, Citan, Bart});
+	KeepElly::Hold(State);
+	State.SetParty({Fei, Elly, Citan});
+	const FOriginalSave Save = WriteOriginalSave(State, 4, 1, NameTables, 0xFE);
+	CHECK(Save.ClearGame() == EClearGame::KeepElly);
+
+	// The game reads it with Elly away: Bart, the first free, in her place, she not joined and in Vierge.
+	FGameState Away = State;
+	ClearFile::HideElly(Away);
+	CHECK(Away.Party() == std::array<uint8, 3>{Fei, Bart, Citan});
+	CHECK((Away.JoinedCharacters() & EllyBit) == 0);
+	CHECK(Away.CharacterGear(Elly) == 2);
+	std::vector<uint8> AsTheGameReads = Bytes(Save.Data());
+	std::fill(AsTheGameReads.begin() + PortBytes, AsTheGameReads.begin() + Checksum, uint8{0});
+	const auto Original = LoadOriginalSave(FOriginalSave::WithChecksum(AsTheGameReads), Away, MakeTables(), NameTables);
+	REQUIRE(Original);
+	CHECK(Bytes(Original->Block()) == Bytes(Away.Block()));
+
+	// The port plays it as it was saved: Elly in the party, joined, in Regurus, the game Keep Elly's.
+	const auto Played = LoadOriginalSave(Save, MakeCurrent(), MakeTables(), NameTables);
+	REQUIRE(Played);
+	CHECK(Bytes(Played->Block()) == Bytes(State.Block()));
+	CHECK(Played->ClearGame() == EClearGame::KeepElly);
+	CHECK(Played->Party() == std::array<uint8, 3>{Fei, Elly, Citan});
+	CHECK(Played->CharacterGear(Elly) == Regurus);
 }

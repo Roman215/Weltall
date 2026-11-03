@@ -15,20 +15,35 @@ namespace Weltall
 		constexpr int32 FadeSteps = 40;
 		constexpr uint32 FadeOutFrames = 3;
 		constexpr int32 SkipFadeSteps = 10;
-		constexpr uint16 SkipButtons = FPadState::Bit(EPadButton::Cross) | FPadState::Bit(EPadButton::Start);
+		constexpr uint16 CrossBit = FPadState::Bit(EPadButton::Cross);
+		constexpr uint16 CircleBit = FPadState::Bit(EPadButton::Circle);
+		constexpr uint16 StartBit = FPadState::Bit(EPadButton::Start);
 		constexpr int32 FirstRepeatDelay = 90;
 		/**
 		 * The drive delivers 15 pictures a second; a vertical blank is 263 lines of 3413 clocks of the
-		 * NTSC GPU's 53,693,175 Hz. Picture n (from 0) is due once Vblanks x 15 x 897619 reaches
-		 * n x 53693175.
+		 * NTSC GPU's 53,693,175 Hz. The movie's time counts 1 / (44,100 x 53,693,175) seconds, so a
+		 * vertical blank, a sound frame and a picture are each a whole number of them.
 		 */
-		constexpr uint64 PicturesPerSecond = 15;
-		constexpr uint64 VblankClocks = 263 * 3413;
-		constexpr uint64 GpuClockHz = 53693175;
+		constexpr int64 PicturesPerSecond = 15;
+		constexpr int64 VblankClocks = 263 * 3413;
+		constexpr int64 GpuClockHz = 53693175;
+		constexpr int64 SoundRate = IGameSound::SampleRate;
+		constexpr int64 FrameUnits = GpuClockHz;
+		constexpr int64 VblankUnits = VblankClocks * SoundRate;
+		constexpr int64 PictureFrames = SoundRate / PicturesPerSecond;
+		constexpr int64 PictureUnits = PictureFrames * FrameUnits;
+		/**
+		 * Steering the time to the sound heard: a picture's time apart or more is made up at once (a stall); less is
+		 * made up an eighth a vertical blank, which smooths the host's sound taken in bursts; 4 ms or less is left.
+		 */
+		constexpr int64 SettledUnits = SoundRate * 4 / 1000 * FrameUnits;
+		constexpr int64 SteeringDivisor = 8;
+		/** Sound waiting and not taken for half a second: nothing plays it (a host without an audio thread). */
+		constexpr uint64 UntakenVblanks = 30;
 
-		uint32 PicturesDue(uint64 Vblanks)
+		uint32 PicturesDue(int64 Clock)
 		{
-			return static_cast<uint32>(Vblanks * PicturesPerSecond * VblankClocks / GpuClockHz) + 1;
+			return Clock < 0 ? 1 : static_cast<uint32>(Clock / PictureUnits) + 1;
 		}
 	}
 
@@ -82,6 +97,7 @@ namespace Weltall
 			return false;
 		}
 		++Vblanks;
+		AdvanceClock();
 		return bPicturesStopped ? true : ShowDue();
 	}
 
@@ -106,9 +122,50 @@ namespace Weltall
 		}
 	}
 
+	void FMoviePlayer::AdvanceClock()
+	{
+		Clock += VblankUnits;
+		const std::optional<int64> Heard = HeardTime();
+		if (!Heard)
+		{
+			return;
+		}
+		const int64 Behind = *Heard - Clock;
+		if (Behind >= PictureUnits || Behind <= -PictureUnits)
+		{
+			Clock = *Heard;
+		}
+		else if (Behind > SettledUnits || Behind < -SettledUnits)
+		{
+			Clock += Behind / SteeringDivisor;
+		}
+	}
+
+	std::optional<int64> FMoviePlayer::HeardTime()
+	{
+		const std::optional<uint32> Latency = Sound.HeardLatency();
+		if (!Latency || SoundQueued == 0)
+		{
+			return std::nullopt;
+		}
+		const std::size_t Waiting = Sound.Lock().Spu().QueuedCdInput();
+		const uint64 Taken = Waiting < SoundQueued ? SoundQueued - Waiting : 0;
+		if (Taken != SoundTaken)
+		{
+			SoundTaken = Taken;
+			SoundTakenVblank = Vblanks;
+		}
+		// Nothing has taken the sound, or nothing lately while it waits, or all of it is taken: the vertical blanks keep the time.
+		if (Taken == 0 || Waiting == 0 || Vblanks - SoundTakenVblank > UntakenVblanks)
+		{
+			return std::nullopt;
+		}
+		return (SoundOrigin + static_cast<int64>(Taken) - static_cast<int64>(*Latency)) * FrameUnits;
+	}
+
 	TResult<bool> FMoviePlayer::ShowDue()
 	{
-		const uint32 Due = PicturesDue(Vblanks);
+		const uint32 Due = PicturesDue(Clock);
 		while (!bFinished && PicturesShown < Due)
 		{
 			if (Decoded.empty())
@@ -152,7 +209,7 @@ namespace Weltall
 			Finish();
 			return Read.Error();
 		}
-		if (bStreamEnded && Decoded.empty() && PicturesDue(Vblanks) > PicturesShown)
+		if (bStreamEnded && Decoded.empty() && PicturesDue(Clock) > PicturesShown)
 		{
 			// The last picture has had its time on screen.
 			Finish();
@@ -199,6 +256,10 @@ namespace Weltall
 		const uint32 First = Location.FirstLba + std::min(Playback.StartSector, Location.SectorCount);
 		Stream.emplace(Image, First, Location.SectorCount - (First - Location.FirstLba));
 		Decoded.clear();
+		SoundOrigin = Clock / FrameUnits;
+		SoundQueued = 0;
+		SoundTaken = 0;
+		SoundTakenVblank = Vblanks;
 		// The undub's subtitles start again as the player asks for the movie's file again.
 		if (Subtitles)
 		{
@@ -233,7 +294,7 @@ namespace Weltall
 		}
 		if (Playback.bSound)
 		{
-			Sound.Lock().Spu().QueueCdInput(SoundScratch);
+			SoundQueued += Sound.Lock().Spu().QueueCdInput(SoundScratch);
 		}
 		if (!Frame->has_value())
 		{
@@ -243,6 +304,8 @@ namespace Weltall
 		const FStrFrame& Compressed = **Frame;
 		if (Compressed.FrameNumber < Playback.StartFrame)
 		{
+			// Its sound comes before the first picture shown.
+			SoundOrigin -= PictureFrames;
 			return true;
 		}
 		const TResult<std::vector<uint16>> Codes = DecodeStrBitstream(Compressed.Bitstream, Compressed.Width, Compressed.Height);
@@ -280,8 +343,10 @@ namespace Weltall
 			RepeatCount = 0;
 			RepeatDelay = FirstRepeatDelay;
 		}
-		const uint32 Newly = Polled & ~Previous;
-		if (StopVblanks == 0 && (Newly & SkipButtons) != 0)
+		// Each button's test is of its bit not read before and read now; the translation's tests Circle now, after Cross before.
+		const uint32 Now = Playback.bCircleSkips ? CircleBit : CrossBit;
+		const bool bSkip = ((Polled & ~Previous) & StartBit) != 0 || ((Previous & CrossBit) == 0 && (Polled & Now) != 0);
+		if (StopVblanks == 0 && bSkip)
 		{
 			Sound.Lock()->SetCdVolume(0, SkipFadeSteps);
 			StopVblanks = SkipVblanks;

@@ -455,10 +455,21 @@ namespace Weltall
 
 	void FSpriteSystem::FlushUploads(FVram& Vram)
 	{
+		// A place in the port's rows (only the port's own sprites have one) is drawn from there, as its attribute reads.
 		struct FIntoVram final : IVramUploads
 		{
 			explicit FIntoVram(FVram& InVram) : Vram(InVram) {}
-			void Upload(const FVramImage& Image) override { Vram.Upload(Image); }
+			void Upload(const FVramImage& Image) override
+			{
+				if (Image.Rect.Y >= FVram::Height)
+				{
+					Vram.UploadToPortRows(Image);
+				}
+				else
+				{
+					Vram.Upload(Image);
+				}
+			}
 			FVram& Vram;
 		};
 		FIntoVram Into(Vram);

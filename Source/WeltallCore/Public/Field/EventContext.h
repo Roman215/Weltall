@@ -488,6 +488,11 @@ namespace Weltall
 	struct FEventContext
 	{
 		const FEventScripts* Scripts = nullptr;
+		/**
+		 * The CRC-32 of the map's scripts as its file holds them, before the fixes and documents the port adds: which
+		 * scripts the actors' threads run in, which a saved field comes back to only over the same.
+		 */
+		uint32 ScriptsKey = 0;
 		/** The map's number (bits 14-15 set when it was entered in gears). */
 		int32 MapNumber = 0;
 		std::span<const FFieldZone> Zones;
@@ -568,6 +573,8 @@ namespace Weltall
 		 */
 		uint16 PadHeld = 0;
 		uint16 PadLatched = 0;
+		/** L1 and R1 among PadHeld that the player holds to zoom the view: the camera does not turn by them. */
+		uint16 PadZoomHeld = 0;
 		/**
 		 * How far the view the player sees is turned from the camera's (4096 a turn, the way the view's
 		 * yaws count; 0 in the original): the pad's directions and the sprites' facing follow the view shown.

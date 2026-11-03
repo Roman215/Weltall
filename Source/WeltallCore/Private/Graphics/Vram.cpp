@@ -34,7 +34,7 @@ namespace Weltall
 	void FVram::Upload(const FVramImage& Image)
 	{
 		WriteUnits(Image);
-		Tracker.Upload(Image.Rect, Image.Units);
+		Tracker.Upload(Image.Rect, Image.Units, Image.Kind != EVramUploadKind::Other ? Image.Kind : UploadKind);
 	}
 
 	void FVram::UploadCopy(const FVramImage& Image, const FVramRect& From)

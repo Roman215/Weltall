@@ -47,8 +47,8 @@ namespace Weltall
 
 	/**
 	 * The port's "Options" frames shown as a label of the translation's own that names an options screen, where the sheet
-	 * has one Weltall knows (the Spanish translation's "Opcion"), in its lettering where "Options" stands; false, changing
-	 * nothing, where it has none.
+	 * has one Weltall knows (the Spanish translation's "Opcion", the Italian's "Opzioni"), in its lettering where "Options"
+	 * stands; false, changing nothing, where it has none.
 	 */
 	bool UseTranslatedOptionsLabel(FMenuSpriteSheet& Sheet, const FMenuMainTables& Tables, std::span<const FVramImage> Archive);
 

@@ -59,7 +59,12 @@ namespace
 		const int64 Bytes = IFileManager::Get().FileSize(*File);
 		TArray<uint8> Compressed;
 		const TSharedPtr<IImageWrapper> Png = Wrappers.CreateImageWrapper(EImageFormat::PNG);
-		if (!IsSafeTexturePath(File, Root) || Bytes <= 0 || Bytes > MaxPngBytes || !FFileHelper::LoadFileToArray(Compressed, *File) || !Png ||
+		if (!IsSafeTexturePath(File, Root))
+		{
+			UE_LOG(LogWeltall, Warning, TEXT("Texture replacement inside a linked folder, which is not read (copy the folder instead): %s"), *File);
+			return nullptr;
+		}
+		if (Bytes <= 0 || Bytes > MaxPngBytes || !FFileHelper::LoadFileToArray(Compressed, *File) || !Png ||
 			!Png->SetCompressed(Compressed.GetData(), Compressed.Num()))
 		{
 			UE_LOG(LogWeltall, Warning, TEXT("Cannot read texture replacement: %s"), *File);
@@ -224,7 +229,7 @@ void FTextureModFiles::Find(IImageWrapperModule& InWrappers, const FString& Fold
 			Cells.Add(Key, {Sheet, Picture});
 		}
 	}
-	UE_LOG(LogWeltall, Log, TEXT("Texture replacements found: %d, and %d on %d sheets"), Pngs.Num(), Cells.Num(), Sheets.Num());
+	UE_LOG(LogWeltall, Log, TEXT("Texture replacements found in %s: %d, and %d on %d sheets"), *Folder, Pngs.Num(), Cells.Num(), Sheets.Num());
 	if (Repeated > 0) UE_LOG(LogWeltall, Warning, TEXT("%d texture replacements repeat another's key; the first by path is used"), Repeated);
 	FindPacks(Folder, Originals);
 }

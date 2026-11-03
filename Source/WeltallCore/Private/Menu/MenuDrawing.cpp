@@ -205,6 +205,24 @@ namespace Weltall
 		return Project(ViewBetween(Transform, Transform, 1.0f), X, Y, Z);
 	}
 
+	bool FMenuDrawBuilder::WithinReach(const FMenuPrimitive& Before, const FMenuPrimitive& Now) const
+	{
+		if (BlendReach <= 0.0f || Now.Space != EMenuSpace::Screen)
+		{
+			return true;
+		}
+		for (int32 Corner = 0; Corner < Now.PolygonCorners(); ++Corner)
+		{
+			const FMenuCorner& From = Before.Corners[static_cast<std::size_t>(Corner)];
+			const FMenuCorner& To = Now.Corners[static_cast<std::size_t>(Corner)];
+			if (std::abs(To.X - From.X) > BlendReach || std::abs(To.Y - From.Y) > BlendReach)
+			{
+				return false;
+			}
+		}
+		return true;
+	}
+
 	void FMenuDrawBuilder::Build(const FMenuFrame& Latest, const FMenuFrame* Previous, float Alpha, FDrawList& Out)
 	{
 		Out.Primitives.clear();
@@ -265,7 +283,7 @@ namespace Weltall
 				if (Found != PreviousKeys.end() && Found->first == Primitive.BlendKey)
 				{
 					const FMenuPrimitive& Candidate = Previous->Primitives[static_cast<std::size_t>(Found->second)];
-					if (Candidate.Space == Primitive.Space)
+					if (Candidate.Space == Primitive.Space && WithinReach(Candidate, Primitive))
 					{
 						Partner = &Candidate;
 					}

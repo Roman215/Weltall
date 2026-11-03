@@ -45,8 +45,11 @@ public:
 	/** The folder below the textures folder that holds original pictures, which are never read as replacements. */
 	static const TCHAR* OriginalsFolder;
 
-	/** Takes the folder and the switches; while replacements are on, finds the PNGs the folder holds again. */
-	static void Configure(FString Folder, bool bEnabled, bool bCapture);
+	/**
+	 * Takes the folder and the switches, and the kinds of upload whose texture packs' pictures show (bit k for
+	 * Weltall::EVramUploadKind k); while replacements are on, finds the PNGs the folder holds again.
+	 */
+	static void Configure(FString Folder, bool bEnabled, bool bCapture, uint8 ShownPackKinds = 0xFF);
 	static uint64 Generation();
 	/** Replacing or capturing. */
 	static bool IsActive();

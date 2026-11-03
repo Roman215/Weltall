@@ -1,11 +1,13 @@
 #include "Field/EventMachine.h"
 #include "Game/PsxRandom.h"
 #include "Support/ByteWriter.h"
+#include "Text/MesReading.h"
 
 #include <catch_amalgamated.hpp>
 
 #include <memory>
 #include <string>
+#include <vector>
 
 using namespace Weltall;
 using Weltall::Testing::FByteWriter;
@@ -51,13 +53,29 @@ namespace
 			Context.Messages.EnterMap();
 		}
 
-		/** A tick of the scripts and of the windows; the scripts' fault, if one stopped them. */
-		std::string Tick()
+		/** A field tick's vertical blanks at the full rate. */
+		static constexpr int32 TickVblanks = 2;
+
+		/** A tick of the scripts and of the windows, with the tick's pressed buttons; the scripts' fault, if one stopped them. */
+		std::string Tick(uint16 Pressed = 0)
 		{
 			const auto Error = FEventMachine::Update(Context);
 			Context.Messages.Tick();
-			UpdateFieldMessages(Context, 0, 0);
+			UpdateFieldMessages(Context, Pressed, 0, TickVblanks);
 			return Error ? Error->Message : std::string();
+		}
+
+		/** Ticks until window 0's text waits for the button, at most Limit ticks; whether it does. */
+		bool TickUntilWaiting(int32 Limit)
+		{
+			for (int32 Ticks = 0; Ticks < Limit && !Window(0).bTextWaits; ++Ticks)
+			{
+				if (!Tick().empty())
+				{
+					return false;
+				}
+			}
+			return Window(0).bTextWaits;
 		}
 
 		const FFieldMessageWindow& Window(int32 Index) const { return Context.Messages.Windows[static_cast<std::size_t>(Index)]; }
@@ -134,4 +152,53 @@ TEST_CASE("A message past the map's table stops the scripts", "[Field]")
 {
 	FMessageMap Map({0xD2, 0x02, 0x00, 0x00, 0xC3});
 	CHECK(Map.Tick().find("past the table") != std::string::npos);
+}
+
+TEST_CASE("Auto-advancing text turns a waiting page once its pace's time has passed, and never without it", "[Field]")
+{
+	// D2 message 0 in the top band; then the thread loops on a yield.
+	const std::vector<uint8> Code{0xD2, 0x00, 0x00, 0x10, 0xC3, 0x01, 0x04, 0x00};
+	{
+		FMessageMap Map(Code);
+		REQUIRE(Map.TickUntilWaiting(40));
+		for (int32 Tick = 0; Tick < 600; ++Tick)
+		{
+			REQUIRE(Map.Tick().empty());
+		}
+		CHECK(Map.Window(0).bTextWaits);
+	}
+	FMessageMap Map(Code);
+	Map.Context.Messages.Text.AutoAdvance = EMesAutoAdvance::Fast;
+	REQUIRE(Map.TickUntilWaiting(40));
+	// The page shows one glyph: Fast gives it 60 + 3 vertical blanks, 32 ticks of 2.
+	REQUIRE(MesShownGlyphs(*Map.Window(0).Text) == 1);
+	const int32 Turn = (MesReadingVblanks(EMesAutoAdvance::Fast, 1) + FMessageMap::TickVblanks - 1) / FMessageMap::TickVblanks;
+	CHECK(Turn == 32);
+	for (int32 Tick = 1; Tick < Turn; ++Tick)
+	{
+		REQUIRE(Map.Tick().empty());
+		REQUIRE(Map.Window(0).bTextWaits);
+	}
+	// The button goes down for the player: the text ends, and the window closes at the next tick.
+	REQUIRE(Map.Tick().empty());
+	CHECK_FALSE(Map.Window(0).bTextWaits);
+	REQUIRE(Map.Tick().empty());
+	CHECK_FALSE(Map.Window(0).bOpen);
+}
+
+TEST_CASE("Auto-advancing text leaves a choice to the player", "[Field]")
+{
+	// D2 message 0 in the top band, A9 makes its one line a choice; then the thread loops on a yield.
+	FMessageMap Map({0xD2, 0x00, 0x00, 0x10, 0xA9, 0x00, 0xC3, 0x01, 0x06, 0x00});
+	Map.Context.Messages.Text.AutoAdvance = EMesAutoAdvance::Fast;
+	for (int32 Tick = 0; Tick < 600; ++Tick)
+	{
+		REQUIRE(Map.Tick().empty());
+	}
+	REQUIRE(Map.Window(0).bOpen);
+	CHECK(Map.Window(0).bChoice);
+	CHECK(Map.Context.Messages.Reading.Waited() == 0);
+	// The player's own button ends it.
+	REQUIRE(Map.Tick(0x20).empty());
+	CHECK_FALSE(Map.Window(0).bChoice);
 }

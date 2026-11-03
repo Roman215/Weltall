@@ -23,7 +23,7 @@ TEST_CASE("Asset status rows preserve the selected action through progress and c
 {
 	FPlayerSettings Settings;
 	auto Rows = AssetSettingsRows(Settings, {});
-	REQUIRE(Rows.size() == 7);
+	REQUIRE(Rows.size() == 13);
 	CHECK(Rows[0].Value == "Off");
 	CHECK(Rows[AssetRow::Capture].Label == "Capture textures");
 	CHECK(Rows[AssetRow::Textures].Label == "Export textures");
@@ -55,6 +55,28 @@ TEST_CASE("Asset status rows preserve the selected action through progress and c
 	CHECK(Rows[AssetRow::Text].Label == "Cancel export");
 	CHECK(Rows[AssetRow::Textures].bReadOnly);
 	CHECK(Rows[AssetRow::Status].Value == "50%");
+}
+
+TEST_CASE("The Assets page shows or hides each kind of texture pack picture", "[Menu][Assets]")
+{
+	FPlayerSettings Settings;
+	CHECK(Settings.PackKinds.Shown() == 0x7F);
+	const auto Rows = AssetSettingsRows(Settings, {});
+	for (int32 Kind = 0; Kind < AssetRow::PackKinds; ++Kind)
+	{
+		const FSettingsRow& Row = Rows[static_cast<std::size_t>(AssetRow::FirstPackKind + Kind)];
+		CHECK(Row.Label == OptionsText::Assets::PackKinds[static_cast<std::size_t>(Kind)].Label);
+		CHECK(Row.Value == "On");
+	}
+	bool* Text = AssetRowPackKind(Settings.PackKinds, AssetRow::FirstPackKind);
+	REQUIRE(Text == &Settings.PackKinds.bText);
+	*Text = false;
+	CHECK(AssetSettingsRows(Settings, {})[AssetRow::FirstPackKind].Value == "Off");
+	// Other is always shown: a pack's pictures of uploads told apart from none.
+	CHECK(Settings.PackKinds.Shown() == (0x7F & ~(1u << static_cast<uint32>(EVramUploadKind::Text))));
+	CHECK(AssetRowPackKind(Settings.PackKinds, AssetRow::FirstPackKind + AssetRow::PackKinds - 1) == &Settings.PackKinds.bModelsAndEffects);
+	CHECK(AssetRowPackKind(Settings.PackKinds, AssetRow::Capture) == nullptr);
+	CHECK(AssetRowPackKind(Settings.PackKinds, AssetRow::Textures) == nullptr);
 }
 
 TEST_CASE("Asset page words fit the game's font and menu strips", "[Menu][Assets][Content]")

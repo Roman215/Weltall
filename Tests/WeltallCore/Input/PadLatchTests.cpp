@@ -86,3 +86,20 @@ TEST_CASE("The stick reaches the tick where the latest frame found it, its direc
 	Latch.Sample(Both);
 	CHECK(Latch.TakeForTick().StickButtons == 0);
 }
+
+TEST_CASE("Shoulders held to zoom reach the tick as zoom buttons while nothing else holds them", "[Input]")
+{
+	FPadLatch Latch;
+	FPadState Zooming = Holding({EPadButton::R1, EPadButton::Up});
+	Zooming.ZoomButtons = FPadState::Bit(EPadButton::R1);
+	Latch.Sample(Zooming);
+	Latch.Sample(Holding({}));
+	const FPadState Taken = Latch.TakeForTick();
+	CHECK(Taken.Buttons == (FPadState::Bit(EPadButton::R1) | FPadState::Bit(EPadButton::Up)));
+	CHECK(Taken.ZoomButtons == FPadState::Bit(EPadButton::R1));
+
+	// The touch screen's R1 held with it turns: the shoulder is no longer the zoom's alone.
+	Latch.Sample(Zooming);
+	Latch.Sample(Holding({EPadButton::R1}));
+	CHECK(Latch.TakeForTick().ZoomButtons == 0);
+}

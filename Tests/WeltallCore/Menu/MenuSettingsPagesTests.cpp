@@ -13,8 +13,8 @@ using namespace Weltall;
 
 namespace
 {
-	constexpr std::array<ESettingsPage, 8> Pages = {ESettingsPage::Display, ESettingsPage::Sound, ESettingsPage::Camera, ESettingsPage::Fixes,
-		ESettingsPage::Custom, ESettingsPage::Crt, ESettingsPage::Modding, ESettingsPage::PerfectWorks};
+	constexpr std::array<ESettingsPage, 9> Pages = {ESettingsPage::Display, ESettingsPage::Sound, ESettingsPage::Camera, ESettingsPage::Fixes,
+		ESettingsPage::Custom, ESettingsPage::Crt, ESettingsPage::Modding, ESettingsPage::PerfectWorks, ESettingsPage::Italian};
 	namespace Text = OptionsText;
 
 	/** The settings text's lines that name a fix, as "key = value". */
@@ -194,6 +194,42 @@ TEST_CASE("The Modding page's balance rows show the original first and step thro
 	CHECK(FSettingsPages::Title(ESettingsPage::Modding) == Text::Titles::Modding);
 }
 
+TEST_CASE("The Italian page says when its changes apply and switches the translation, its voices, commands and movies", "[Menu][Mods]")
+{
+	FPlayerSettings Settings;
+	bool bCustomPicked = false;
+	constexpr ESettingsPage Page = ESettingsPage::Italian;
+	CHECK(FSettingsPages::Title(Page) == Text::Titles::Italian);
+	REQUIRE(FSettingsPages::RowCount(Page) == 5);
+	const auto Value = [&](int32 Row) { return FSettingsPages::Row(Page, Row, Settings).Value; };
+	const FSettingsRow Notice = FSettingsPages::Row(Page, 0, Settings);
+	CHECK(Notice.bReadOnly);
+	CHECK(Notice.Label == Text::Italian::Notice);
+	CHECK(FSettingsPages::Row(Page, 1, Settings).Label == Text::Italian::Enabled.Label);
+	CHECK(Value(1) == "Off");
+	CHECK(Value(2) == "English");
+	CHECK(Value(3) == "US");
+	CHECK(Value(4) == "English");
+
+	CHECK_FALSE(FSettingsPages::Step(Page, 0, 1, Settings, bCustomPicked));
+	REQUIRE(FSettingsPages::Step(Page, 1, 1, Settings, bCustomPicked));
+	CHECK(Settings.Italian.bEnabled);
+	REQUIRE(FSettingsPages::Step(Page, 2, 1, Settings, bCustomPicked));
+	CHECK(Settings.Italian.bJapaneseVoices);
+	CHECK(Value(2) == "Japanese");
+	REQUIRE(FSettingsPages::Step(Page, 3, -1, Settings, bCustomPicked));
+	CHECK(Settings.Italian.bJapaneseCommands);
+	CHECK(Value(3) == "Japanese");
+	REQUIRE(FSettingsPages::Step(Page, 4, 1, Settings, bCustomPicked));
+	CHECK(Settings.Italian.Movies == EItalianMovies::Japanese);
+	REQUIRE(FSettingsPages::Step(Page, 4, 1, Settings, bCustomPicked));
+	CHECK(Settings.Italian.Movies == EItalianMovies::Original);
+	CHECK(Value(4) == "Original");
+	// The choices are kept under the settings' own keys.
+	const FPlayerSettings Read = ReadPlayerSettings(WritePlayerSettings(Settings));
+	CHECK(Read.Italian == Settings.Italian);
+}
+
 TEST_CASE("The Perfect Works page says when its changes apply, shows the mod's parts under headings and switches each", "[Menu][Mods]")
 {
 	FPlayerSettings Settings;
@@ -282,114 +318,128 @@ TEST_CASE("The options' choices wrap, and their numbers step within their ranges
 	CHECK(FSettingsPages::Row(ESettingsPage::Sound, SoundRow::Output, Settings).Label == Text::Sound::Output.Label);
 
 	// The scenery's and the sprites' filters, each its own: Sharp, Crisp, Smooth and the upscaler, round to Sharp.
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 2, Settings).Label == Text::Display::SceneryFilter.Label);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 2, Settings).Value == "Sharp");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 2, -1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 3, Settings).Label == Text::Display::SceneryFilter.Label);
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 3, Settings).Value == "Sharp");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 3, -1, Settings, bCustomPicked));
 	CHECK(Settings.Field.Filter == EFieldTextureFilter::Upscaled);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 2, Settings).Value == "Upscaled");
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 3, Settings).Value == "Upscaled");
 	CHECK(Settings.Field.SpriteFilter == EFieldTextureFilter::Nearest);
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 2, 1, Settings, bCustomPicked));
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 3, 1, Settings, bCustomPicked));
 	CHECK(Settings.Field.Filter == EFieldTextureFilter::Nearest);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 3, Settings).Label == Text::Display::SpriteFilter.Label);
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 4, Settings).Label == Text::Display::SpriteFilter.Label);
 	for (int32 Step = 0; Step < 3; ++Step)
 	{
-		REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 3, 1, Settings, bCustomPicked));
+		REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 4, 1, Settings, bCustomPicked));
 	}
 	CHECK(Settings.Field.SpriteFilter == EFieldTextureFilter::Upscaled);
 	CHECK(Settings.Field.Filter == EFieldTextureFilter::Nearest);
 	Settings.Field.SpriteFilter = EFieldTextureFilter::Nearest;
 
 	// The movies: today's filter, then the upscaler, round to today's.
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 4, Settings).Label == Text::Display::MovieFilter.Label);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 4, Settings).Value == "Smooth");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 4, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 5, Settings).Label == Text::Display::MovieFilter.Label);
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 5, Settings).Value == "Smooth");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 5, 1, Settings, bCustomPicked));
 	CHECK(Settings.Field.MovieFilter == EMovieFilter::Upscaled);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 4, Settings).Value == "Upscaled");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 4, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 5, Settings).Value == "Upscaled");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 5, 1, Settings, bCustomPicked));
 	CHECK(Settings.Field.MovieFilter == EMovieFilter::Smooth);
 
 	// The CRT filter: off at first, then the monitor's, the television's and the player's own, round to off.
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 5, Settings).Label == Text::Display::Crt.Label);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 5, Settings).Value == "Off");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 5, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 6, Settings).Label == Text::Display::Crt.Label);
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 6, Settings).Value == "Off");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 6, 1, Settings, bCustomPicked));
 	CHECK(Settings.Display.Crt == ECrtFilter::Monitor);
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 5, 1, Settings, bCustomPicked));
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 5, Settings).Value == "TV");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 5, 1, Settings, bCustomPicked));
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 5, Settings).Value == "Custom");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 5, 1, Settings, bCustomPicked));
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 6, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 6, Settings).Value == "TV");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 6, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 6, Settings).Value == "Custom");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 6, 1, Settings, bCustomPicked));
 	CHECK(Settings.Display.Crt == ECrtFilter::Off);
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 5, -1, Settings, bCustomPicked));
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 6, -1, Settings, bCustomPicked));
 	CHECK(Settings.Display.Crt == ECrtFilter::Custom);
 	Settings.Display.Crt = ECrtFilter::Off;
 
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 6, 1, Settings, bCustomPicked));
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 7, 1, Settings, bCustomPicked));
 	CHECK(Settings.Field.AntiAliasing == EFieldAntiAliasing::Supersampling);
 
 	// The pilots in gears: the members' own sprites, or the map's.
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 8, Settings).Label == Text::Display::Pilots.Label);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 8, Settings).Value == "Detailed");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 8, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 9, Settings).Label == Text::Display::Pilots.Label);
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 9, Settings).Value == "Detailed");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 9, 1, Settings, bCustomPicked));
 	CHECK_FALSE(Settings.Field.bDetailedPilots);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 8, Settings).Value == "Original");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 8, -1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 9, Settings).Value == "Original");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 9, -1, Settings, bCustomPicked));
 	CHECK(Settings.Field.bDetailedPilots);
 
 	// The gears the field draws as sprites: their battle models but in cutscenes (the default), their models always, their sprites.
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 9, Settings).Label == Text::Display::Gears.Label);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 9, Settings).Value == "3D in play");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 9, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 10, Settings).Label == Text::Display::Gears.Label);
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 10, Settings).Value == "3D in play");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 10, 1, Settings, bCustomPicked));
 	CHECK(Settings.Field.GearModels == EFieldGearModels::Everywhere);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 9, Settings).Value == "3D always");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 9, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 10, Settings).Value == "3D always");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 10, 1, Settings, bCustomPicked));
 	CHECK(Settings.Field.GearModels == EFieldGearModels::Off);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 9, Settings).Value == "Original");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 9, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 10, Settings).Value == "Original");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 10, 1, Settings, bCustomPicked));
 	CHECK(Settings.Field.GearModels == EFieldGearModels::OutsideCutscenes);
 
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 10, 1, Settings, bCustomPicked));
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 11, 1, Settings, bCustomPicked));
 	CHECK_FALSE(Settings.bChapterCards);
 
 	// The text speed: twice the original's at first; the original's, then twice, four times and a page at once, round
 	// to the original.
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 11, Settings).Value == "2x");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 11, -1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 12, Settings).Value == "2x");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 12, -1, Settings, bCustomPicked));
 	CHECK(Settings.TextSpeed == EMesTextSpeed::Original);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 11, Settings).Value == Text::Display::TextSpeedValues[0]);
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 11, -1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 12, Settings).Value == Text::Display::TextSpeedValues[0]);
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 12, -1, Settings, bCustomPicked));
 	CHECK(Settings.TextSpeed == EMesTextSpeed::Instant);
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 11, 1, Settings, bCustomPicked));
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 11, 1, Settings, bCustomPicked));
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 11, Settings).Value == "2x");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 12, 1, Settings, bCustomPicked));
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 12, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 12, Settings).Value == "2x");
+
+	// Auto-advancing text: off at first, then slow, normal and fast, round to off.
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 13, Settings).Label == Text::Display::AutoAdvance.Label);
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 13, Settings).Value == Text::Display::AutoAdvanceValues[0]);
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 13, 1, Settings, bCustomPicked));
+	CHECK(Settings.AutoAdvance == EMesAutoAdvance::Slow);
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 13, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 13, Settings).Value == "Normal");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 13, 1, Settings, bCustomPicked));
+	CHECK(Settings.AutoAdvance == EMesAutoAdvance::Fast);
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 13, 1, Settings, bCustomPicked));
+	CHECK(Settings.AutoAdvance == EMesAutoAdvance::Off);
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 13, -1, Settings, bCustomPicked));
+	CHECK(Settings.AutoAdvance == EMesAutoAdvance::Fast);
 
 	// The battle speed: the game's own, then twice and four times it, round to the game's own.
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 12, Settings).Label == Text::Display::BattleSpeed.Label);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 12, Settings).Value == Text::Display::BattleSpeedValues[0]);
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 12, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 14, Settings).Label == Text::Display::BattleSpeed.Label);
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 14, Settings).Value == Text::Display::BattleSpeedValues[0]);
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 14, 1, Settings, bCustomPicked));
 	CHECK(Settings.BattleSpeed == EBattleSpeed::Double);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 12, Settings).Value == "2x");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 12, 1, Settings, bCustomPicked));
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 12, Settings).Value == "4x");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 12, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 14, Settings).Value == "2x");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 14, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 14, Settings).Value == "4x");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 14, 1, Settings, bCustomPicked));
 	CHECK(Settings.BattleSpeed == EBattleSpeed::Normal);
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 12, -1, Settings, bCustomPicked));
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 14, -1, Settings, bCustomPicked));
 	CHECK(Settings.BattleSpeed == EBattleSpeed::Quadruple);
 
 	// The battle effects' flashes: the original's, then softer and none, round to the original's.
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 13, Settings).Label == Text::Display::BattleFlashes.Label);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 13, Settings).Value == "Original");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 13, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 15, Settings).Label == Text::Display::BattleFlashes.Label);
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 15, Settings).Value == "Original");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 15, 1, Settings, bCustomPicked));
 	CHECK(Settings.Field.BattleFlashes == EBattleFlashes::Softer);
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 13, 1, Settings, bCustomPicked));
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 13, Settings).Value == "Off");
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 13, 1, Settings, bCustomPicked));
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 15, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 15, Settings).Value == "Off");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 15, 1, Settings, bCustomPicked));
 	CHECK(Settings.Field.BattleFlashes == EBattleFlashes::Original);
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 13, -1, Settings, bCustomPicked));
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 15, -1, Settings, bCustomPicked));
 	CHECK(Settings.Field.BattleFlashes == EBattleFlashes::Off);
 
 	// In the background the game stops and is silent, unless set otherwise.
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 14, Settings).Value == Text::On);
-	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 14, 1, Settings, bCustomPicked));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 16, Settings).Value == Text::On);
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 16, 1, Settings, bCustomPicked));
 	CHECK_FALSE(Settings.Display.bPauseInBackground);
 	CHECK(FSettingsPages::Row(ESettingsPage::Sound, SoundRow::InBackground, Settings).Value == Text::Off);
 	REQUIRE(FSettingsPages::Step(ESettingsPage::Sound, SoundRow::InBackground, 1, Settings, bCustomPicked));
@@ -532,9 +582,9 @@ TEST_CASE("The CRT filter's parts show the look in use, and changing one makes i
 	FPlayerSettings Settings;
 	bool bCustomPicked = false;
 	// Confirm on the CRT filter's row opens its parts, wherever the window's rows put it.
-	CHECK(FSettingsPages::Activate(ESettingsPage::Display, 5, Settings, false) == ESettingsAction::OpenCrt);
-	CHECK(FSettingsPages::Activate(ESettingsPage::Display, 7, Settings, false, WideDisplay) == ESettingsAction::OpenCrt);
-	CHECK(FSettingsPages::Activate(ESettingsPage::Display, 4, Settings, false) == ESettingsAction::None);
+	CHECK(FSettingsPages::Activate(ESettingsPage::Display, 6, Settings, false) == ESettingsAction::OpenCrt);
+	CHECK(FSettingsPages::Activate(ESettingsPage::Display, 8, Settings, false, WideDisplay) == ESettingsAction::OpenCrt);
+	CHECK(FSettingsPages::Activate(ESettingsPage::Display, 5, Settings, false) == ESettingsAction::None);
 	REQUIRE(FSettingsPages::RowCount(ESettingsPage::Crt) == 10);
 
 	// The television's look, part by part.
@@ -551,7 +601,7 @@ TEST_CASE("The CRT filter's parts show the look in use, and changing one makes i
 	FCrtLook Rounder = FCrtLook::Television();
 	Rounder.Curvature = 4;
 	CHECK(Settings.Display.CustomCrt == Rounder);
-	CHECK(FSettingsPages::Row(ESettingsPage::Display, 5, Settings).Value == "Custom");
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 6, Settings).Value == "Custom");
 
 	// A part's steps stop at their ends; the mask's kinds wrap.
 	Settings.Display.CustomCrt.Scanlines = FCrtLook::Steps;
@@ -572,6 +622,15 @@ TEST_CASE("The window's size is chosen among the display's, from the window's ow
 	CHECK(FSettingsPages::RowCount(ESettingsPage::Display, WideDisplay) == FSettingsPages::RowCount(ESettingsPage::Display) + 2);
 	CHECK(FSettingsPages::Row(ESettingsPage::Display, 0, {}).Label == Text::Display::Aspect.Label);
 	CHECK(FSettingsPages::Row(ESettingsPage::Display, 2, {}, false, WideDisplay).Label == Text::Display::Aspect.Label);
+
+	// Integer scaling, under the picture's shape, off at first, toggles.
+	FPlayerSettings Scaled;
+	bool bScaledCustom = false;
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 1, Scaled).Label == Text::Display::IntegerScaling.Label);
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 1, Scaled).Value == Text::Off);
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 1, 1, Scaled, bScaledCustom));
+	CHECK(Scaled.Display.bIntegerScaling);
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 3, Scaled, false, WideDisplay).Value == Text::On);
 
 	// Full screen, off at first, toggles.
 	FPlayerSettings Settings;

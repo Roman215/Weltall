@@ -43,6 +43,7 @@ namespace
 	std::filesystem::path CanonicalFolder;
 	bool bReplacements = false;
 	bool bCaptures = false;
+	uint8 PackKinds = 0xFF;
 	uint64 ConfigGeneration = 0;
 	uint64 Uses = 0;
 	int64 CacheBytes = 0;
@@ -175,9 +176,9 @@ namespace
 	}
 }
 
-void FTextureModLibrary::Configure(FString Folder, bool bEnabled, bool bCapture)
+void FTextureModLibrary::Configure(FString Folder, bool bEnabled, bool bCapture, uint8 ShownPackKinds)
 {
-	if (TextureFolder == Folder && bReplacements == bEnabled && bCaptures == bCapture) return;
+	if (TextureFolder == Folder && bReplacements == bEnabled && bCaptures == bCapture && PackKinds == ShownPackKinds) return;
 	WaitForCaptures();
 	WaitForDecodes();
 	if (Wrappers == nullptr)
@@ -190,6 +191,8 @@ void FTextureModLibrary::Configure(FString Folder, bool bEnabled, bool bCapture)
 	CanonicalFolder = CanonicalTextureRoot(TextureFolder);
 	bReplacements = bEnabled;
 	bCaptures = bCapture;
+	PackKinds = ShownPackKinds;
+	Files.ShowPackKinds(PackKinds);
 	++ConfigGeneration;
 	Loaded.Empty();
 	CacheBytes = 0;

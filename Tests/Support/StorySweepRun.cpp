@@ -225,6 +225,18 @@ namespace Weltall::Testing
 		{
 			StrengthenParty(Session->Game());
 		}
+		if (Options.bClearGame)
+		{
+			BringEllyBack(Session->Game());
+		}
+		if (Options.bKeepElly)
+		{
+			KeepEllyInParty(Session->Game());
+		}
+		if (Options.bFeiAsId)
+		{
+			DrawFeiAsId(Session->Game());
+		}
 		const FGameState& State = Session->Game();
 		const std::array<uint8, 3> Members = State.Party();
 		StartedParty = std::to_string(Members[0]) + "," + std::to_string(Members[1]) + "," + std::to_string(Members[2]);

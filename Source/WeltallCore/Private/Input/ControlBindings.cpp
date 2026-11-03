@@ -142,6 +142,13 @@ namespace Weltall
 		Set(EControlAction::ViewTilt, {});
 		Set(EControlAction::ViewZoom, {"MouseWheelAxis", "-Gamepad_RightY"});
 		Set(EControlAction::ViewReset, {"MiddleMouseButton", "Gamepad_RightThumbstick"});
+		// As emulators have them; a controller's every button already has a part in the game.
+		Set(EControlAction::SaveState, {"F5"});
+		Set(EControlAction::LoadState, {"F9"});
+		Set(EControlAction::NextStateSlot, {"F7"});
+		Set(EControlAction::PreviousStateSlot, {"F6"});
+		// The left stick's press has no part in the game.
+		Set(EControlAction::MessageLog, {"L", "Gamepad_LeftThumbstick"});
 		return Bindings;
 	}
 

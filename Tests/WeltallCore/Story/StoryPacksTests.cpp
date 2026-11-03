@@ -2,6 +2,7 @@
 #include "Story/StoryPacks.h"
 #include "Support/AppleDouble.h"
 #include "Text/MesText.h"
+#include "Text/MessageTable.h"
 
 #include <catch_amalgamated.hpp>
 
@@ -187,7 +188,7 @@ TEST_CASE("A document that begins with a battle event changes that event's text,
 	const std::vector<FAddedMessage> Own = {*MesMessageOfText("Met him again.{page}\nHe stood\nin my way."), *MesMessageOfText("No choice.")};
 	const std::vector<uint8> Table = *BuildMessageTable(Own);
 	FStoryPacks Packs;
-	CHECK_FALSE(Packs.BattleEventMessages(19, Table, true));
+	CHECK_FALSE(Packs.BattleEventMessages(19, Table, Table, true));
 	REQUIRE_FALSE(Packs.Add(FStoryPacks::ExpansionPack, "told.txt", "; Told elsewhere.\n\nbattle event 19\nmessage 0 from page 2\n"));
 	CHECK(Packs.Documents().empty());
 	REQUIRE(Packs.EventDocuments().size() == 1);
@@ -196,20 +197,20 @@ TEST_CASE("A document that begins with a battle event changes that event's text,
 	CHECK(Packs.DocumentCount() == 1);
 	CHECK(Packs.HasExpansion());
 
-	const auto Changed = Packs.BattleEventMessages(19, Table, true);
+	const auto Changed = Packs.BattleEventMessages(19, Table, Table, true);
 	REQUIRE(Changed);
 	const auto Read = FMessageTable::Parse(*Changed);
 	REQUIRE(Read);
 	CHECK(MesTextOfCodes(Read->String(0)) == "He stood\nin my way.");
 	// Another event's text, and the game on the original's second disc, are the disc's own.
-	CHECK_FALSE(Packs.BattleEventMessages(18, Table, true));
-	CHECK_FALSE(Packs.BattleEventMessages(19, Table, false));
+	CHECK_FALSE(Packs.BattleEventMessages(18, Table, Table, true));
+	CHECK_FALSE(Packs.BattleEventMessages(19, Table, Table, false));
 
 	// A document of another pack is every game's; one the table does not fit is left out.
 	REQUIRE_FALSE(Packs.Add("extras", "other.txt", "battle event 18\nmessage 1 from page 1\n"));
-	CHECK(Packs.BattleEventMessages(18, Table, false));
+	CHECK(Packs.BattleEventMessages(18, Table, Table, false));
 	REQUIRE_FALSE(Packs.Add("extras", "unfit.txt", "battle event 17\nmessage 5 from page 1\n"));
-	CHECK_FALSE(Packs.BattleEventMessages(17, Table, false));
+	CHECK_FALSE(Packs.BattleEventMessages(17, Table, Table, false));
 	CHECK(Packs.DocumentCount() == 3);
 
 	const auto Unread = Packs.Add("extras", "broken.txt", "battle event\n");
@@ -244,4 +245,100 @@ TEST_CASE("The expanded second disc's documents are a game's only when it plays 
 	const auto Twice = Packs.Add("additions", "again.txt", "map 1000 from 8\nactors 1\n");
 	REQUIRE(Twice);
 	CHECK(Twice->Message == "additions/again.txt: map 1000 is made by disc2/room.txt already");
+}
+
+TEST_CASE("A disc map or a battle event's table given whole is one document's, and one left as exported is passed over", "[Story]")
+{
+	const FMap Disc = Map();
+	const auto Section = AssembleEventScripts("actors 1\nactor 0 script 0:\n    Return\n");
+	REQUIRE(Section);
+	const auto Exported = WriteWholeFieldMapText(12, *Section, Disc.Messages);
+	REQUIRE(Exported);
+	std::string Edited = *Exported;
+	Edited.replace(Edited.find("Hello."), 6, "Howdy.");
+
+	// As the export wrote it, the document is not read; edited, it gives the map whole in a game of the expansion.
+	FStoryPacks Packs;
+	REQUIRE_FALSE(Packs.Add("disc2", "map-012.txt", *Exported));
+	CHECK(Packs.LeftAsExported() == 1);
+	CHECK(Packs.DocumentCount() == 0);
+	CHECK_FALSE(Packs.HasExpansion());
+	CHECK(Packs.WholeMap(12, true) == nullptr);
+	REQUIRE_FALSE(Packs.Add("disc2", "edited.txt", Edited));
+	CHECK(Packs.HasExpansion());
+	REQUIRE(Packs.WholeMap(12, true) != nullptr);
+	CHECK(Packs.WholeMap(12, true)->Name == "disc2/edited.txt");
+	CHECK(Packs.WholeMap(12, false) == nullptr);
+	CHECK(Packs.WholeMap(13, true) == nullptr);
+	CHECK(Packs.MapOfItsOwn(12, true) == nullptr);
+	CHECK(Added(Packs, 12, FEventOptions{}, true) == 0);
+	const auto Again = Packs.Add("disc2", "again.txt", Edited);
+	REQUIRE(Again);
+	CHECK(Again->Message == "disc2/again.txt: map 12 is given whole by disc2/edited.txt already");
+
+	// A whole table stands for the disc's own, before the player's messages, and the beginnings are made in it.
+	const std::vector<FAddedMessage> Lines = {*MesMessageOfText("One.{page}\nTwo."), *MesMessageOfText("Three.")};
+	const std::vector<uint8> Table = *BuildMessageTable(Lines);
+	const auto Event = WriteWholeBattleEventText(19, Table);
+	REQUIRE(Event);
+	std::string EditedEvent = *Event;
+	EditedEvent.replace(EditedEvent.find("Three."), 6, "Four.");
+	REQUIRE_FALSE(Packs.Add("disc2", "battle-event-019.txt", *Event));
+	CHECK(Packs.LeftAsExported() == 2);
+	REQUIRE_FALSE(Packs.Add("disc2", "event.txt", EditedEvent));
+	REQUIRE_FALSE(Packs.Add("additions", "later.txt", "battle event 19\nmessage 0 from page 2\n"));
+	const auto Text = [](const std::optional<std::vector<uint8>>& Changed, int32 Message)
+	{
+		REQUIRE(Changed);
+		const auto Read = FMessageTable::Parse(*Changed);
+		REQUIRE(Read);
+		return MesTextOfCodes(Read->String(Message));
+	};
+	const auto Whole = Packs.BattleEventMessages(19, Table, Table, true);
+	CHECK(Text(Whole, 0) == "Two.");
+	CHECK(Text(Whole, 1) == "Four.");
+	const std::vector<FAddedMessage> PlayersLines = {*MesMessageOfText("Uno.{page}\nDos."), *MesMessageOfText("Tres.")};
+	const std::vector<uint8> Players = *BuildMessageTable(PlayersLines);
+	CHECK(Text(Packs.BattleEventMessages(19, Players, Table, true), 1) == "Four.");
+	CHECK(Text(Packs.BattleEventMessages(19, Players, Players, true), 0) == "Dos.");
+	CHECK(Text(Packs.BattleEventMessages(19, Players, Players, true), 1) == "Tres.");
+	CHECK(Text(Packs.BattleEventMessages(19, Table, Table, false), 0) == "Two.");
+	CHECK(Text(Packs.BattleEventMessages(19, Table, Table, false), 1) == "Three.");
+	const auto Twice = Packs.Add("disc2", "event-again.txt", EditedEvent);
+	REQUIRE(Twice);
+	CHECK(Twice->Message == "disc2/event-again.txt: battle event 19 is given whole by disc2/event.txt already");
+}
+
+TEST_CASE("A map's or a battle event's documents that it does not fit are named as they are left out", "[Story]")
+{
+	FStoryPacks Packs;
+	REQUIRE_FALSE(Packs.Add("disc2", "fits.txt", Addition(7)));
+	REQUIRE_FALSE(Packs.Add("disc2", "elsewhere.txt", "map 7\nexpect @0x0040 Return\nElsewhere:\n    End\n"));
+	REQUIRE_FALSE(Packs.Add("disc2", "later.txt", Addition(7)));
+	FMap Target = Map();
+	std::vector<const FStoryDocument*> LeftOut;
+	REQUIRE_FALSE(Packs.ApplyToMap(7, Target.Scripts, Target.Messages, FEventOptions(), true, nullptr, nullptr, &LeftOut));
+	REQUIRE(LeftOut.size() == 1);
+	CHECK(LeftOut[0]->Name == "disc2/elsewhere.txt");
+	// The documents a game does not try are not named.
+	LeftOut.clear();
+	REQUIRE_FALSE(Packs.ApplyToMap(7, Target.Scripts, Target.Messages, FEventOptions(), false, nullptr, nullptr, &LeftOut));
+	CHECK(LeftOut.empty());
+
+	// A whole table written for another table, then a beginning that table lacks; the one that fits is made in the disc's.
+	const std::vector<FAddedMessage> Lines = {*MesMessageOfText("One.{page}\nTwo."), *MesMessageOfText("Three.")};
+	const std::vector<uint8> Table = *BuildMessageTable(Lines);
+	const std::vector<FAddedMessage> OtherLines = {*MesMessageOfText("Uno.")};
+	const auto Other = WriteWholeBattleEventText(19, *BuildMessageTable(OtherLines));
+	REQUIRE(Other);
+	REQUIRE_FALSE(Packs.Add("disc2", "event.txt", *Other + "; edited\n"));
+	REQUIRE_FALSE(Packs.Add("disc2", "lacking.txt", "battle event 19\nmessage 5 from page 1\n"));
+	REQUIRE_FALSE(Packs.Add("disc2", "begins.txt", "battle event 19\nmessage 0 from page 2\n"));
+	std::vector<const FStoryEventDocument*> EventsLeftOut;
+	const auto Changed = Packs.BattleEventMessages(19, Table, Table, true, &EventsLeftOut);
+	REQUIRE(Changed);
+	CHECK(MesTextOfCodes(FMessageTable::Parse(*Changed)->String(0)) == "Two.");
+	REQUIRE(EventsLeftOut.size() == 2);
+	CHECK(EventsLeftOut[0]->Name == "disc2/event.txt");
+	CHECK(EventsLeftOut[1]->Name == "disc2/lacking.txt");
 }

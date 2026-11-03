@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "Presentation/DrawList.h"
 #include "Rendering/FieldSceneRendering.h"
+#include "Rendering/ScreenArea.h"
 
 class FVramTexture;
 
@@ -44,9 +45,9 @@ WELTALL_API void BuildBattleFrameDraw(const Weltall::FBattleShowFrame& Frame, co
 	FBattleFrameDraw& Draw, Weltall::FTexelKindCache* TexelKinds = nullptr);
 
 /**
- * Adds the passes that draw a battle frame into Area of Output: the scene on the widened screen, the fade over the whole
- * area, the HUD on the menus' screen fitted in the area (its button pictures textured from IconVram), each part in
- * its turn.
+ * Adds the passes that draw a battle frame into Area of Output: the scene on the widened screen and the fade over it, on
+ * the screen's rows across the area, the HUD on the menus' screen laid out in the area (its button pictures textured
+ * from IconVram), each part in its turn.
  */
 WELTALL_API void AddBattleFramePasses(FRDGBuilder& GraphBuilder, const FFieldSceneMesh& Mesh, const FVramTexture& Vram, const FVramTexture& IconVram,
-	const FBattleFrameDraw& Draw, FRDGTextureRef Output, const FIntRect& Area);
+	const FBattleFrameDraw& Draw, FRDGTextureRef Output, const FScreenArea& Area);

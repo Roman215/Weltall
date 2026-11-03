@@ -26,6 +26,7 @@ public:
 	bool Contains(uint64 Key) const { return Pngs.Contains(Key) || Cells.Contains(Key); }
 	int32 Count() const { return Pngs.Num() + Cells.Num(); }
 	const FBeetleTexturePacks& Packs() const { return Beetle; }
+	void ShowPackKinds(uint8 Kinds) { Beetle.Show(Kinds); }
 	IImageWrapperModule* ImageWrappers() const { return Wrappers; }
 	const std::filesystem::path& CanonicalRoot() const { return Root; }
 

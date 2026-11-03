@@ -3,7 +3,6 @@
 #include "Game/FieldProgram.h"
 #include "Game/GameSession.h"
 #include "Game/KernelState.h"
-#include "Presentation/ScreenLayout.h"
 #include "Rendering/DrawListRendering.h"
 #include "Rendering/SharedRenderResource.h"
 #include "Rendering/VramTexture.h"
@@ -20,18 +19,15 @@ class FTitleMarkFrame final : public IScreenFrame
 public:
 	explicit FTitleMarkFrame(TSharedRef<FVramTexture> InVram) : Vram(MoveTemp(InVram)) {}
 
-	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override
+	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override
 	{
 		if (Background.IsValid())
 		{
 			Background->AddPasses(GraphBuilder, Output, Area);
 		}
-		const Weltall::FScreenLayout Layout = Weltall::FScreenLayout::Fit(Area.Width(), Area.Height(), TitleScreen);
-		const Weltall::FDisplayRect Placed = Layout.ToDisplay({0, 0, static_cast<int16>(TitleScreen.Width), static_cast<int16>(TitleScreen.Height)});
-		const FIntPoint Origin = Area.Min + FIntPoint(Placed.X, Placed.Y);
 		FDrawListFrame Frame;
 		Frame.Latest = &Mark;
-		AddDrawListPasses(GraphBuilder, *Vram, Frame, Output, FIntRect(Origin, Origin + FIntPoint(Placed.Width, Placed.Height)), TitleScreen);
+		AddDrawListPasses(GraphBuilder, *Vram, Frame, Output, Area.ScreenRect(TitleScreen), TitleScreen);
 	}
 
 	TSharedPtr<const IScreenFrame> Background;

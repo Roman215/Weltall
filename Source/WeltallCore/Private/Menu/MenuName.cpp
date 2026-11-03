@@ -127,10 +127,7 @@ namespace Weltall
 			const bool bKept = Character != FGameState::EmptySlot && Character < CharacterCount && (Allowed >> Character & 1) != 0;
 			Flags[static_cast<std::size_t>(MenuFlag::Party + Slot)] = bKept ? Character : FGameState::EmptySlot;
 		}
-		for (const FVramImage& Image : Resources.ArchiveUploads())
-		{
-			Upload(Image);
-		}
+		UploadArchive();
 		// The name's owner shows in the first slot's portrait: a person's own, a gear's pilot.
 		const uint8 Number = Request.Param;
 		const std::span<const uint8> Entries = Resources.NameEntry();

@@ -7,7 +7,7 @@ subtitles.
 A subtitle appears once, when the player first has control in that sequence. Letters distinguish it
 within the chapter, for example "Chapter 57a: Secret Battleship" and "Chapter 57b: Soylent System".
 
-`Content/Story/disc2/subtitles.txt` defines the examples:
+`Content/Examples/disc2/subtitles.txt` defines the examples:
 
 ```
 subtitles

@@ -33,6 +33,13 @@ namespace Weltall
 		WELTALLCORE_API void AddTyped(std::span<const FMesPlacedGlyph> Glyphs, int32 Pixels, const FMesFont* Font, uint32 Primitive,
 			std::vector<FTextButtonCell>& Out);
 
+		/**
+		 * The same for a line kept whole (a logged message's), which a sprite Pixels wide shows from pixel First of the line
+		 * on; a name's word read on into Next, the line below it (empty for none).
+		 */
+		WELTALLCORE_API void AddKept(std::span<const FMesPlacedGlyph> Glyphs, std::span<const FMesPlacedGlyph> Next, int32 First, int32 Pixels,
+			const FMesFont* Font, uint32 Primitive, std::vector<FTextButtonCell>& Out);
+
 	private:
 		/** The cells of Glyphs, the names read in Ahead (the glyphs and whatever follows them). */
 		void Find(std::span<const FMesPlacedGlyph> Glyphs, int32 First, int32 Pixels, const FMesFont* Font, uint32 Primitive,

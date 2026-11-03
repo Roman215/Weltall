@@ -194,7 +194,7 @@ namespace Weltall::WorldMapOps
 		{
 			if (Step == TargetStep::Follow)
 			{
-				const uint16 Turn = static_cast<uint16>((Context.Pad.Held >> 2) & 3);
+				const uint16 Turn = static_cast<uint16>(((Context.Pad.Held & ~Context.Pad.ZoomHeld) >> 2) & 3);
 				if (Turn == 2)
 				{
 					Task.Step = TargetStep::Turning;

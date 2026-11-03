@@ -24,6 +24,8 @@ namespace Weltall
 		};
 		constexpr std::array<FFaceButtonGlyph, 4> FaceButtonGlyphs{{{0x6E, 0x7B1ABF8Fu, EPadButton::Circle},
 			{0x6F, 0x0DDA394Bu, EPadButton::Square}, {0x70, 0x27FB8567u, EPadButton::Triangle}, {0x7F, 0xC7E4980Bu, EPadButton::Cross}}};
+		/** The CRC-32 of the star's glyph (☆, 6Dh) in the USA release's font. */
+		constexpr uint32 StarPictureCrc = 0xE7C3C101u;
 
 		/** A glyph pixel: rows are big-endian with the leftmost pixel in bit 15. */
 		bool IsSet(std::span<const uint8> Glyph, int32 X, int32 Y)
@@ -63,6 +65,17 @@ namespace Weltall
 			if (Glyph && Crc32(*Glyph) == FaceButtonGlyphs[Index].PictureCrc)
 			{
 				Result.DrawnFaceButtons = static_cast<uint8>(Result.DrawnFaceButtons | 1u << Index);
+			}
+		}
+		// The first page's codes: from the lead byte on, codes take a second byte.
+		const uint32 FirstPageEnd = Result.SecondPageLead != 0 ? Result.SecondPageLead : 0x100;
+		for (uint32 Code = Result.FirstCode; Code < FirstPageEnd && !Result.StarCode; ++Code)
+		{
+			const FMesCode Candidate{0, static_cast<uint8>(Code)};
+			const std::optional<std::span<const uint8>> Glyph = Result.GlyphOf(Candidate);
+			if (Glyph && Crc32(*Glyph) == StarPictureCrc)
+			{
+				Result.StarCode = Candidate;
 			}
 		}
 		return Result;

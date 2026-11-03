@@ -47,6 +47,24 @@ namespace Weltall
 		Find(Glyphs, 0, Pixels, Font, Primitive, Out);
 	}
 
+	void FMesButtonCells::AddKept(std::span<const FMesPlacedGlyph> Glyphs, std::span<const FMesPlacedGlyph> Next, int32 First, int32 Pixels,
+		const FMesFont* Font, uint32 Primitive, std::vector<FTextButtonCell>& Out)
+	{
+		Ahead.assign(Glyphs.begin(), Glyphs.end());
+		if (!Next.empty())
+		{
+			// As a window's row reads on into the row below: only the order of the glyphs read on matters to a name.
+			const int16 End = Glyphs.empty() ? 0 : static_cast<int16>(Glyphs.back().XUnits + (Font != nullptr ? Font->WidthUnits(Glyphs.back().Code) : 3));
+			Ahead.push_back({MesLineEnd, End});
+			int16 Place = static_cast<int16>(End + 1);
+			for (const FMesPlacedGlyph& Glyph : Next)
+			{
+				Ahead.push_back({Glyph.Code, Place++});
+			}
+		}
+		Find(Glyphs, First, Pixels, Font, Primitive, Out);
+	}
+
 	void FMesButtonCells::Find(std::span<const FMesPlacedGlyph> Glyphs, int32 First, int32 Pixels, const FMesFont* Font, uint32 Primitive,
 		std::vector<FTextButtonCell>& Out)
 	{

@@ -3,6 +3,7 @@
 #include "CoreMinimal.h"
 #include "GameFramework/PlayerController.h"
 #include "Field/FieldPlayerCamera.h"
+#include "Input/ControlBindings.h"
 #include "Input/PadState.h"
 
 #include "WeltallPlayerController.generated.h"
@@ -25,6 +26,9 @@ public:
 
 	/** What the player did to the field's view in the last DeltaSeconds. */
 	Weltall::FFieldViewInput ReadView(float DeltaSeconds);
+
+	/** The port's own keys (the save states' and the message log's) pressed since the last call, each press once. */
+	TArray<Weltall::EControlAction, TFixedAllocator<Weltall::PortActionCount>> ReadPortKeys();
 
 protected:
 	virtual void BeginPlay() override;

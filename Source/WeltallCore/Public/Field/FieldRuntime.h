@@ -163,6 +163,13 @@ namespace Weltall
 		[[nodiscard]] WELTALLCORE_API std::optional<FError> EnterMapAfterBattle(int32 Number, const FFieldKernelState& Kernel, const FFieldEntry& Entry = {});
 		/** The kernel's globals as the field leaves them now, for its next run. */
 		WELTALLCORE_API FFieldKernelState KernelState() const;
+		/**
+		 * The field's state as it saves itself on leaving for a battle, taken now without leaving: what EnterMapAfterBattle
+		 * comes back to. An error when an actor has no sprite.
+		 */
+		[[nodiscard]] WELTALLCORE_API std::optional<FError> SaveForReturn(FFieldSnapshot& Saved);
+		/** Whether the next tick runs the main loop from its top: no frame loop of its own (a pad wait, a fade, a movie) under way, nothing asked. */
+		bool IsAtLoopTop() const { return Phase == EPhase::MainLoop && PendingRequest.Kind == EFieldRequest::None; }
 
 		/** The fixes the field plays with from now on, the running map included. */
 		WELTALLCORE_API void SetOptions(const FEventOptions& Options);
@@ -192,6 +199,8 @@ namespace Weltall
 			bWalkIntoDoors = bOpens;
 			FieldContext.bWalkIntoDoors = bOpens;
 		}
+		/** How many vertical blanks the directions move nothing for once a new map has loaded, from the next map on. */
+		void SetDoorPause(int32 Vblanks) { DoorPauseVblanks = Vblanks; }
 		/** How often random battles come, from the next step on (the maps entered later included). */
 		void SetEncounterRate(EEncounterRate Rate)
 		{
@@ -203,6 +212,18 @@ namespace Weltall
 		{
 			Services.Text.Speed = Speed;
 			FieldContext.Messages.Text.Speed = Speed;
+		}
+		/** Whether, and at what pace, a page that waits for the button goes on by itself, from now on. */
+		void SetAutoAdvance(EMesAutoAdvance Pace)
+		{
+			Services.Text.AutoAdvance = Pace;
+			FieldContext.Messages.Text.AutoAdvance = Pace;
+		}
+		/** Where the message windows record what they type, from now on; none: nowhere. */
+		void SetMessageLog(FMessageLog* Log)
+		{
+			Services.Text.Log = Log;
+			FieldContext.Messages.Text.Log = Log;
 		}
 		/** The view the player was last shown, which the wide view's test of who is on screen uses from the next frame on. */
 		void SetShownView(const FGteMatrix& View) { FieldContext.ShownView = View; }
@@ -389,6 +410,9 @@ namespace Weltall
 		bool bAlwaysRun = false;
 		bool bAnalogMovement = false;
 		bool bWalkIntoDoors = false;
+		int32 DoorPauseVblanks = 0;
+		/** The vertical blanks left of the pause after the map's load, the directions kept from the field until it ends. */
+		int32 DoorPauseLeft = 0;
 		FFieldDiscFiles DiscFiles;
 		std::unique_ptr<FFieldMap> MapData;
 		std::unique_ptr<FEventScripts> Scripts;

@@ -22,7 +22,7 @@ namespace Weltall::Testing
 	struct FPlayedDisc
 	{
 		const FIso9660* Iso = nullptr;
-		EDiscRelease Release = EDiscRelease::UsaDisc1;
+		FDiscIdentity Identity{EDiscRelease::UsaDisc1, 1, ""};
 		std::unique_ptr<FPsxExecutable> Executable;
 		std::unique_ptr<FGameFileIndex> Index;
 	};

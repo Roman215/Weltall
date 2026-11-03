@@ -136,6 +136,8 @@ namespace Weltall
 		/** Units of Rect as VRAM holds them now, row by row, into Into. */
 		void ReadVram(const FVramRect& Rect, FVramImage& Into) const;
 		std::optional<FError> LoadFaces(const FEventContext& Context);
+		/** The sprites' uploads the frame pool queued, as characters' pictures. */
+		void FlushSpriteUploads(const FEventContext& Context);
 		void CaptureScenery(const FEventContext& Context, EFieldCulling Culling, const FFieldPresentedView& Shown, FFieldFrame& Frame);
 		/** The characters' passes, drawn with the game's view From, placed as the view To shows them. */
 		void MoveCharacters(const FGteMatrix& From, const FGteMatrix& To, FFieldFrame& Frame);
@@ -147,6 +149,10 @@ namespace Weltall
 		std::optional<FError> CaptureGears(const FFieldRuntime& Runtime, EFieldCulling Culling, const FFieldPresentedView& Shown, FFieldFrame& Frame);
 		/** The texture blocks the gears' loads placed and the copies their scripts made since the tick began, in order. */
 		void ApplyGearVramChanges(const FEventContext& Context);
+		/** The running map's texture stream into VRAM, as its load and every movie shown over the screen bring it in. */
+		void UploadMapTextureStream(FFieldRuntime& Runtime);
+		/** The stream again when the runtime has brought it in again since the last frame (after a movie). */
+		void FollowTextureStreams(FFieldRuntime& Runtime);
 		void OrderFrame(FFieldFrame& Frame);
 		/** Select's picture into VRAM as it comes up (the area it takes kept aside), and VRAM given back once it has gone. */
 		std::optional<FError> FollowMapPicture(const FFieldMapPicture& Picture);
@@ -171,8 +177,8 @@ namespace Weltall
 		FVramImage MapPictureArea;
 		bool bMapPictureUp = false;
 		std::vector<uint32> SortedParticles;
-		/** The character whose faces each face slot's place in VRAM holds. */
-		std::array<int32, FFieldDrawingTables::FaceSlots> FacesLoaded{};
+		/** The face read whose faces each face slot's place in VRAM holds (0: none). */
+		std::array<uint32, FFieldDrawingTables::FaceSlots> FacesLoaded{};
 		/** The frame the running tick draws into, and its drawing's scratch. */
 		FFieldFrame* Drawn = nullptr;
 		std::vector<FSpriteQuad> Parts;
@@ -239,8 +245,12 @@ namespace Weltall
 		std::array<uint16, 16> CompassColors{};
 		FFieldCompassFrame CompassFrame;
 		uint32 Ticks = 0;
-		/** The runtime's count of map loads the scenery was built for, and of gears' modules whose textures VRAM holds. */
+		/**
+		 * The runtime's count of map loads the scenery was built for, of gears' modules whose textures VRAM holds, and of
+		 * the map's texture streams since its load that VRAM holds.
+		 */
 		int32 MapLoadsSeen = 0;
 		int32 GearLoadsSeen = 0;
+		int32 TextureStreamsSeen = 0;
 	};
 }

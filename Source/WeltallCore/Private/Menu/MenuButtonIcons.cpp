@@ -177,12 +177,12 @@ namespace Weltall
 		return Role == L1Role || Role == R1Role ? EMenuIconSlot::Hint : EMenuIconSlot::FaceButton;
 	}
 
-	EPadButton MenuRoleButton(uint16 Role)
+	EPadButton MenuRoleButton(uint16 Role, bool bJapaneseCommands)
 	{
 		for (uint8 Button = 0; Button < 16; ++Button)
 		{
 			const FPadState Held{FPadState::Bit(static_cast<EPadButton>(Button))};
-			if ((FKernelPad::LogicalButtons(FKernelPad::ReportWord(Held)) & Role) != 0)
+			if ((FKernelPad::FirstPortButtons(FKernelPad::ReportWord(Held), bJapaneseCommands) & Role) != 0)
 			{
 				return static_cast<EPadButton>(Button);
 			}
@@ -390,7 +390,7 @@ namespace Weltall
 		{
 			if (Primitive.PromptRole != 0 && Primitive.ButtonRole == Primitive.PromptRole && Primitive.ButtonSlot == EMenuIconSlot::FaceButton)
 			{
-				const EFaceButtonPlace Place = FaceButtonPlace(EButtonIconSet::PlayStation, PlayStationIcon(MenuRoleButton(Primitive.PromptRole)));
+				const EFaceButtonPlace Place = FaceButtonPlace(EButtonIconSet::PlayStation, PlayStationIcon(MenuRoleButton(Primitive.PromptRole, bJapaneseCommands)));
 				if (Place == EFaceButtonPlace::None)
 				{
 					return;
@@ -495,7 +495,16 @@ namespace Weltall
 
 	const FMenuButtonIcons::FRoleGlyph& FMenuButtonIcons::GlyphOf(uint16 Role, const IButtonGlyphs& Glyphs)
 	{
-		return GlyphOfButton(Role, MenuRoleButton(Role), Glyphs);
+		return GlyphOfButton(Role, MenuRoleButton(Role, bJapaneseCommands), Glyphs);
+	}
+
+	void FMenuButtonIcons::SetJapaneseCommands(bool bInJapaneseCommands)
+	{
+		if (bJapaneseCommands != bInJapaneseCommands)
+		{
+			bJapaneseCommands = bInJapaneseCommands;
+			RolesKnown = 0;
+		}
 	}
 
 	FMenuButtonIcons::FRoleGlyph& FMenuButtonIcons::GlyphOfButton(uint16 Key, EPadButton Button, const IButtonGlyphs& Glyphs)

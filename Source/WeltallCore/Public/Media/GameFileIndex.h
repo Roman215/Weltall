@@ -33,6 +33,9 @@ namespace Weltall
 	{
 	public:
 		static constexpr int32 DirectoryCount = 61;
+		/** Where the executable keeps the index (both discs of the USA release). */
+		static constexpr uint32 IndexAddress = 0x80010004;
+		static constexpr uint32 IndexBytes = 0x7FFC;
 
 		WELTALLCORE_API static TResult<FGameFileIndex> Read(const FPsxExecutable& Executable);
 

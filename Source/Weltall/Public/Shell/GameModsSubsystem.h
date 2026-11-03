@@ -26,8 +26,9 @@ public:
 	/** Every disc found so far given the mods' files the game started with: after the Games folder is looked in again. */
 	void Refresh();
 	/**
-	 * Perfect Works looked for again after one was added during play, where none was found before: the options offer it
-	 * at once, the game takes it from the next start. A release found stays the one the game reads until then.
+	 * Perfect Works and the Italian translation's patch looked for again after one was added during play, where none was
+	 * found before: the options offer it at once, the game takes it from the next start. A mod found stays the one the
+	 * game reads until then.
 	 */
 	void FindAgain();
 
@@ -39,4 +40,5 @@ public:
 private:
 	Weltall::FFoundMods Found;
 	Weltall::FPerfectWorksOptions InUse;
+	Weltall::FItalianOptions ItalianInUse;
 };

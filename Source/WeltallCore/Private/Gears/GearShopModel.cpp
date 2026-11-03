@@ -70,7 +70,7 @@ namespace Weltall
 		for (std::size_t Channel = 0; Channel < 3; ++Channel)
 		{
 			Lighting.BackColor[Channel] = Ambient * 16;
-			Lighting.ColorMatrix.M[Channel][Channel] = ColorScale;
+			Lighting.ColorMatrix.M[Channel][0] = ColorScale;
 		}
 		return Lighting;
 	}

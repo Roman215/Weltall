@@ -177,4 +177,54 @@ namespace Weltall::EventAssemblyText
 		}
 		return std::nullopt;
 	}
+
+	void AppendInstruction(std::string& Out, const FEventInstruction& Instruction, const std::function<void(std::string&, std::size_t)>& Jump,
+		const std::function<void(std::string&, int32)>& Message)
+	{
+		const FEventOperandList& Operands = *Instruction.Operands;
+		const uint8 Flags = Instruction.Flags();
+		const bool bIf = Instruction.Shape->Opcode == EventOpcode::If;
+		Out += "    ";
+		Out += Instruction.Shape->Name;
+		int32 Written = 0;
+		for (int32 Operand = 0; Operand < Operands.Count; ++Operand)
+		{
+			const FEventOperandKind Kind = Operands.Kinds[static_cast<std::size_t>(Operand)];
+			if (Kind.Kind == EEventOperand::Flags)
+			{
+				continue;
+			}
+			Out += ' ';
+			// If reads as a sentence: its test between its two values, "else" before where it goes when the test fails.
+			if (bIf && Written == 1)
+			{
+				Out += EventTestName(Flags & TestBits);
+				Out += ' ';
+			}
+			if (bIf && Written == 2)
+			{
+				Out += "else ";
+			}
+			const int32 Stored = Instruction.Values[static_cast<std::size_t>(Operand)];
+			if (Kind.Kind == EEventOperand::Jump)
+			{
+				Jump(Out, static_cast<std::size_t>(Stored));
+			}
+			else if (Kind.Kind == EEventOperand::Message && Message)
+			{
+				Message(Out, Stored);
+			}
+			else
+			{
+				AppendOperand(Out, Kind, Stored, Flags);
+			}
+			++Written;
+		}
+		const uint8 Named = static_cast<uint8>(Operands.FlagBits | (bIf ? TestBits : uint8{0}));
+		if ((Flags & ~Named) != 0)
+		{
+			Out += " flags=0x";
+			AppendHex(Out, static_cast<uint32>(Flags & ~Named), 2);
+		}
+	}
 }

@@ -24,6 +24,12 @@ namespace Weltall
 		 * for the rest of the battle (the burning village's flames go out or change colour after the first tint).
 		 */
 		bool bTintKeepsStagePalettes = true;
+		/**
+		 * Regurus, unfinished in the original, fights as Vierge wearing its own model (BattleRegurus): Vierge's moves,
+		 * sounds and effects. The original's opening never ends, so a battle with Elly in it waits for good, and most of
+		 * its actions draw nothing. No row: the original never puts her in it, only the port's clear file does.
+		 */
+		bool bRegurusFightsAsVierge = true;
 
 		/** Every fix off: the original's drawing throughout. */
 		static constexpr FBattleShowOptions Original()
@@ -32,6 +38,7 @@ namespace Weltall
 			Options.bTrailsBlend = false;
 			Options.bUnlitModelsTakeStageLight = false;
 			Options.bTintKeepsStagePalettes = false;
+			Options.bRegurusFightsAsVierge = false;
 			return Options;
 		}
 	};

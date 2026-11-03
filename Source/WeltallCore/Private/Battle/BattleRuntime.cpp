@@ -108,6 +108,7 @@ namespace Weltall
 		Context.RuleOptions = Request.RuleOptions;
 		Context.bPerfectWorksRebalance = Request.bPerfectWorksRebalance;
 		Context.Balance = Request.Balance;
+		Context.AutoAdvance = Request.AutoAdvance;
 	}
 
 	FBattleRuntime::~FBattleRuntime() = default;
@@ -285,7 +286,8 @@ namespace Weltall
 					std::span<const uint8> Messages = Services.Events->Messages(Script);
 					if (Services.Story != nullptr)
 					{
-						if (std::optional<std::vector<uint8>> Changed = Services.Story->BattleEventMessages(Script, Messages, Services.bExpandedStory))
+						if (std::optional<std::vector<uint8>> Changed = Services.Story->BattleEventMessages(Script, Messages, Services.Events->DiscMessages(Script),
+								Services.bExpandedStory))
 						{
 							StoryEventMessages = std::move(*Changed);
 							Messages = StoryEventMessages;

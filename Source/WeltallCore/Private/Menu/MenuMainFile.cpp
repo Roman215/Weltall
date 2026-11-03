@@ -62,6 +62,7 @@ namespace Weltall
 
 		namespace Effect
 		{
+			constexpr uint8 Buzzer = 4;
 			constexpr uint8 CardDone = 0x34;
 		}
 	}
@@ -342,7 +343,12 @@ namespace Weltall
 			}
 			Flags[MenuFlag::TargetPointers] = 1;
 			const int32 Result = UpdateCellCursor(AnySave);
-			if (Result == Chosen)
+			if (Result == Chosen && bPicksClearSave && Files.Files[Files.Cells[static_cast<std::size_t>(CursorCell())]].ClearGame != EClearGame::ClearFile)
+			{
+				// A New Game+ starts from a save of the clear file's game alone: the others buzz.
+				PlaySound(Effect::Buzzer);
+			}
+			else if (Result == Chosen)
 			{
 				Files.bPointerOnCursor = false;
 				Files.Listing = 0;
@@ -451,6 +457,7 @@ namespace Weltall
 					const bool bSaved = Services.Saves != nullptr && !Services.Saves->Write(StoreSlot(Card, Slot), Save);
 					if (bSaved)
 					{
+						bFileSaved = true;
 						bSoundOn = true;
 						PlaySound(Effect::CardDone);
 						bSoundOn = false;
@@ -651,10 +658,16 @@ namespace Weltall
 		{
 			return false;
 		}
-		TResult<FGameState> Loaded = LoadOriginalSave(*Save, *Services.Game, Resources.GearParts(), *Services.Text.Tables, Services.LoadOptions);
+		const bool bExpansionPlayed = !Services.PlaysExpansion || Services.PlaysExpansion(Save->Expansion());
+		TResult<FGameState> Loaded = LoadOriginalSave(*Save, *Services.Game, Resources.GearParts(), *Services.Text.Tables, Services.LoadOptions, bExpansionPlayed);
 		if (!Loaded)
 		{
 			return false;
+		}
+		if (Save->StoryMode() == EStoryMode::Expanded && !bExpansionPlayed && Services.Tell)
+		{
+			Services.Tell(std::string(OptionsText::SecondDisc::ExpansionMissing), "the save's Disc 2 expansion, Mods/" + Save->Expansion()
+				+ ", is not there or is turned off: it goes on in the original Disc 2 where the expansion rejoins it");
 		}
 		*Services.Game = std::move(*Loaded);
 		return true;

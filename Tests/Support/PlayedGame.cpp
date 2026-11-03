@@ -23,11 +23,16 @@ namespace Weltall::Testing
 		{
 			FPlayedDisc& Disc = Game.Discs[Release == EDiscRelease::UsaDisc1 ? 0 : 1];
 			Disc.Iso = Release == EDiscRelease::UsaDisc1 ? First : Second;
-			Disc.Release = Release;
 			if (Disc.Iso == nullptr)
 			{
 				continue;
 			}
+			auto Identity = IdentifyDisc(*Disc.Iso);
+			if (!Identity)
+			{
+				return Identity.Error();
+			}
+			Disc.Identity = *Identity;
 			auto Executable = ReadBootExecutable(*Disc.Iso);
 			if (!Executable)
 			{
@@ -62,7 +67,7 @@ namespace Weltall::Testing
 		{
 			return MakeError("disc " + std::to_string(Number + 1) + " is not in the Games folder");
 		}
-		auto Started = FGameSession::PowerOn(Disc.Iso->Image(), *Disc.Index, *Disc.Executable, Disc.Release, OwnSound != nullptr ? *OwnSound : *Sound);
+		auto Started = FGameSession::PowerOn(Disc.Iso->Image(), *Disc.Index, *Disc.Executable, Disc.Identity, OwnSound != nullptr ? *OwnSound : *Sound);
 		if (!Started)
 		{
 			return Started.Error();
@@ -75,6 +80,8 @@ namespace Weltall::Testing
 		}
 		FPlayerSettings Settings = Session->Settings();
 		Settings.Camera = {1.0f, 0.0f, 0.0f, false, false};
+		// The explorer holds its way on through a door, as the original lets it.
+		Settings.Controls.DoorPause = NoDoorPause;
 		Settings.WorldMapCamera = {};
 		Session->SetSettings(Settings);
 		Session->Unreached().bStops = false;

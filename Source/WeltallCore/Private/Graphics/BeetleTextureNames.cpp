@@ -126,6 +126,7 @@ namespace Weltall
 				Found.V = ShownTop - Top;
 				Found.Width = ShownRight - Shown;
 				Found.Height = ShownBottom - ShownTop;
+				Found.Kind = Part.Upload->Kind;
 				Parts.push_back(Found);
 			}
 		}

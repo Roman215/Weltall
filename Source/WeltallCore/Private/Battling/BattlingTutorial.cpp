@@ -278,6 +278,28 @@ namespace Weltall::BattlingFightOps
 			}
 		}
 
+		/** The player's confirm this tick, or auto-advancing text's turning of the page. */
+		bool Confirmed(const FBattlingFight& Fight)
+		{
+			return (Fight.PadPressed & ButtonConfirm) != 0 || Fight.Tutorial.bPageRead;
+		}
+
+		/**
+		 * Whether the script waits for the button at a page of a lesson that its wait goes on from: the lesson menu's
+		 * prompt waits too, but the menu answers the button there.
+		 */
+		bool WaitsForReader(const FBattlingFight& Fight)
+		{
+			const FBattlingTutorial& Tutorial = Fight.Tutorial;
+			const uint8 Op = Fight.Tables.Scripts[Tutorial.Script];
+			const EMesStop Stop = Tutorial.Text.StopReason();
+			if (Tutorial.bMenuOpen || Stop == EMesStop::Typing)
+			{
+				return false;
+			}
+			return Op == OpWaitConfirm || (Op == OpWaitConfirmPage && (Stop == EMesStop::Page || Stop == EMesStop::Hold));
+		}
+
 		/** Runs the script until an instruction yields for this tick. */
 		void StepScript(FBattlingFight& Fight)
 		{
@@ -414,7 +436,7 @@ namespace Weltall::BattlingFightOps
 				case OpWaitConfirm:
 				{
 					const EMesStop Stop = Tutorial.Text.StopReason();
-					if (Stop == EMesStop::Typing || (Fight.PadPressed & ButtonConfirm) == 0)
+					if (Stop == EMesStop::Typing || !Confirmed(Fight))
 					{
 						return;
 					}
@@ -429,7 +451,7 @@ namespace Weltall::BattlingFightOps
 				case OpWaitConfirmPage:
 				{
 					const EMesStop Stop = Tutorial.Text.StopReason();
-					if (Stop == EMesStop::Typing || (Fight.PadPressed & ButtonConfirm) == 0 || (Stop != EMesStop::Page && Stop != EMesStop::Hold))
+					if (Stop == EMesStop::Typing || !Confirmed(Fight) || (Stop != EMesStop::Page && Stop != EMesStop::Hold))
 					{
 						return;
 					}
@@ -478,6 +500,17 @@ namespace Weltall::BattlingFightOps
 				}
 				Advance(1);
 			}
+		}
+
+		/** Runs the script for the tick of Input's vertical blanks; auto-advancing text turns a page its reader has had long enough. */
+		void StepScriptReading(FBattlingFight& Fight, const FBattlingTickInput& Input)
+		{
+			FBattlingTutorial& Tutorial = Fight.Tutorial;
+			const EMesAutoAdvance Pace = Fight.Text != nullptr ? Fight.Text->AutoAdvance : EMesAutoAdvance::Off;
+			const int32 Vblanks = static_cast<int32>(Input.Blanks.size());
+			Tutorial.bPageRead = Tutorial.Reading.Tick(Pace, WaitsForReader(Fight), MesShownGlyphs(Tutorial.Text), Vblanks);
+			StepScript(Fight);
+			Tutorial.bPageRead = false;
 		}
 
 		void EaseTarget(FBattlingFight& Fight, const FBattlingPoint& Goal, int32 Divisor)
@@ -648,7 +681,7 @@ namespace Weltall::BattlingFightOps
 		{
 			StartLesson(Fight, LessonPrompt);
 		}
-		StepScript(Fight);
+		StepScriptReading(Fight, Input);
 		Tutorial.Pointer[0] += DivideRoundingAway(Tutorial.PointerGoal[0], Tutorial.Pointer[0], 4);
 		Tutorial.Pointer[1] += DivideRoundingAway(Tutorial.PointerGoal[1], Tutorial.Pointer[1], 4);
 		Tutorial.bMenuDrawn = Tutorial.bMenuOpen;
@@ -690,7 +723,7 @@ namespace Weltall::BattlingFightOps
 		Fight.Fighters[0].Stun = 0;
 	}
 
-	void TickEnding(FBattlingFight& Fight)
+	void TickEnding(FBattlingFight& Fight, const FBattlingTickInput& Input)
 	{
 		if (!Fight.bEndingActive)
 		{
@@ -740,7 +773,7 @@ namespace Weltall::BattlingFightOps
 		default:
 			break;
 		}
-		StepScript(Fight);
+		StepScriptReading(Fight, Input);
 		if (Tutorial.Message != Tutorial.MessageShown)
 		{
 			Tutorial.Text.SetSpeed(EndingTextSpeed);

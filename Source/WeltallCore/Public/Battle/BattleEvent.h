@@ -30,6 +30,12 @@ namespace Weltall
 		int32 Count() const { return static_cast<int32>(Scripts.size()); }
 		std::span<const uint8> Script(int32 Number) const { return Scripts[static_cast<std::size_t>(Number)]; }
 		std::span<const uint8> Messages(int32 Number) const { return MessageTables[static_cast<std::size_t>(Number)]; }
+		/** Event Number's table as the disc gives it, before the player's messages (Assets/text) replaced any of it. */
+		std::span<const uint8> DiscMessages(int32 Number) const
+		{
+			const std::size_t At = static_cast<std::size_t>(Number);
+			return At < DiscMessageTables.size() && !DiscMessageTables[At].empty() ? std::span<const uint8>(DiscMessageTables[At]) : Messages(Number);
+		}
 		/** How the scripts measure their message windows: Perfect Works' where the disc's mod gives its own scripts. */
 		EBattleMessageLayout Layout() const { return MessageLayout; }
 		/** Which of event Number's messages are the player's (Assets/text); none where the archive was parsed alone. */
@@ -41,6 +47,8 @@ namespace Weltall
 	private:
 		std::vector<std::vector<uint8>> Scripts;
 		std::vector<std::vector<uint8>> MessageTables;
+		/** The disc's own table of each event whose messages the player's replaced; empty for the others. */
+		std::vector<std::vector<uint8>> DiscMessageTables;
 		std::vector<FReplacedMessages> ReplacedMessages;
 		EBattleMessageLayout MessageLayout = EBattleMessageLayout::Original;
 	};

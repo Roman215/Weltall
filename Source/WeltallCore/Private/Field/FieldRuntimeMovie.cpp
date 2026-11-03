@@ -64,7 +64,7 @@ namespace Weltall
 				return Error;
 			}
 			Context.Messages.Tick();
-			UpdateFieldMessages(Context, Context.Controls.Pressed, Context.Controls.Repeated);
+			UpdateFieldMessages(Context, Context.Controls.Pressed, Context.Controls.Repeated, VblanksPerTick());
 			RunVblanks(HeldPerVblank);
 			if (IsSoftReset())
 			{

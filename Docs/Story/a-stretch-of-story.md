@@ -1,14 +1,17 @@
 # A stretch of story
 
-The `disc2` pack turns two narrated sections into playable sequences: the rematch with Ramsus above
-the forest, and Elly's trip to the Mass Driver. Each branches from the original story, adds scenes
-and maps, then rejoins it with the same game state. Here's how that works.
+The example scenes (`Content/Examples`) turn two narrated sections into playable sequences: the
+rematch with Ramsus above the forest, and Elly's trip to the Mass Driver. Each branches from the
+original story, adds scenes and maps, then rejoins it with the same game state. Here's how that works.
 
-## Enabling the pack
+## An expansion is a mod
 
-The `disc2` pack is active only when the player chooses "Extended" at the start of Disc 2. Otherwise,
-its patches, maps and world map locations aren't used. Release packages leave the pack out; build
-with `--expansion` to include it (see Packaging in the main README).
+An expansion is a folder in `Mods` with its documents in a `disc2` folder and a `mod.txt` naming it
+(the [modding guide](../Modding.md) has the details). Options → Modding → Extract example scenes copies
+the examples there as `Mods/Disc 2 examples`, a starting point for your own
+([Writing an expansion](writing-an-expansion.md)). Choose an expansion on the Modding page, then answer
+**Extended** when Disc 2 begins to play it. Its patches, maps and world map locations apply only to that
+game. Your saves keep the choice, so loading them continues the same expansion.
 
 ## Story progress
 
@@ -21,11 +24,11 @@ in the same maps, and identifies saves made during it.
 
 Patch the map where your sequence starts so it sends the player to your first map:
 
-- `Content/Story/disc2/rematch-parting.txt` changes the Ministry scene to fade out and enter map 730
+- `Content/Examples/disc2/rematch-parting.txt` changes the Ministry scene to fade out and enter map 730
   instead of starting the rematch battle. It uses one `detour` at the battle instruction.
-- `Content/Story/disc2/rematch-aftermath.txt` returns to the sky after the battle (map 731), then enters
+- `Content/Examples/disc2/rematch-aftermath.txt` returns to the sky after the battle (map 731), then enters
   Taura's house with `ChangeMap #616 #1`, where the original would return to the chair narration.
-- `Content/Story/disc2/mass-driver-setting-out.txt` starts the new sequence at Taura's house and sets
+- `Content/Examples/disc2/mass-driver-setting-out.txt` starts the new sequence at Taura's house and sets
   story progress to 253.
 
 ## Returning to the original story
@@ -52,7 +55,7 @@ normal movement input.
 ## Save compatibility
 
 A save made during an expansion sequence needs a fallback for playing without the expansion,
-including in the original game. `Content/Story/disc2/way-back.txt` maps each new story value to a
+including in the original game. `Content/Examples/disc2/way-back.txt` maps each new story value to a
 compatible point in the original story:
 
 ```
@@ -64,8 +67,8 @@ A save at story value 253 falls back to map 617, entrance 2, at story value 252:
 narration before the launch. The save also keeps the player's position in the expansion, so loading
 it with the expansion enabled resumes there. The same table handles turning the expansion off in Options.
 
-Add a row for every story value your sequence sets. Values without a row are treated as original
-story values.
+Add a row for every story value your sequence sets. Without a row, the save keeps your map and story
+value, which the original game may not be able to load.
 
 ## Related guides
 

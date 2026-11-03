@@ -17,15 +17,16 @@ found, and says what you need for anything that's missing. Japanese retail discs
 you can dump their files (see [the modding guide](Docs/Modding.md)).
 
 Fan translations that only change the game's text, pictures and movies also play, such as the Spanish
-translation by Romhack Hispano. So does the French translation by Atelier Traduction (version 1.1), with
-English or Japanese voices. Patch your USA discs and put the patched images in `Games`. If the originals
+translation by Romhack Hispano. So do the French translation by Atelier Traduction (version 1.1), with
+English or Japanese voices, and the Italian translation by SadNES cITy (version 1.2.1), with its subtitled
+movies. Patch your USA discs and put the patched images in `Games`. If the originals
 are there too, the patched ones play. Weltall's own screens, such as Options, stay in English.
 
 **Status:** Both discs are playable, including field exploration, character and Gear battles, the
 world map, menus, the Battling arena and movies. Gameplay behavior has been checked against the
-original game's code. My own playthrough is still in progress, with about 25 hours played without
-a hang. Automated tests have run every map and story battle, along with long stretches of the story
-from save to save. You should be able to play from start to finish, and I'm fixing reported issues as
+original game's code. I've finished my own playthrough, including the ending and a clear save.
+Automated tests have run every map and story battle, along with long stretches of the story
+from save to save. You can play from start to finish, and I'm fixing reported issues as
 they come in. If something goes wrong, the game displays an error and tells you which log to include
 in a bug report.
 
@@ -35,7 +36,8 @@ in a bug report.
 - **Smooth motion at any refresh rate**, including 120 Hz and above, without changing the game's pace.
 - **A free camera** on the field and world map, with rotation, tilt and zoom using a mouse or right stick.
 - **Per-pixel depth sorting** to fix characters, Gears and scenery clipping or flickering over each other.
-- **Graphics options** for sharper or smoother scenery and sprites, anti-aliasing, upscaled movies and a CRT filter.
+- **Graphics options** for sharper or smoother scenery and sprites, anti-aliasing, upscaled movies, a CRT filter and
+  integer scaling.
 - **Softer battle flashes**, or none at all, for the bright screen flashes from attacks and Ether.
 - **Separate volumes** for the music, sound effects, battle voices and movies, plus a master volume.
 - **3D Gears** on the field and world map, using their battle models, plus full-size party sprites in Gear areas.
@@ -43,7 +45,8 @@ in a bug report.
 - **Balance options** to earn up to four times the experience and gold, and to have fewer random battles, more of
   them, or none at all.
 - **Chapter titles** displayed when each chapter begins.
-- **Custom party order**, so any character can lead the party (see below).
+- **Custom party order**, so any character can lead the party, and a choice of looks for Citan and Emeralda later
+  in the story (see below).
 - **Always run**, **analog movement** that walks in any direction and slowly with a light push of the stick, and
   doors that open when you walk into them.
 - **Keyboard, mouse and controller support**: Xbox, PlayStation and Switch Pro controllers and most other
@@ -51,7 +54,9 @@ in a bug report.
 - **An Android version** for phones and tablets, with a PlayStation controller drawn on the screen (see
   [Android](#android)).
 - **Save options** to load from the menu anywhere, import PlayStation memory-card or emulator saves, and export
-  memory-card images.
+  memory-card images, plus save states on the field and world map.
+- **A clear save and New Game+**, with a choice of what to carry over and additional character and party options
+  for repeat playthroughs (see below).
 - **Fixes for bugs in the original game**.
 - **Modding options** to export the game's textures as PNG, its music as WAV and its text and font to edit, dump
   the disc's files, and load your replacements from the `Assets` folder, including texture packs made for
@@ -61,8 +66,9 @@ in a bug report.
 You can adjust these in Options from the title screen or in-game menu, including switching back to the
 original behavior.
 
-The source also includes tools for turning Disc 2's narrated sections into playable sequences, with
-two examples. These are separate from the main port and aren't included in the downloadable builds.
+Disc 2's narrated sections can be turned into playable sequences, as expansions shared as mods. The
+downloads include two example scenes, which Options → Modding → Extract example scenes copies into the
+`Mods` folder; [Writing an expansion](Docs/Story/writing-an-expansion.md) explains how to write your own.
 
 Weltall is not affiliated with or endorsed by the owners of *Xenogears*. All game content and
 trademarks belong to their respective owners.
@@ -79,9 +85,11 @@ choose New Game or load a Disc 1 save, as the original does. For phones and tabl
 
 Players have run the Linux build on a Steam Deck and on CachyOS with an AMD graphics card.
 
-Options covers display, sound, camera, text speed, bug fixes, controls, and a Modding page with the
-balance options and the Assets page. During battles, R1 increases the speed from 1x to 2x to 4x, and
-L1 decreases it.
+Options covers display, sound, camera, text speed, auto-advancing text, bug fixes, controls, and a Modding
+page with the balance options and the Assets page. **Auto-advance text** (Off by default) turns pages of
+dialogue by itself after a pause to read them; choices always wait for you. During battles, R1 increases the speed from 1x to 2x to 4x, and
+L1 decreases it. Press **L** (or a controller's L3, pressing the left stick) to read the dialogue so far in the
+**message log**: Up and Down scroll it, L1 and R1 turn a page, and Cancel closes it. The game waits while it is open.
 
 To keep the original PlayStation button symbols in prompts and menus, turn on **Original PSX icons**
 under **Options → Controls**. Your bindings still apply, and the rebinding rows show your actual keys.
@@ -99,17 +107,46 @@ party returns to the story's order; when the same group is together again, your 
 Member Change, a replacement takes the outgoing character's position. Cutscenes, scripted battles,
 and field scenes where party members are speaking or placed around the map use the story's order.
 
+Later in the story, Citan and Emeralda each gain a second look. While rearranging the party, press □ on one of
+them to switch between the two. Only the look changes: their sprites, attack animations and Deathblow names,
+and Citan's Heimdal. Their stats, levels and damage stay the same. Like your party order, the choice is saved
+with your game, and cutscenes and scripted battles show them as the story has them.
+
+### After the ending
+
+On the ending's last picture, wait a few seconds and press Confirm to make a **clear save**. It puts you
+back before the final dungeon with your endgame progress and unlocks additional character options.
+
+With a clear save available, **New Game** on the title screen offers **New Game+**. Pick the clear save
+to start from, then choose whether to keep your money, equipment, items, Deathblows and levels. Story
+items stay behind. **Limiter → Removed** keeps the ability to reach 7 AP. The other unlocked options
+are explained in the game, or in the spoiler section below.
+
+<details>
+<summary>Postgame character and party options (story spoilers)</summary>
+
+The clear save puts you aboard the Yggdrasil, with Elly available in Regurus. While arranging the party,
+press □ on Fei to play as Id, with his own attacks and red Gears, or on Elly to give her purple hair.
+These looks are available in New Game+ too.
+
+New Game+'s **Elly → Returns** makes her available again at the member change in Merkava's core,
+in Regurus. Her departure and the story's scenes still play as written; she is temporarily away with
+Fei at Bethlehem.
+
+</details>
+
 ### Android
 
 The Android version runs on 64-bit phones and tablets with Android 10 or later and Vulkan graphics.
 It isn't on Google Play and isn't registered with Google: it's only available as an APK from this
-page, which you install yourself. Download it, open it on your device and allow it to be installed.
-On Samsung devices, turn off Auto Blocker first (Settings → Security and privacy).
+page, which you install yourself. Download it and open it on your device. If asked, allow your browser
+or file manager to install apps. On Samsung devices, if Auto Blocker prevents installation, turn it off
+under Settings → Security and privacy.
 
-Android is starting to block apps from developers who aren't registered with Google: in Brazil,
-Indonesia, Singapore and Thailand since September 2026, and everywhere from 2027. If yours refuses
-the APK, turn on **Allow apps from unverified developers** in Developer options first (the first time,
-Android asks you to wait a day), or install it from a computer with `adb install`.
+If Android blocks the APK because the developer is unverified, follow
+[Android's setup instructions](https://developer.android.com/developer-verification/guides/faq).
+You may need to enable apps from unverified developers in Developer options and wait 24 hours once.
+You can also install it from a computer with `adb install`.
 
 To give Weltall your discs, first put the disc images on the device in a folder inside Download, such
 as `Download/Xenogears`: connect it to a computer by USB and copy them there. Then start Weltall, tap
@@ -169,6 +206,12 @@ On Windows, settings and saves are in `%LOCALAPPDATA%\Weltall`. On Linux, settin
 Use the Saves page in Options to import a PlayStation memory-card image or an individual save file,
 including emulator saves. You can also export a card as an `.mcr` image to `Saves\Cards`.
 
+For a quick save while exploring on foot or in Gears, press **F5** to save a state and **F9** to load it.
+**F6** and **F7** select the previous and next slot. There are ten slots; you can rebind these keys under
+**Options → Controls → Save states**. States can be saved on the field or world map while you have
+control, outside dialogue and cutscenes. In a vehicle, go inside the ship first. These states work only
+in Weltall, and may not load in a different version. Keep ordinary saves too.
+
 ### Reporting a problem
 
 If the game stops with an error on screen, attach the log file it names to a bug report and describe
@@ -203,10 +246,14 @@ existing map assets, change battle narration, add world map locations and define
 Scripts use the original game's instruction names and message markup. Each document references
 the original content it needs and contains only the additions.
 
-The `disc2` pack includes two playable examples: the rematch above the forest, and Elly's trip to the
-Mass Driver with a short dungeon. Both rejoin the original story afterward. The pack is only used if
-the player selects it when Disc 2 begins. [Docs/Story](Docs/Story/README.md) explains how to write these
-documents using the existing files as examples.
+A Disc 2 expansion is a mod: a folder in `Mods` with its documents in a `disc2` folder and a
+`mod.txt` naming it. The game ships two example scenes in `Content/Examples`: a battle lead-in and
+a short dungeon. Both rejoin the original story
+afterward. **Options → Modding → Extract example scenes** copies them into `Mods`, and from the next
+start they play when you choose Extended as Disc 2 begins. **Export Disc 2** beside it writes
+the second disc's maps and battle text into a new expansion folder. It changes nothing until you edit
+one of its documents ([Docs/Modding.md](Docs/Modding.md#starting-from-export-disc-2)).
+[Docs/Story](Docs/Story/README.md) explains how to write these documents using the examples.
 
 `WeltallMapText` is built alongside the tests and prints a disc map in this text format, for example
 `WeltallMapText 613`. Use it to inspect the scripts you're patching. Its output contains original game
@@ -240,13 +287,10 @@ other configurations use the SDK's debug key.
 `python Scripts/package.py --archive Shipping` also creates a release zip in `out/releases`, without
 disc images, and a separate debug symbols archive. For Android, the release file is the arm64 APK.
 
-`python Scripts/release.py 0.8.5` builds the Windows, Linux and Android Shipping packages from a
+`python Scripts/release.py 1.0.0` builds the Windows, Linux and Android Shipping packages from a
 pushed commit whose `ProjectVersion` matches that version. It creates the archives and a GitHub draft
 release with the player downloads and release notes, using the GitHub CLI. Publish the draft from
 the release page.
-
-Packages leave out the `disc2` pack and play the original Disc 2 without asking you to choose a mode.
-Build with `--expansion` to include the examples; those archives are marked in the filename.
 
 ## Credits
 

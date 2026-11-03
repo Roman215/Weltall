@@ -46,6 +46,34 @@ TEST_CASE("A menu primitive is drawn between its place in the frame before and i
 	CHECK(List.Primitives[0].Corners[0].X == Catch::Approx(40.0f));
 }
 
+TEST_CASE("A keyed primitive that moved further than the builder's reach is drawn where it is now", "[Menu]")
+{
+	FMenuFrame Before;
+	FMenuFrame Now;
+	Before.Primitives.push_back(ScreenQuad(0, 0, 10, 7));
+	Before.Primitives.push_back(ScreenQuad(0, 100, 10, 8));
+	Before.Primitives.push_back(ScreenQuad(0, 200, 10, 9));
+	// Within reach; across it; grown by one corner past it.
+	Now.Primitives.push_back(ScreenQuad(64, 0, 10, 7));
+	Now.Primitives.push_back(ScreenQuad(0, 165, 10, 8));
+	FMenuPrimitive Grown = ScreenQuad(0, 200, 10, 9);
+	Grown.Corners[3].X = 80;
+	Now.Primitives.push_back(Grown);
+	FMenuDrawBuilder Builder;
+	Builder.BlendReach = 64.0f;
+	FDrawList List;
+	Builder.Build(Now, &Before, 0.5f, List);
+	REQUIRE(List.Primitives.size() == 3);
+	CHECK(List.Primitives[0].Corners[0].X == Catch::Approx(32.0f));
+	CHECK(List.Primitives[1].Corners[0].Y == Catch::Approx(165.0f));
+	CHECK(List.Primitives[2].Corners[3].X == Catch::Approx(80.0f));
+	CHECK(List.Primitives[2].Corners[0].X == Catch::Approx(0.0f));
+	// Without a reach, any distance blends.
+	Builder.BlendReach = 0.0f;
+	Builder.Build(Now, &Before, 0.5f, List);
+	CHECK(List.Primitives[1].Corners[0].Y == Catch::Approx(132.5f));
+}
+
 TEST_CASE("A menu drawn on a widened drawing area shows what lies past the screen's edges", "[Menu]")
 {
 	FMenuFrame Now;

@@ -44,10 +44,10 @@ namespace
 		return Page.Heard(Key, Bindings);
 	}
 
-	constexpr std::array<std::string_view, 18> ActionLabels = {Text::Up.Label, Text::Down.Label, Text::Left.Label, Text::Right.Label,
+	constexpr std::array<std::string_view, 23> ActionLabels = {Text::Up.Label, Text::Down.Label, Text::Left.Label, Text::Right.Label,
 		Text::Confirm.Label, Text::Cancel.Label, Text::Menu.Label, Text::Jump.Label, Text::CameraLeft.Label, Text::CameraRight.Label,
-		Text::GearLeft.Label, Text::GearRight.Label, Text::Pause.Label, Text::Map.Label, Text::Rotate.Label, Text::Tilt.Label, Text::Zoom.Label,
-		Text::ResetCamera.Label};
+		Text::GearLeft.Label, Text::GearRight.Label, Text::Pause.Label, Text::Map.Label, Text::MessageLog.Label, Text::Rotate.Label, Text::Tilt.Label,
+		Text::Zoom.Label, Text::ResetCamera.Label, Text::SaveState.Label, Text::LoadState.Label, Text::NextSlot.Label, Text::PreviousSlot.Label};
 
 	bool IsAxis(std::string_view Label)
 	{
@@ -61,27 +61,37 @@ TEST_CASE("The Controls page shows two keys of each button and camera action, of
 	FMenuControlsPage Page(Keys);
 	FControlBindings Bindings = FControlBindings::Defaults();
 	const std::vector<FSettingsRow> Rows = Page.Rows(Bindings);
-	REQUIRE(Rows.size() == 33);
+	REQUIRE(Rows.size() == 41);
 	CHECK(Rows[0].Label == Text::Device);
 	CHECK(Rows[0].Value == Text::Keyboard);
 	CHECK(Rows[0].bReadOnly);
 	CHECK(Rows[1].bHeading);
-	CHECK(Rows[16].Label == Text::AlwaysRun.Label);
-	CHECK(Rows[17].Label == Text::AnalogMovement.Label);
-	CHECK(Rows[18].Label == Text::WalkIntoDoors.Label);
-	CHECK(Rows[19].Label == Text::OriginalButtonIcons.Label);
-	CHECK(Rows[20].Label == Text::ButtonLayout.Label);
-	CHECK(Rows[21].Label == Text::CameraHeading);
-	CHECK(Rows[26].Label == Text::MouseSensitivity.Label);
-	CHECK(Rows[27].Label == Text::StickSensitivity.Label);
-	CHECK(Rows[28].Label == Text::TouchHeading);
-	CHECK(Rows[28].bHeading);
-	CHECK(Rows[29].Label == Text::TouchMovement.Label);
-	CHECK(Rows[29].Value == "D-pad");
-	CHECK(Rows[30].Label == Text::TouchOpacity.Label);
-	CHECK(Rows[30].Value == "100%");
-	CHECK(Rows[31].Label == Text::TouchVibration.Label);
-	CHECK(Rows[31].Value == OptionsText::On);
+	CHECK(Rows[15].Label == Text::Map.Label);
+	CHECK(Rows[16].Label == Text::MessageLog.Label);
+	CHECK(Rows[17].Label == Text::AlwaysRun.Label);
+	CHECK(Rows[18].Label == Text::AnalogMovement.Label);
+	CHECK(Rows[19].Label == Text::WalkIntoDoors.Label);
+	CHECK(Rows[20].Label == Text::StopAtDoors.Label);
+	CHECK(Rows[21].Label == Text::OriginalButtonIcons.Label);
+	CHECK(Rows[22].Label == Text::ButtonLayout.Label);
+	CHECK(Rows[23].Label == Text::CameraHeading);
+	CHECK(Rows[28].Label == Text::CameraButtons.Label);
+	CHECK(Rows[29].Label == Text::MouseSensitivity.Label);
+	CHECK(Rows[30].Label == Text::StickSensitivity.Label);
+	CHECK(Rows[31].Label == Text::StatesHeading);
+	CHECK(Rows[31].bHeading);
+	CHECK(Rows[32].Label == Text::SaveState.Label);
+	CHECK(Rows[33].Label == Text::LoadState.Label);
+	CHECK(Rows[34].Label == Text::NextSlot.Label);
+	CHECK(Rows[35].Label == Text::PreviousSlot.Label);
+	CHECK(Rows[36].Label == Text::TouchHeading);
+	CHECK(Rows[36].bHeading);
+	CHECK(Rows[37].Label == Text::TouchMovement.Label);
+	CHECK(Rows[37].Value == "D-pad");
+	CHECK(Rows[38].Label == Text::TouchOpacity.Label);
+	CHECK(Rows[38].Value == "100%");
+	CHECK(Rows[39].Label == Text::TouchVibration.Label);
+	CHECK(Rows[39].Value == OptionsText::On);
 	CHECK(Rows.back().Label == Text::ResetKeys);
 	for (const std::string_view Label : ActionLabels)
 	{
@@ -94,6 +104,11 @@ TEST_CASE("The Controls page shows two keys of each button and camera action, of
 	CHECK(Cross.Cells[0].Icon == "E");
 	CHECK(Cross.Cells[1].Icon == "Enter");
 	CHECK(RowNamed(Page, Bindings, Text::Jump.Label).Cells[0].Icon == "Space");
+	CHECK(RowNamed(Page, Bindings, Text::SaveState.Label).Cells[0].Key == "F5");
+	CHECK(RowNamed(Page, Bindings, Text::LoadState.Label).Cells[0].Key == "F9");
+	CHECK(RowNamed(Page, Bindings, Text::NextSlot.Label).Cells[0].Key == "F7");
+	CHECK(RowNamed(Page, Bindings, Text::PreviousSlot.Label).Cells[0].Key == "F6");
+	CHECK(RowNamed(Page, Bindings, Text::MessageLog.Label).Cells[0].Key == "L");
 	// What the button does, then the buttons that clear and swap, by their rows' names (the US discs' Triangle and Square).
 	CHECK(Cross.Help[0] == Text::Confirm.Help[0]);
 	CHECK(Cross.Help[1] == OptionsText::Fill(Text::ClearAndSwap, {Text::Jump.Label, Text::Menu.Label}));
@@ -628,4 +643,65 @@ TEST_CASE("A sensitivity's level scales the view's speed by steps of one ratio, 
 	CHECK(StickRateScale(LowestSensitivity) == Catch::Approx(0.5f));
 	CHECK(StickRateScale(HighestSensitivity) > 2.0f);
 	CHECK(StickRateScale(HighestSensitivity + 5) == StickRateScale(HighestSensitivity));
+}
+
+TEST_CASE("The Controls page's Stop at doors row sets how long the directions wait after a map change, Off to a second", "[Menu]")
+{
+	Testing::FPressedKeys Keys;
+	FMenuControlsPage Page(Keys);
+	FControlBindings Bindings = FControlBindings::Defaults();
+	REQUIRE(Bindings.DoorPause == DefaultDoorPause);
+	const int32 Row = RowOf(Page, Text::StopAtDoors.Label);
+	REQUIRE(Row == RowOf(Page, Text::WalkIntoDoors.Label) + 1);
+	const auto Value = [&] { return Page.Rows(Bindings)[static_cast<std::size_t>(Row)].Value; };
+	const FSettingsRow Default = Page.Rows(Bindings)[static_cast<std::size_t>(Row)];
+	CHECK(Default.Value == "0.5 s");
+	CHECK(Default.Cells.empty());
+	CHECK(Default.Help == OptionsText::Fill(Text::StopAtDoors.Help));
+
+	// Right steps a tenth up to a second, Left down to Off, each end staying put.
+	REQUIRE(Page.Step(Row, 1, Bindings));
+	CHECK(Value() == "0.6 s");
+	while (Page.Step(Row, 1, Bindings))
+	{
+	}
+	CHECK(Bindings.DoorPause == LongestDoorPause);
+	CHECK(Value() == "1.0 s");
+	while (Page.Step(Row, -1, Bindings))
+	{
+	}
+	CHECK(Bindings.DoorPause == NoDoorPause);
+	CHECK(Value() == OptionsText::Off);
+	CHECK(Bindings.bWalkIntoDoors);
+
+	// Confirm steps up, a second going round to Off.
+	REQUIRE(Page.Activate(Row, Bindings));
+	CHECK(Value() == "0.1 s");
+	Bindings.DoorPause = LongestDoorPause;
+	REQUIRE(Page.Activate(Row, Bindings));
+	CHECK(Bindings.DoorPause == NoDoorPause);
+	CHECK_FALSE(Page.Listening());
+}
+
+TEST_CASE("The Controls page's Camera buttons row chooses whether Camera left and right rotate or zoom", "[Menu]")
+{
+	Testing::FPressedKeys Keys;
+	FMenuControlsPage Page(Keys);
+	FControlBindings Bindings = FControlBindings::Defaults();
+	REQUIRE(Bindings.CameraButtons == ECameraButtons::Rotate);
+	const int32 Row = RowOf(Page, Text::CameraButtons.Label);
+	REQUIRE(Row == RowOf(Page, Text::ResetCamera.Label) + 1);
+	const FSettingsRow Rotating = Page.Rows(Bindings)[static_cast<std::size_t>(Row)];
+	CHECK(Rotating.Value == Text::CameraButtonsValues[0]);
+	CHECK(Rotating.Help == OptionsText::Fill(Text::CameraButtons.Help));
+	REQUIRE(Page.Step(Row, 1, Bindings));
+	CHECK(Bindings.CameraButtons == ECameraButtons::Zoom);
+	CHECK(Page.Rows(Bindings)[static_cast<std::size_t>(Row)].Value == Text::CameraButtonsValues[1]);
+	REQUIRE(Page.Activate(Row, Bindings));
+	CHECK(Bindings.CameraButtons == ECameraButtons::Rotate);
+	CHECK_FALSE(Page.Listening());
+	// The devices' resets leave it.
+	Bindings.CameraButtons = ECameraButtons::Zoom;
+	REQUIRE(Page.Activate(static_cast<int32>(Page.Rows(Bindings).size()) - 1, Bindings));
+	CHECK(Bindings.CameraButtons == ECameraButtons::Zoom);
 }

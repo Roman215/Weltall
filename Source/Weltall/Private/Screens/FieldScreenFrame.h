@@ -23,18 +23,25 @@ public:
 	/** A picture of Shown (none: black), shared by the game thread's frames and drawn and released on the rendering thread. */
 	static TSharedRef<FFieldCoverPicture> Make(TSharedPtr<const IScreenFrame> Shown);
 
-	/** The picture at the given size, drawn the first time it is asked for (and again at another size). Rendering thread. */
-	FRDGTextureRef Texture(FRDGBuilder& GraphBuilder, FIntPoint Size);
+	/** The picture as Area shows it, at its size, drawn the first time it is asked for (and again for another). Rendering thread. */
+	FRDGTextureRef Texture(FRDGBuilder& GraphBuilder, const FScreenArea& Area);
 
 	/** The picture at the field's own 320 x 224, a pixel of the screen a texel, drawn once; none for a black picture. Rendering thread. */
 	FRDGTextureRef ScreenPixels(FRDGBuilder& GraphBuilder);
 
 private:
-	FRDGTextureRef Draw(FRDGBuilder& GraphBuilder, FIntPoint Size, TRefCountPtr<IPooledRenderTarget>& Into);
+	/** A picture kept, and the scale its area laid screens out at. */
+	struct FDrawn
+	{
+		TRefCountPtr<IPooledRenderTarget> Target;
+		int32 WholeScale = 0;
+	};
+
+	FRDGTextureRef Draw(FRDGBuilder& GraphBuilder, const FScreenArea& Area, FDrawn& Into);
 
 	TSharedPtr<const IScreenFrame> Shown;
-	TRefCountPtr<IPooledRenderTarget> Drawn;
-	TRefCountPtr<IPooledRenderTarget> DrawnAtScreen;
+	FDrawn Drawn;
+	FDrawn DrawnAtScreen;
 };
 
 /**
@@ -47,7 +54,7 @@ class FFieldStillFrame final : public IScreenFrame
 public:
 	static TSharedRef<FFieldStillFrame> Make(TSharedRef<const IScreenFrame> Frame);
 
-	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override;
+	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override;
 	virtual Weltall::FScreenSize ScreenSize() const override { return Frame->ScreenSize(); }
 
 private:
@@ -55,7 +62,7 @@ private:
 
 	TSharedRef<const IScreenFrame> Frame;
 	mutable TRefCountPtr<IPooledRenderTarget> Drawn;
-	mutable FIntRect DrawnArea;
+	mutable FScreenArea DrawnArea;
 };
 
 /**
@@ -77,7 +84,7 @@ class FFieldScreenFrame final : public IScreenFrame
 public:
 	FFieldScreenFrame(TSharedRef<const FFieldSceneMesh> InMesh, TSharedRef<FVramTexture> InVram);
 
-	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override;
+	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override;
 
 	FFieldSceneDraw Draw;
 	/** A movie the field shows in place of its scene, the whole screen its picture. */

@@ -135,3 +135,40 @@ TEST_CASE("Messages build a table the game reads", "[Text]")
 	REQUIRE(None);
 	CHECK(None->Count() == 0);
 }
+
+TEST_CASE("A table whose last message starts past its bytes is kept, that message read as none, and stays so as the table is rebuilt", "[Text]")
+{
+	// Two messages, and a third whose offset is one past the table's end, as a translation's tool can leave unused ones.
+	FBytes Bytes = {0x02, 0x00, 0x00, 0x00, 0x10, 0x00, 0x12, 0x00, 0x15, 0x00, 2, 1, 2, 1, 2, 1, 0x21, 0x00, 0x22, 0x00};
+	const auto Table = FMessageTable::Parse(Bytes);
+	REQUIRE(Table);
+	REQUIRE(Table->Count() == 3);
+	const auto Message = [](std::span<const uint8> String) { return FBytes(String.begin(), String.begin() + static_cast<std::ptrdiff_t>(MesMessageSize(String))); };
+	CHECK(Message(Table->String(0)) == FBytes{0x21, 0x00});
+	CHECK(Message(Table->String(1)) == FBytes{0x22, 0x00});
+	CHECK_FALSE(Table->StartsPastBytes(1));
+	CHECK(Table->StartsPastBytes(2));
+	CHECK(Table->String(2).empty());
+
+	// Added messages move the others, but not that one into them.
+	REQUIRE(AppendMessages(Bytes, std::vector<FAddedMessage>{*MesMessageOfText("C")}) == 3);
+	const auto Appended = FMessageTable::Parse(Bytes);
+	REQUIRE(Appended);
+	CHECK(Message(Appended->String(1)) == FBytes{0x22, 0x00});
+	CHECK(Appended->String(2).empty());
+	CHECK(MesTextOfCodes(Appended->String(3)) == "C");
+
+	// Built again from its messages, as the player's text rebuilds a table.
+	std::vector<FAddedMessage> Messages;
+	for (int32 Index = 0; Index < Appended->Count(); ++Index)
+	{
+		Messages.push_back({Message(Appended->String(Index)), static_cast<uint8>(Appended->WidthUnits(Index)), static_cast<uint8>(Appended->Lines(Index))});
+	}
+	const auto Built = BuildMessageTable(Messages);
+	REQUIRE(Built);
+	const auto Rebuilt = FMessageTable::Parse(*Built);
+	REQUIRE(Rebuilt);
+	CHECK(Message(Rebuilt->String(0)) == FBytes{0x21, 0x00});
+	CHECK(Rebuilt->StartsPastBytes(2));
+	CHECK(MesTextOfCodes(Rebuilt->String(3)) == "C");
+}

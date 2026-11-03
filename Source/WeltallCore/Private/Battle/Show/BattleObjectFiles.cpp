@@ -82,7 +82,7 @@ namespace Weltall
 			{
 				return Motion.Error();
 			}
-			return FBattleModelFiles{std::move(*Model), std::move(*Motion), std::nullopt};
+			return FBattleModelFiles{std::move(*Model), std::move(*Motion), std::nullopt, std::nullopt};
 		}
 
 		TResult<FBattleModelFiles> ReadPair(const FCdImage& Image, const FGameFileIndex& Index, int32 Directory, int32 ModelFile)
@@ -303,6 +303,21 @@ namespace Weltall
 			}
 			return Files;
 		}
+
+		TResult<FBattleModelFiles> ReadSceneModel(const FCdImage& Image, const FGameFileIndex& Index, int32 Scene, int32 Entry)
+		{
+			TResult<FBattleSceneGraphics> Graphics = FBattleSceneGraphics::Load(Image, Index, Scene);
+			if (!Graphics)
+			{
+				return Graphics.Error();
+			}
+			TResult<FBattleModelFiles> Files = SceneModel(*Graphics, Entry);
+			if (!Files)
+			{
+				return MakeError("scene " + std::to_string(Scene) + ": " + Files.Error().Message);
+			}
+			return Files;
+		}
 	}
 
 	TResult<FBattleObjectDisc> FBattleObjectDisc::Load(const FCdImage& Image, const FGameFileIndex& Index)
@@ -332,5 +347,10 @@ namespace Weltall
 	TResult<FBattleSequenceExtension> FBattleObjectDisc::ReadExtension(int32 File) const
 	{
 		return BattleObjectFiles::ReadExtension(*Image, *Index, File);
+	}
+
+	TResult<FBattleModelFiles> FBattleObjectDisc::ReadSceneModel(int32 Scene, int32 Entry) const
+	{
+		return BattleObjectFiles::ReadSceneModel(*Image, *Index, Scene, Entry);
 	}
 }

@@ -12,9 +12,7 @@ namespace Weltall
 {
 	namespace
 	{
-		/** Where the executable keeps the two tables (both discs of the USA release). */
-		constexpr uint32 IndexAddress = 0x80010004;
-		constexpr uint32 IndexBytes = 0x7FFC;
+		/** Where the executable keeps the directory table, after the index (both discs of the USA release). */
 		constexpr uint32 DirectoryAddress = 0x80018004;
 
 		constexpr std::size_t RecordBytes = 7;

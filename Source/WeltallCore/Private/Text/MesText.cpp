@@ -421,4 +421,28 @@ namespace Weltall
 		}
 		return Table;
 	}
+
+	std::optional<std::vector<uint8>> ReplaceMessages(std::span<const uint8> Table, std::span<const std::pair<int32, FAddedMessage>> Replacements)
+	{
+		const TResult<FMessageTable> Parsed = FMessageTable::Parse(Table);
+		if (!Parsed || std::ranges::any_of(Replacements, [&Parsed](const auto& Replacement) { return Replacement.first < 0 || Replacement.first >= Parsed->Count(); }))
+		{
+			return std::nullopt;
+		}
+		std::vector<FAddedMessage> Messages;
+		for (int32 Index = 0; Index < Parsed->Count(); ++Index)
+		{
+			const auto Replacement = std::ranges::find_if(Replacements, [Index](const auto& Candidate) { return Candidate.first == Index; });
+			if (Replacement != Replacements.end())
+			{
+				Messages.push_back(Replacement->second);
+				continue;
+			}
+			// String is empty for a message past the table's bytes, which an added message without codes stays.
+			const std::span<const uint8> String = Parsed->String(Index);
+			const std::span<const uint8> Codes = String.first(MesMessageSize(String));
+			Messages.push_back({std::vector<uint8>(Codes.begin(), Codes.end()), static_cast<uint8>(Parsed->WidthUnits(Index)), static_cast<uint8>(Parsed->Lines(Index))});
+		}
+		return BuildMessageTable(Messages);
+	}
 }

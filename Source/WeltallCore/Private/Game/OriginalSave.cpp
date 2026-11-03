@@ -3,6 +3,7 @@
 #include "Foundation/LittleEndian.h"
 #include "Game/SaveLayout.h"
 #include "Media/MemoryCard.h"
+#include "Mods/ExpansionMods.h"
 
 #include <algorithm>
 #include <numeric>
@@ -75,11 +76,11 @@ namespace Weltall
 		return LittleEndian::ReadU16(PlayedData(), SaveLayout::StoryProgress);
 	}
 
-	std::vector<uint8> FOriginalSave::PlayedData() const
+	std::vector<uint8> FOriginalSave::PlayedData(bool bExpansionPlayed) const
 	{
 		namespace Port = SaveLayout::Port;
 		std::vector<uint8> Played = Bytes;
-		if (StoryMode() != EStoryMode::Expanded)
+		if ((StoryMode() != EStoryMode::Expanded || !bExpansionPlayed) && !KeepsEllyApart(ClearGame()))
 		{
 			return Played;
 		}
@@ -146,6 +147,17 @@ namespace Weltall
 		}
 	}
 
+	std::string FOriginalSave::Expansion() const
+	{
+		if (StoryMode() != EStoryMode::Expanded)
+		{
+			return {};
+		}
+		const auto Name = Bytes.begin() + static_cast<std::ptrdiff_t>(SaveLayout::Port::Expansion);
+		const auto End = std::find(Name, Name + static_cast<std::ptrdiff_t>(ExpansionFolderBytes), uint8{0});
+		return Name == End ? std::string(ExamplesFolder) : std::string(Name, End);
+	}
+
 	FPartyOrder FOriginalSave::PartyOrder() const
 	{
 		if (!HasPortPart())
@@ -153,5 +165,33 @@ namespace Weltall
 			return {};
 		}
 		return FPartyOrder::FromSaved(std::span<const uint8, FPartyOrder::SavedBytes>(Bytes.data() + SaveLayout::Port::PartyOrder, FPartyOrder::SavedBytes));
+	}
+
+	FCharacterLooks FOriginalSave::CharacterLooks() const
+	{
+		if (!HasPortPart())
+		{
+			return {};
+		}
+		return FCharacterLooks::FromSaved(std::span<const uint8, FCharacterLooks::SavedBytes>(Bytes.data() + SaveLayout::Port::CharacterLooks, FCharacterLooks::SavedBytes));
+	}
+
+	EClearGame FOriginalSave::ClearGame() const
+	{
+		// 2 marks the clear file as the ending saved it, a game of the clear file's like any other.
+		constexpr uint8 ClearFileAsSaved = 2;
+		const uint8 Kind = HasPortPart() ? Bytes[SaveLayout::Port::ClearGame] : 0;
+		if (Kind == static_cast<uint8>(EClearGame::ClearFile) || Kind == ClearFileAsSaved)
+		{
+			return EClearGame::ClearFile;
+		}
+		for (const EClearGame Known : {EClearGame::NewGamePlus, EClearGame::KeepElly})
+		{
+			if (Kind == static_cast<uint8>(Known))
+			{
+				return Known;
+			}
+		}
+		return EClearGame::None;
 	}
 }

@@ -49,7 +49,9 @@ namespace Weltall
 		/** A party gear's copy, standing as the party's gear stands. */
 		constexpr FFieldGearSprite Parked(uint64 Digest, int16 Number, std::array<EM, FFieldGearSprite::Animations> Motions = Still)
 		{
-			return Gear(Digest, Number, FFieldGearSprite::TheParty, 0.0f, Motions);
+			FFieldGearSprite Sprite = Gear(Digest, Number, FFieldGearSprite::TheParty, 0.0f, Motions);
+			Sprite.bParked = true;
+			return Sprite;
 		}
 
 		/**

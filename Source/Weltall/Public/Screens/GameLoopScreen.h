@@ -18,9 +18,12 @@
 
 class FBattleSpeedMarkView;
 class FBattleView;
+class FExpansionTrials;
 class FBattlingView;
 class FBootNoticeView;
 class FChapterCardView;
+class FMessageLogView;
+class FStateNoticeView;
 class FTitleMarkView;
 class FFieldView;
 class FMenuView;
@@ -36,13 +39,17 @@ namespace Weltall
 	class FIso9660;
 	class IGameDiscDrive;
 	class FMenuGameMenus;
+	class FMessageLog;
 	class FPsxExecutable;
 	class IButtonGlyphs;
 	class IMenuKeys;
 	class IMenuAssets;
 	class IMenuDeviceFiles;
+	class FSaveStateSlots;
 	class FSaveStore;
-	class FStoryPacks;
+	struct FSaveState;
+	struct FSaveStateTold;
+	class FStoryLibrary;
 }
 
 /**
@@ -102,6 +109,13 @@ public:
 
 	virtual void Update(double DeltaSeconds, Weltall::FPadState Held) override;
 	virtual void AddViewInput(const Weltall::FFieldViewInput& Input) override;
+	/**
+	 * The game saved to the chosen slot where the moment allows it, loaded from it anywhere, or the slot stepped, each told
+	 * over the game; or the message log opened over the game, or closed. While the log is open the states' keys do nothing.
+	 */
+	virtual void PressPortKey(Weltall::EControlAction Action) override;
+	/** While the message log is open, nothing of the game runs: it takes the buttons. */
+	virtual bool HoldsGame() const override;
 	virtual void SetPads(const FGamePads& Pads) override;
 	virtual bool ReadsSecondPad() const override;
 	virtual std::array<bool, 2> Motors() const override;
@@ -121,6 +135,9 @@ public:
 
 	/** The player's saves, which the Menu's File screen shows; it must outlive the screen. */
 	void SetSaves(Weltall::FSaveStore* InSaves);
+
+	/** The player's save state slots, which the states' keys save to and load from; it must outlive the screen. None: the keys do nothing. */
+	void SetSaveStates(Weltall::FSaveStateSlots* InStates) { StateSlots = InStates; }
 
 	void SetCameraMoved(FCameraMoved InCameraMoved) { CameraMoved = MoveTemp(InCameraMoved); }
 	void SetBattleSpeedStepped(FBattleSpeedStepped InBattleSpeedStepped) { BattleSpeedStepped = MoveTemp(InBattleSpeedStepped); }
@@ -164,6 +181,9 @@ public:
 	/** For the tools that walk a scene's way: the programs the game runs, changed before the next frame; null before the game has started. */
 	Weltall::FGameLoop* Loop();
 
+	/** For the tools that press the game's buttons: whether its disc has the Japanese commands (Weltall::FDiscIdentity::bJapaneseCommands). */
+	bool HasJapaneseCommands() const { return Identity.bJapaneseCommands; }
+
 	/** For the tools that stage a scene: a menu the running field opens at its next quiet tick, as its scripts ask for one; false without a field. */
 	bool RequestMenu(uint8 Mode, uint8 Parameter);
 
@@ -190,8 +210,17 @@ public:
 	void SetMenuDrawingAreaWide(bool bWide);
 
 private:
-	/** The console's start: the session and the loop, from power-on or entering a field map; the reason when it cannot. */
-	std::optional<Weltall::FError> Start(std::optional<uint16> FieldMap);
+	/**
+	 * The console's start: the session and the loop, from power-on, entering a field map, or going on from a save state;
+	 * the reason when it cannot.
+	 */
+	std::optional<Weltall::FError> Start(std::optional<uint16> FieldMap, const Weltall::FSaveState* State = nullptr);
+	/** The chosen slot's state loaded in a console started again; where it cannot be, the console powered on afresh. */
+	void LoadState();
+	/** A state's key told what it did: its line over the game, and why it failed in the log. */
+	void Tell(const Weltall::FSaveStateTold& Told);
+	/** The message log opened over a running game at its newest message, or closed if it is open. */
+	void ToggleMessageLog();
 	void RunFrame();
 	/** The Menu takes the host's services: the options screen hands what it changed to SettingsFollowed and SettingsKept, when there are, and rebinds MenuKeys'; the title closes the game through Quit. */
 	void FollowMenuServices();
@@ -207,6 +236,8 @@ private:
 	void Stop(const Weltall::FError& Error);
 	/** The session asks for disc Number, which it was not given: the other disc looked for, and given it when found. */
 	void SeekDisc(int32 Number);
+	/** The library's Disc 2 expansions tried on the disc the session reads its files from, unless they were tried on it already. */
+	void TryExpansions();
 	void RefreshVoiceDiscs();
 	/** Discs the player added through the device's picker during play give their voices and subtitles at once. */
 	void FollowAddedDiscs();
@@ -232,6 +263,7 @@ private:
 	Weltall::FPlayerSettings StartSettings;
 	const Weltall::IButtonGlyphs* Glyphs = nullptr;
 	Weltall::FSaveStore* Saves = nullptr;
+	Weltall::FSaveStateSlots* StateSlots = nullptr;
 	FCameraMoved CameraMoved;
 	FBattleSpeedStepped BattleSpeedStepped;
 	FSettingsKept SettingsKept;
@@ -247,13 +279,18 @@ private:
 	FDisplayModesAsked DisplayModes;
 	FQuit Quit;
 	FStopped Stopped;
-	Weltall::EDiscRelease Release = Weltall::EDiscRelease::UsaDisc1;
+	Weltall::FDiscIdentity Identity{Weltall::EDiscRelease::UsaDisc1, 1, ""};
 	std::unique_ptr<Weltall::FPsxExecutable> Executable;
 	std::unique_ptr<Weltall::FGameFileIndex> Index;
 	/** The Menu the field runs, which every session of the screen is given. */
 	std::unique_ptr<Weltall::FMenuGameMenus> Menus;
-	/** The port's own documents, read from the project's Content/Story as the screen first starts, and given to every session. */
-	std::unique_ptr<Weltall::FStoryPacks> Story;
+	/**
+	 * The port's own documents, read from the project's Content/Story as the screen first starts, and the Disc 2
+	 * expansions of the Mods folder beside them: the library every session takes its games' story from.
+	 */
+	std::unique_ptr<Weltall::FStoryLibrary> Story;
+	/** What the expansions of Story come to on the session's disc, tried on a worker; it reads Story, so it goes first. */
+	TUniquePtr<FExpansionTrials> ExpansionTrials;
 	std::unique_ptr<Weltall::FGameSession> Session;
 	std::unique_ptr<Weltall::FGameLoop> GameLoop;
 	Weltall::FTickClock Vblanks;
@@ -278,6 +315,15 @@ private:
 	TUniquePtr<FChapterCardView> ChapterCard;
 	TUniquePtr<FTitleMarkView> TitleMark;
 	TUniquePtr<FBattleSpeedMarkView> BattleSpeedMark;
+	TUniquePtr<FStateNoticeView> StateNotice;
+	/** What the game's dialogue windows typed, kept through the consoles started again, and the log's screen while it is open. */
+	std::unique_ptr<Weltall::FMessageLog> MessageLog;
+	TUniquePtr<FMessageLogView> LogView;
+	/** The buttons last held, and those held as the log closed: the game is not given them until they are let go. */
+	uint16 LastHeld = 0;
+	uint16 HeldThroughLog = 0;
+	/** The wheel's notches not yet scrolled. */
+	float LogWheel = 0.0f;
 	TSharedRef<const IScreenFrame> Blank;
 	/** The last frame the display was given: the picture of the screen a battle's transition breaks. */
 	mutable TSharedPtr<const IScreenFrame> Shown;

@@ -131,8 +131,8 @@ namespace Weltall::BattlingFightOps
 	void TickTutorial(FBattlingFight& Fight, const FBattlingTickInput& Input);
 	/** Starts the scripted bout's ending, once. */
 	void StartEnding(FBattlingFight& Fight);
-	/** The ending's step within the fight tick: the breakdown's sparks, flash and fade, the script, the window and the camera. */
-	void TickEnding(FBattlingFight& Fight);
+	/** The ending's step within the fight tick of Input: the breakdown's sparks, flash and fade, the script, the window and the camera. */
+	void TickEnding(FBattlingFight& Fight, const FBattlingTickInput& Input);
 
 	/** The pass's wait: the vertical blanks counted, the odd ones stepping the fire while a bout fades in through it. */
 	void WaitBlanks(FBattlingFight& Fight);

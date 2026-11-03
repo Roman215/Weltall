@@ -95,6 +95,20 @@ namespace Weltall
 		}
 	}
 
+	TMenuTask<bool> FMenuMain::PickClearSave()
+	{
+		// The File screen's commands are the row of the title command it opens from.
+		const int32 Chosen = Command;
+		Command = ContinueCommand - TitleCommandOffset;
+		bPicksClearSave = true;
+		co_await FileScreen(true, false);
+		bPicksClearSave = false;
+		CloseFileScreen();
+		Flags[MenuFlag::SubCommands] = 0;
+		Command = Chosen;
+		co_return bGameLoaded;
+	}
+
 	TMenuTask<bool> FMenuMain::RunCommand(int32 Offset)
 	{
 		bool bGoesOn = true;
@@ -146,23 +160,29 @@ namespace Weltall
 			break;
 		case NewGameCommand:
 		{
-			TResult<FGameState> NewGame = LoadNewGameState(*Services.Image, *Services.Index, *Services.Text.Tables);
-			if (!NewGame)
+			const ENewGame Choice = co_await ChooseNewGame();
+			if (Choice == ENewGame::Back)
 			{
-				co_await Fail(NewGame.Error().Message);
+				break;
 			}
-			else
+			bool bMade = Choice == ENewGame::Plus;
+			if (!bMade)
 			{
-				// The kernel's own values go on: the play time (from 0 with the fix), what the last program left.
-				NewGame->SetPlayTime(Services.Options.bNewGameClockFromZero ? 0 : Services.Game->PlayTime());
-				NewGame->ProgramResult = Services.Game->ProgramResult;
-				NewGame->BattleActingTurns = Services.Game->BattleActingTurns;
-				*Services.Game = std::move(*NewGame);
-				// A new game's state clears the chained battle too (and the battle AI's globals, which the port keeps nowhere yet).
-				if (Services.Kernel != nullptr)
+				TResult<FGameState> NewGame = LoadNewGame();
+				if (!NewGame)
 				{
-					Services.Kernel->ChainedBattle = 0;
+					co_await Fail(NewGame.Error().Message);
 				}
+				else
+				{
+					*Services.Game = std::move(*NewGame);
+					bMade = true;
+				}
+			}
+			// A new game's state clears the chained battle too (and the battle AI's globals, which the port keeps nowhere yet).
+			if (bMade && Services.Kernel != nullptr)
+			{
+				Services.Kernel->ChainedBattle = 0;
 			}
 			bReturns = false;
 			bGoesOn = false;
@@ -278,7 +298,7 @@ namespace Weltall
 		}
 	}
 
-	TMenuTask<> FMenuMain::RequireDisc(int32 Disc)
+	TMenuTask<> FMenuMain::RequireDisc(int32 Disc, bool bStoryChange)
 	{
 		// "INSERT DISC 1", "INSERT DISC 2".
 		constexpr uint8 InsertDiscText = 0x83;
@@ -289,10 +309,12 @@ namespace Weltall
 			co_await Frame();
 		}
 		InitTargetPointers(0);
-		// The port reads both discs: where the other disc is asked for, its message stays until confirmed rather than
-		// until the drive's lid has opened and closed on it, and no disc is ever wrong. A disc the player has not put
-		// where the game looks is looked for at each confirmation, its message saying so until it is there.
-		if (Services.Disc != Disc + 1)
+		// The port reads both discs, so the other disc's message stood only for the drive's lid: it stays for the story's
+		// own disc change, until confirmed, and wherever the disc is not where the game looks; any other game goes on
+		// with the disc at once. No disc is ever wrong. A missing disc is looked for at each confirmation, its message
+		// saying so until it is there.
+		const auto Present = [this, Disc] { return Services.Discs == nullptr || Services.Discs->HasDisc(Disc); };
+		if (Services.Disc != Disc + 1 && (bStoryChange || !Present()))
 		{
 			const uint8 Message = static_cast<uint8>(InsertDiscText + TextsPerDisc * Disc);
 			co_await ShowMessage(Message);
@@ -302,7 +324,7 @@ namespace Weltall
 				{
 					co_await Frame();
 				} while (Code != EMenuCode::Confirm);
-				if (Services.Discs == nullptr || Services.Discs->HasDisc(Disc))
+				if (Present())
 				{
 					break;
 				}

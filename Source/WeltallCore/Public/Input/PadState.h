@@ -42,6 +42,8 @@ namespace Weltall
 		uint8 StickY = StickCentre;
 		/** A gamepad, which the game is told is a DualShock in analog mode. */
 		bool bAnalog = false;
+		/** L1 and R1 among Buttons where the player holds them to zoom the view, which the camera's turns then pass by. */
+		uint16 ZoomButtons = 0;
 
 		static constexpr uint16 Bit(EPadButton Button) { return static_cast<uint16>(1u << static_cast<uint32>(Button)); }
 

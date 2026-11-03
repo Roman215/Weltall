@@ -234,3 +234,21 @@ TEST_CASE("The battle's projection, colours and dome blend between frames", "[ba
 	Result = Blend(Latest, Previous, 0.5f);
 	CHECK(Result.FadeColor[0] == Catch::Approx(50.0f));
 }
+
+TEST_CASE("A kept battle frame holds the HUD's parts that move between frames, and only those", "[battle][blend]")
+{
+	FBattleShowFrame Frame = MakeFrame(1);
+	FMenuPrimitive Moving;
+	Moving.Code = MenuGpu::FlatQuad;
+	Moving.BlendKey = 0x10000002;
+	FMenuPrimitive Text = Moving;
+	Text.BlendKey = 0;
+	Frame.Hud.Primitives = {Text, Moving, Text};
+	FBattleFrameKeep Kept;
+	KeepBattleFrame(Frame, Kept);
+	REQUIRE(Kept.Hud.Primitives.size() == 1);
+	CHECK(Kept.Hud.Primitives[0].BlendKey == 0x10000002);
+	Frame.Hud.Primitives.clear();
+	KeepBattleFrame(Frame, Kept);
+	CHECK(Kept.Hud.Primitives.empty());
+}

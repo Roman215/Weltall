@@ -40,6 +40,8 @@ namespace
 		bool bTextured = false;
 		uint16 TexturePage = 0;
 		uint16 Clut = 0;
+		/** The page and CLUT lie in the port's rows (a dress's kept performer pieces). */
+		bool bPortRows = false;
 		uint8 Code = 0;
 		EBattleObjectRole Role = EBattleObjectRole::Model;
 	};
@@ -111,8 +113,11 @@ namespace
 		State.Texture = FVramTexture::NoTexture;
 		if (Polygon.bTextured)
 		{
-			const Weltall::FTexturePage Page = Weltall::FTexturePage::FromAttribute(Polygon.TexturePage);
-			State.Texture = FVramTexture::Pack(Page, Weltall::FClutPosition::FromAttribute(Polygon.Clut));
+			const Weltall::FTexturePage Page = Polygon.bPortRows ? Weltall::FTexturePage::FromPortAttribute(Polygon.TexturePage)
+																 : Weltall::FTexturePage::FromAttribute(Polygon.TexturePage);
+			const Weltall::FClutPosition Clut = Polygon.bPortRows ? Weltall::FClutPosition::FromPortAttribute(Polygon.Clut)
+																  : Weltall::FClutPosition::FromAttribute(Polygon.Clut);
+			State.Texture = FVramTexture::Pack(Page, Clut);
 			State.Flags = (Polygon.Code & BattleObjectRawCode) != 0 ? FieldPolygonFlags::Raw : 0;
 			if (Polygon.Role == EBattleObjectRole::Shadow)
 			{
@@ -161,6 +166,7 @@ namespace
 		Polygon.bTextured = Traits.bTextured;
 		Polygon.TexturePage = Part.Packets->Textures[Drawn.Number].TexturePage;
 		Polygon.Clut = Part.Packets->Textures[Drawn.Number].Clut;
+		Polygon.bPortRows = Part.bPortRows;
 		Polygon.Code = Part.Packets->Packets[Drawn.Number].Code;
 		// The gears' soles stand under the stage's floor: by depth it would hide them.
 		Polygon.Role = Part.Slot == Weltall::FBattleObjects::StageSlot ? EBattleObjectRole::Stage : EBattleObjectRole::Model;

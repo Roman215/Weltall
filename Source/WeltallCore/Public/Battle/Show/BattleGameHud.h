@@ -3,6 +3,7 @@
 #include "Battle/Show/BattleShowHud.h"
 #include "Battle/Show/BattleShowSeams.h"
 #include "Foundation/Types.h"
+#include "Foundation/UnreachedCases.h"
 #include "Text/MessageTable.h"
 
 #include <optional>
@@ -20,11 +21,12 @@ namespace Weltall
 	{
 	public:
 		/**
-		 * Resources, Text and EventFiles must outlive the HUD; Settings are the kernel's window colour and blend. Without
-		 * the event's files a message's portrait stops the HUD.
+		 * Resources, Text, EventFiles and Unreached must outlive the HUD; Settings are the kernel's window colour and blend.
+		 * Without the event's files a message's portrait stops the HUD. A message that starts past its table (a translation's
+		 * tool can leave one so, and the game types the memory after it) is typed as none where Unreached lets play carry on.
 		 */
 		WELTALLCORE_API FBattleGameHud(const FBattleHudResources& Resources, FMesContext& Text, const FBattleHudSettings& Settings,
-			const FBattleEventFiles* EventFiles = nullptr);
+			const FBattleEventFiles* EventFiles = nullptr, FUnreachedCases* Unreached = nullptr);
 
 		WELTALLCORE_API void Begin(FBattleContext& Context, FVram& Vram) override;
 		WELTALLCORE_API void BeginMessageBoxes() override;
@@ -48,13 +50,14 @@ namespace Weltall
 		WELTALLCORE_API std::span<const FTextureRegion> TextureRegions() const;
 
 	private:
-		/** Entry Number of Table as the game reads it; past the table the HUD stops. */
+		/** Entry Number of Table as the game reads it; past the table, or starting past its bytes, the HUD stops. */
 		std::span<const uint8> Entry(const std::optional<FMessageTable>& Table, uint8 Number);
 
 		const FBattleHudResources& Resources;
 		FMesContext& Text;
 		FBattleHudSettings Settings;
 		const FBattleEventFiles* EventFiles = nullptr;
+		FUnreachedCases* Unreached = nullptr;
 		FBattleContext* Context = nullptr;
 		std::optional<FBattleHud> Hud;
 		std::optional<FMessageTable> Names;

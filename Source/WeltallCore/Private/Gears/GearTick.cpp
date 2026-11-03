@@ -119,8 +119,8 @@ namespace Weltall::GearMachine
 		Drawn.bPresent = true;
 		Drawn.bShown = Model.bShown != 0;
 		Drawn.Cloths = &Model.Cloths;
-		Drawn.Model = Model.Parts.get();
-		Drawn.Packets = &Model.BonePackets;
+		Drawn.Model = Model.Dress != nullptr ? &Model.Dress->Model().Model : Model.Parts.get();
+		Drawn.Packets = Model.Dress != nullptr ? &Model.Dress->Packets() : &Model.BonePackets;
 		Drawn.Scale = Model.Scale;
 		if (!Drawn.bShown)
 		{
@@ -130,9 +130,15 @@ namespace Weltall::GearMachine
 		Drawn.RootLocal = Model.Bones[0].Local;
 		Drawn.RootWorld = Model.Bones[0].World;
 		Drawn.Placement = Model.Placement;
+		// A worn model's bones placed over the model's as they stand, and drawn in their stead.
+		if (Model.Dress != nullptr)
+		{
+			Model.Dress->Place(Model.Bones, Model.DressBones);
+		}
+		const std::vector<FGearBone>& Bones = Model.Dress != nullptr ? Model.DressBones : Model.Bones;
 		for (FGearFramePart& Part : Drawn.Parts)
 		{
-			const FGearBone& Bone = Model.Bones[Part.Bone];
+			const FGearBone& Bone = Bones[Part.Bone];
 			Part.bShown = Bone.bShown != 0;
 			Part.World = Bone.World;
 			Part.Billboard = Bone.Billboard;

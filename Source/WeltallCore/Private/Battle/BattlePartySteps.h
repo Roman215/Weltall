@@ -129,8 +129,11 @@ namespace Weltall
 		EFlow RunStartAttack(FBattleContext& Context, FBattlePartyFrame& Frame);
 		void InitTargetCursor(FBattleContext& Context, uint8 Slot);
 		void LockTarget(FBattleContext& Context, uint8 Slot);
-		/** One hit of a combo: the command worked out, applied and queued, the target's AI told; true when it ends the combo. */
-		bool PerformHit(FBattleContext& Context, uint8 Slot, uint8 Cost);
+		/**
+		 * One hit of a combo: the command worked out, applied and queued, the target's AI told; true when it ends the combo.
+		 * With bAnyDeathblow a Deathblow is performed whether the member has learned it or not.
+		 */
+		bool PerformHit(FBattleContext& Context, uint8 Slot, uint8 Cost, bool bAnyDeathblow = false);
 		/** The attack cursor's frame: the camera and markers on it while it moves, and Billy's ammunition window. */
 		EFlow ShowTarget(FBattleContext& Context, uint8 Slot);
 		EFlow RunAttackMode(FBattleContext& Context, FBattlePartyFrame& Frame);

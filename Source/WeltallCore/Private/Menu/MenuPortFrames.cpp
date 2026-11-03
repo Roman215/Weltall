@@ -39,16 +39,24 @@ namespace Weltall
 		constexpr int32 OptionsY = -71;
 		/** The USA release's letters of "Options" (OptionsWord's parts' 4-bit texels, a byte each, row by row), by SHA-1. */
 		constexpr std::string_view UsaOptionsLetters = "06e75f48f49d0011a603286a0a78788cc98e3b09";
-		/** A translation's own label that names an options screen, known by its texels (PartTexels) by SHA-1. */
+		/**
+		 * A translation's own label that names an options screen: a frame's first parts (all of them where Parts is 0),
+		 * known by their texels (PartTexels) by SHA-1.
+		 */
 		struct FTranslatedLabel
 		{
 			int32 Frame = 0;
+			std::size_t Parts = 0;
 			std::string_view Letters;
 		};
 
-		/** The Spanish translation's Gear screen's "Opcion" (its Gear Option), on both discs. */
+		/**
+		 * The Spanish translation's Gear screen's "Opcion" (its Gear Option), and the Italian's "Opzioni" (the first three
+		 * parts of its "Opzioni Gear"), on both discs.
+		 */
 		constexpr FTranslatedLabel TranslatedOptionsLabels[] = {
-			{GearOptionLabel, "346c1adf2c8674c76ebea0256d444249ba09f52b"},
+			{GearOptionLabel, 0, "346c1adf2c8674c76ebea0256d444249ba09f52b"},
+			{GearOptionLabel, 3, "415d047f5f8e40dc30addd074c5995bae6c7cbae"},
 		};
 		/** The typed word's cell from the O's place: its outline a pixel up and left of the body. */
 		constexpr int32 TypedWordX = -1;
@@ -223,7 +231,15 @@ namespace Weltall
 	{
 		for (const FTranslatedLabel& Known : TranslatedOptionsLabels)
 		{
-			const std::span<const FMenuSpritePart> Frame = Sheet.Frame(Known.Frame);
+			std::span<const FMenuSpritePart> Frame = Sheet.Frame(Known.Frame);
+			if (Known.Parts != 0)
+			{
+				if (Frame.size() < Known.Parts)
+				{
+					continue;
+				}
+				Frame = Frame.first(Known.Parts);
+			}
 			const std::vector<uint8> Texels = PartTexels(Frame, Archive);
 			if (Texels.empty() || FSha1::ToHex(FSha1::Hash(Texels)) != Known.Letters)
 			{

@@ -2,12 +2,15 @@
 
 #include "Foundation/Result.h"
 #include "Foundation/Types.h"
+#include "Game/CharacterLooks.h"
+#include "Game/ClearGame.h"
 #include "Game/PartyOrder.h"
 #include "Game/StoryMode.h"
 
 #include <array>
 #include <optional>
 #include <span>
+#include <string>
 
 namespace Weltall
 {
@@ -19,8 +22,8 @@ namespace Weltall
 	 * What the game keeps from one moment of play to the next, and saves: the kernel's state block,
 	 * byte for byte as every program shares it (names, the characters' and gears' records, the
 	 * inventory, the party, the field's saved event variables...), the battle scripts' globals and
-	 * the play time; and of the port's own, how the game tells the second disc's story and the order the player keeps
-	 * the party in.
+	 * the play time; and of the port's own, how the game tells the second disc's story, the order the player keeps
+	 * the party in, the looks, and whether the game goes on from a clear file.
 	 */
 	class FGameState
 	{
@@ -74,6 +77,8 @@ namespace Weltall
 		/** An inventory list's slots: how many of the item each holds, and the item's number in the list. */
 		WELTALLCORE_API std::span<uint8> InventoryCounts(int32 List);
 		WELTALLCORE_API std::span<uint8> InventoryItems(int32 List);
+		/** One fewer of an item, from the first slot holding some, an emptied slot's item FFh; false where none is held. */
+		WELTALLCORE_API bool TakeItem(int32 List, uint8 Item);
 
 		/** Bit c set: character c has joined. */
 		WELTALLCORE_API uint16 JoinedCharacters() const;
@@ -197,10 +202,23 @@ namespace Weltall
 		/** How the game tells the second disc's story: none chosen in a new game, the player's choice once asked. */
 		EStoryMode StoryMode() const { return Mode; }
 		void SetStoryMode(EStoryMode InMode) { Mode = InMode; }
+		/** The Disc 2 expansion the game plays where it tells the second disc expanded, by its mod's folder (ExpansionMods.h). */
+		const std::string& Expansion() const { return ExpansionFolder; }
+		void SetExpansion(std::string Folder) { ExpansionFolder = std::move(Folder); }
 
 		/** The order the player keeps the party in (FPartyOrder): none in a new game, the story's order shown where none is for the party. */
 		const FPartyOrder& PartyOrder() const { return Order; }
 		void SetPartyOrder(const FPartyOrder& InOrder) { Order = InOrder; }
+
+		/** How the player has the second Citan and the grown Emeralda drawn (FCharacterLooks): as the story has them in a new game. */
+		const FCharacterLooks& CharacterLooks() const { return Looks; }
+		void SetCharacterLooks(const FCharacterLooks& InLooks) { Looks = InLooks; }
+
+		/** What the game is after the ending (EClearGame): none in a new game. */
+		EClearGame ClearGame() const { return Clear; }
+		void SetClearGame(EClearGame Kind) { Clear = Kind; }
+		/** Whether the game comes after the ending: the clear file's or a New Game+, Fei's and Elly's looks unlocked. */
+		bool IsClearGame() const { return Clear != EClearGame::None; }
 
 		/**
 		 * What the last program to end left the next, kept by the console but never saved: its result
@@ -212,12 +230,19 @@ namespace Weltall
 		/** The Normal Menu's command the cursor starts on (6 Status for a new game), which the menu keeps where saving is not allowed. */
 		uint8 MenuLastCommand = 0;
 
+		/** A save state's writer and reader go through every member (SaveStateMembers.h). */
+		template <typename FArchive>
+		friend void VisitMembers(FArchive& Ar, FGameState& Value);
+
 	private:
 		std::array<uint8, BlockSize> Bytes{};
 		std::array<uint16, BattleGlobalCount> Globals{};
 		uint32 PlayVblanks = 0;
 		EStoryMode Mode = EStoryMode::Unchosen;
+		std::string ExpansionFolder;
 		FPartyOrder Order;
+		FCharacterLooks Looks;
+		EClearGame Clear = EClearGame::None;
 	};
 
 	/** The new game's state from the disc, loaded as the kernel loads it when New Game is chosen. */

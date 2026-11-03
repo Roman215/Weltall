@@ -1,16 +1,22 @@
 #include "Game/SaveWrite.h"
 
 #include "Foundation/LittleEndian.h"
+#include "Game/ClearFile.h"
 #include "Game/GameNames.h"
 #include "Game/GameState.h"
 #include "Game/GameStateLayout.h"
+#include "Game/KeepElly.h"
 #include "Game/SaveLayout.h"
 #include "Game/WayBackPoint.h"
+#include "Mods/ExpansionMods.h"
 
 #include <algorithm>
+#include <string>
 
 namespace Weltall
 {
+	static_assert(SaveLayout::Port::PartyOrder - SaveLayout::Port::Expansion == ExpansionFolderBytes);
+
 	namespace
 	{
 		using LittleEndian::ReadU16;
@@ -38,8 +44,8 @@ namespace Weltall
 			return Party;
 		}
 
-		/** The summary the File screen shows: the party in the order its player keeps it, as the menus show it. */
-		void WriteSummary(std::span<const uint8> Block, const FPartyOrder& Order, uint32 PlayTime, int32 CardSlot, std::span<uint8> Data)
+		/** The summary the File screen shows: the party in the order its player keeps it, each face as Looks draws it, as the menus show them. */
+		void WriteSummary(std::span<const uint8> Block, const FPartyOrder& Order, const FCharacterLooks& Looks, uint32 PlayTime, int32 CardSlot, std::span<uint8> Data)
 		{
 			namespace Summary = SaveLayout::Summary;
 			namespace Character = GameStateLayout::Character;
@@ -54,11 +60,12 @@ namespace Weltall
 			}
 			for (std::size_t Slot = 0; Slot < Party.size(); ++Slot)
 			{
-				Data[Summary::Party + Slot] = Party[Slot];
 				if (Party[Slot] == FGameState::EmptySlot)
 				{
+					Data[Summary::Party + Slot] = FGameState::EmptySlot;
 					continue;
 				}
+				Data[Summary::Party + Slot] = Looks.Drawn(Party[Slot]);
 				const std::span<const uint8> Record = Block.subspan(GameStateLayout::CharacterOffset(Party[Slot]), GameStateLayout::CharacterSize);
 				WriteU16(Data, Summary::Hp + Slot * 2, ReadU16(Record, Character::Hp));
 				WriteU16(Data, Summary::MaxHp + Slot * 2, ReadU16(Record, Character::MaxHp));
@@ -125,7 +132,7 @@ namespace Weltall
 			WriteU16(Block, GameStateLayout::SavedDiscOffset, static_cast<uint16>(Disc));
 
 			std::vector<uint8> Data(FOriginalSave::DataSize, 0);
-			WriteSummary(Block, State.PartyOrder(), State.PlayTime(), CardSlot, Data);
+			WriteSummary(Block, State.PartyOrder(), State.CharacterLooks(), State.PlayTime(), CardSlot, Data);
 			SaveLayout::CopyToSave(SaveLayout::RegionsBeforeGears, Block, Data);
 			SaveLayout::CopyToSave(SaveLayout::RegionsAfterGears, Block, Data);
 			for (int32 Name = 0; Name < FGameState::NameCount; ++Name)
@@ -158,24 +165,37 @@ namespace Weltall
 	FOriginalSave WriteOriginalSave(FGameState& State, int32 CardSlot, int32 Disc, const FMesNameTables& NameTables, uint8 LeadByte, const FWayBackPoint* WayBack)
 	{
 		std::vector<uint8> Data = WriteData(State, CardSlot, Disc, NameTables, LeadByte);
-		if (WayBack != nullptr)
+		const bool bHidesElly = State.ClearGame() == EClearGame::ClearFile || KeepElly::IsBack(State);
+		if (WayBack != nullptr || bHidesElly)
 		{
-			// The original's save at the point, the game's own place and story kept beside it.
+			// The original's save at the point, and with Elly away where the port has her back, the game's own kept beside it.
 			FGameState Back = State;
-			WayBack->Apply(Back);
-			std::vector<uint8> AtPoint = WriteData(Back, CardSlot, Disc, NameTables, LeadByte);
-			if (KeepRuns(Data, AtPoint))
+			if (WayBack != nullptr)
 			{
-				Data = std::move(AtPoint);
+				WayBack->Apply(Back);
+			}
+			if (bHidesElly)
+			{
+				ClearFile::HideElly(Back);
+			}
+			std::vector<uint8> Original = WriteData(Back, CardSlot, Disc, NameTables, LeadByte);
+			if (KeepRuns(Data, Original))
+			{
+				Data = std::move(Original);
 			}
 		}
 		// The port's part only once it has something to keep: until then the save is the game's own to the byte.
-		if (State.StoryMode() != EStoryMode::Unchosen || State.PartyOrder().IsSet())
+		if (State.StoryMode() != EStoryMode::Unchosen || State.PartyOrder().IsSet() || State.CharacterLooks().IsSet() || State.IsClearGame())
 		{
+			Data[SaveLayout::Port::ClearGame] = static_cast<uint8>(State.ClearGame());
 			std::copy(SaveLayout::Port::MarkBytes.begin(), SaveLayout::Port::MarkBytes.end(), Data.begin() + static_cast<std::ptrdiff_t>(SaveLayout::Port::Mark));
 			Data[SaveLayout::Port::StoryMode] = static_cast<uint8>(State.StoryMode());
+			const std::string& Expansion = State.StoryMode() == EStoryMode::Expanded ? State.Expansion() : std::string();
+			std::copy_n(Expansion.begin(), std::min(Expansion.size(), ExpansionFolderBytes), Data.begin() + static_cast<std::ptrdiff_t>(SaveLayout::Port::Expansion));
 			const std::array<uint8, FPartyOrder::SavedBytes> Order = State.PartyOrder().ToSaved();
 			std::copy(Order.begin(), Order.end(), Data.begin() + static_cast<std::ptrdiff_t>(SaveLayout::Port::PartyOrder));
+			const std::array<uint8, FCharacterLooks::SavedBytes> Looks = State.CharacterLooks().ToSaved();
+			std::copy(Looks.begin(), Looks.end(), Data.begin() + static_cast<std::ptrdiff_t>(SaveLayout::Port::CharacterLooks));
 		}
 		return FOriginalSave::WithChecksum(std::move(Data));
 	}

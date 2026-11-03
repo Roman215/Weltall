@@ -585,7 +585,8 @@ namespace Weltall::BattleParty
 					const FBattleCommand& Command = CommandAt(Context, FBattleContext::GearCommandIndex(Slot, List.Cell + FirstSpecial));
 					const FBattleCombatant& Member = Context.Combatants[Slot];
 					if (Command.FuelCost <= Member.GearPart.Fuel
-						&& HighBit(LearnedWord(Context, Context.PartyCharacters[Slot], GameStateLayout::Skills::Special), List.Cell)
+						&& (HighBit(LearnedWord(Context, Context.PartyCharacters[Slot], GameStateLayout::Skills::Special), List.Cell)
+							|| Context.IsTrueId(Slot, List.Cell))
 						&& (Member.DisabledCommands & Switches[List.Cell]) == 0)
 					{
 						Party.ListWindow = 0;

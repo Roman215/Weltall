@@ -200,6 +200,7 @@ namespace Weltall
 		Performance.WholeTotals = {};
 		Performance.WholeTotalKinds.fill(0xFF);
 		Performance.bShownWhole = false;
+		Performance.IdsAnimation = 0xFF;
 	}
 
 	void ResetBattleTurnTotals(FBattleContext& Context)

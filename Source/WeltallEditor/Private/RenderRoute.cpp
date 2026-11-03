@@ -4,6 +4,7 @@
 #include "Game/FieldProgram.h"
 #include "Game/GameLoop.h"
 #include "Game/WorldMapProgram.h"
+#include "Menu/MenuButtonIcons.h"
 #include "Screens/GameLoopScreen.h"
 #include "WorldMap/WorldMapContext.h"
 
@@ -23,7 +24,8 @@ namespace
 	constexpr uint16 Right = FPadState::Bit(EPadButton::Right);
 	constexpr uint16 Down = FPadState::Bit(EPadButton::Down);
 	constexpr uint16 Left = FPadState::Bit(EPadButton::Left);
-	constexpr uint16 Cross = FPadState::Bit(EPadButton::Cross);
+	/** The logical button that confirms. */
+	constexpr uint16 ConfirmRole = 0x20;
 	/** How near a point the leader stands to have reached it: the field's units, the world's. */
 	constexpr double FieldNear = 12.0;
 	constexpr double WorldNear = 24.0;
@@ -154,6 +156,7 @@ FPadState FRenderRoute::Step(FGameLoopScreen& Game)
 		return FPadState{Toward};
 	}
 	// At a confirm point: on toward it while still far, the button pressed and let go the while.
-	const uint16 Press = Frame % (2 * PressFrames) < PressFrames ? Cross : 0;
+	const uint16 Confirm = FPadState::Bit(Weltall::MenuRoleButton(ConfirmRole, Game.HasJapaneseCommands()));
+	const uint16 Press = Frame % (2 * PressFrames) < PressFrames ? Confirm : 0;
 	return FPadState{static_cast<uint16>((Distance > (Field != nullptr ? FieldNear : WorldNear) ? Toward : 0) | Press)};
 }

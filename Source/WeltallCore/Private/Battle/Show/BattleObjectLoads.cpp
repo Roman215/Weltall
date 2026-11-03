@@ -1,10 +1,12 @@
 #include "Battle/Show/BattleShowObjects.h"
 
 #include "Battle/BattleContext.h"
+#include "Battle/Show/BattleRegurus.h"
 #include "Battle/Show/BattleStageBackdrop.h"
 #include "Battle/Show/BattleStageFiles.h"
 #include "BattleObjectMachine.h"
 #include "Foundation/LittleEndian.h"
+#include "Game/CharacterLooks.h"
 #include "Graphics/SpriteSystem.h"
 
 #include <algorithm>
@@ -173,11 +175,36 @@ namespace Weltall
 			return;
 		}
 		const FBattleCombatant& Combatant = Context->Combatants[static_cast<std::size_t>(Slot)];
-		TResult<FBattleModelFiles> Files = Services->ReadGear(Combatant.Gear, Combatant.GearPart.ModelBytes[0]);
+		const FCharacterLooks Looks = Context->PartyLooks();
+		// Regurus fights as Vierge wearing its own model (BattleRegurus); the looks' gears as the player has them drawn.
+		const bool bRegurusAsVierge = (ShowOptions == nullptr || ShowOptions->bRegurusFightsAsVierge) && Combatant.Gear == BattleRegurus::Regurus;
+		const uint8 PerformingGear = bRegurusAsVierge ? BattleRegurus::Vierge : Looks.PerformingGear(Combatant.Gear);
+		TResult<FBattleModelFiles> Files = Services->ReadGear(PerformingGear, bRegurusAsVierge ? 0 : Combatant.GearPart.ModelBytes[0]);
 		if (!Files)
 		{
 			Fail(Files.Error().Message);
 			return;
+		}
+		if (bRegurusAsVierge || Looks.WearsOwnModel(Combatant.Gear))
+		{
+			// Its own model with no variant: no weapon in its hands.
+			TResult<FBattleModelFiles> Own = Services->ReadGear(Combatant.Gear, 0);
+			if (!Own)
+			{
+				Fail(Own.Error().Message);
+				return;
+			}
+			Files->Dress = FBattleGearDressFiles{PerformingGear, Combatant.Gear, std::move(Own->Model), std::move(Own->Motion)};
+		}
+		else if (const FBattleGearDress::FPairing* Ids = Looks.WearsIdsGear(Combatant.Gear) ? FBattleGearDress::IdsPairing(Combatant.Gear) : nullptr)
+		{
+			TResult<FBattleModelFiles> Red = Services->ReadSceneModel(Ids->WearerScene, Ids->WearerEntry);
+			if (!Red)
+			{
+				Fail(Red.Error().Message);
+				return;
+			}
+			Files->Dress = FBattleGearDressFiles{PerformingGear, Combatant.Gear, std::move(Red->Model), std::move(Red->Motion), true};
 		}
 		GearFiles[static_cast<std::size_t>(Slot)] = std::move(*Files);
 		++ReadingGearModels;

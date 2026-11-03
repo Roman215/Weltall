@@ -9,7 +9,10 @@
 #include "Rendering/TextureModLibrary.h"
 #include "Sound/MusicReplacements.h"
 #include "Shell/GameDiscsSubsystem.h"
+#include "Shell/GameModsSubsystem.h"
+#include "Shell/PlayerFolders.h"
 #include "Shell/PlayerSettingsSubsystem.h"
+#include "Shell/StoryDocuments.h"
 #include "Shell/TextModFiles.h"
 #include "WeltallLog.h"
 
@@ -17,28 +20,28 @@ namespace
 {
 	FString TexturesFolder()
 	{
-		return FPaths::Combine(UGameAssetsSubsystem::AssetsFolder(), TEXT("textures"));
+		return PlayerMadeFolder(UGameAssetsSubsystem::AssetsFolder(), TEXT("textures"));
 	}
 
 	std::filesystem::path MusicFolder()
 	{
-		return std::filesystem::path(*FPaths::Combine(UGameAssetsSubsystem::AssetsFolder(), TEXT("music")));
+		return std::filesystem::path(*PlayerMadeFolder(UGameAssetsSubsystem::AssetsFolder(), TEXT("music")));
 	}
 
 	std::filesystem::path TextFolder()
 	{
-		return std::filesystem::path(*FPaths::Combine(UGameAssetsSubsystem::AssetsFolder(), TEXT("text")));
+		return std::filesystem::path(*PlayerMadeFolder(UGameAssetsSubsystem::AssetsFolder(), TEXT("text")));
 	}
 
 	FString FontFolder()
 	{
-		return FPaths::Combine(UGameAssetsSubsystem::AssetsFolder(), TEXT("font"));
+		return PlayerMadeFolder(UGameAssetsSubsystem::AssetsFolder(), TEXT("font"));
 	}
 }
 
 FString UGameAssetsSubsystem::AssetsFolder()
 {
-	return FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::GetPath(UGameDiscsSubsystem::GamesFolder()), TEXT("Assets")));
+	return PlayerMadeFolder(FPaths::GetPath(UGameDiscsSubsystem::GamesFolder()), TEXT("Assets"));
 }
 
 void UGameAssetsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -91,7 +94,7 @@ void UGameAssetsSubsystem::ReloadReplacements()
 	{
 		return;
 	}
-	FTextureModLibrary::Configure(TexturesFolder(), false, Settings.bCaptureTextures);
+	FTextureModLibrary::Configure(TexturesFolder(), false, Settings.bCaptureTextures, Settings.PackKinds.Shown());
 	bMusicFound = false;
 	FollowSettings();
 }
@@ -100,7 +103,7 @@ void UGameAssetsSubsystem::FollowSettings()
 {
 	const auto& Settings = GetGameInstance()->GetSubsystem<UPlayerSettingsSubsystem>()->Settings();
 	const bool bEnabled = Settings.bExternalAssets;
-	FTextureModLibrary::Configure(TexturesFolder(), bEnabled, Settings.bCaptureTextures);
+	FTextureModLibrary::Configure(TexturesFolder(), bEnabled, Settings.bCaptureTextures, Settings.PackKinds.Shown());
 	// The recordings and messages are found again each time the replacements are switched on.
 	if (bEnabled && !bMusicFound)
 	{
@@ -141,8 +144,23 @@ bool UGameAssetsSubsystem::StartExport(Weltall::EAssetExportKind Kind)
 	case Weltall::EAssetExportKind::Dump: return StartDump();
 	case Weltall::EAssetExportKind::Music: return StartMusic();
 	case Weltall::EAssetExportKind::Text: return StartText();
+	case Weltall::EAssetExportKind::Disc2: return StartDisc2();
+	case Weltall::EAssetExportKind::Shareable: return StartShared();
 	}
 	return false;
+}
+
+Weltall::EShareableStart UGameAssetsSubsystem::StartShareable(std::string_view Folder, bool bReplace)
+{
+	const std::filesystem::path Expansion = std::filesystem::path(*UGameModsSubsystem::ModsFolder()) / std::filesystem::path(std::u8string(Folder.begin(), Folder.end()));
+	std::error_code Error;
+	if (!bReplace && std::filesystem::exists(Weltall::FShareableExpansion::CopyFolder(Expansion), Error))
+	{
+		return Weltall::EShareableStart::CopyThere;
+	}
+	Shared = Expansion;
+	StartExport(Weltall::EAssetExportKind::Shareable);
+	return Weltall::EShareableStart::Started;
 }
 
 bool UGameAssetsSubsystem::StartDump()
@@ -164,9 +182,9 @@ bool UGameAssetsSubsystem::StartDump()
 	return true;
 }
 
-bool UGameAssetsSubsystem::ReadFirstDisc(const Weltall::FIso9660*& Disc, Weltall::EDiscRelease& Release, Weltall::FGameFileIndex& Index)
+bool UGameAssetsSubsystem::ReadDisc(int32 Number, const Weltall::FIso9660*& Disc, Weltall::EDiscRelease& Release, Weltall::FGameFileIndex& Index)
 {
-	Disc = GetGameInstance()->GetSubsystem<UGameDiscsSubsystem>()->Library().PlayableDisc(1);
+	Disc = GetGameInstance()->GetSubsystem<UGameDiscsSubsystem>()->Library().PlayableDisc(Number);
 	if (Disc == nullptr)
 	{
 		Current = {Weltall::EAssetExportState::Unavailable, Current.Kind, 0, 0, Current.Revision + 1};
@@ -189,7 +207,7 @@ bool UGameAssetsSubsystem::StartMusic()
 	const Weltall::FIso9660* Disc = nullptr;
 	Weltall::EDiscRelease Release{};
 	Weltall::FGameFileIndex Index;
-	if (!ReadFirstDisc(Disc, Release, Index)) { return false; }
+	if (!ReadDisc(1, Disc, Release, Index)) { return false; }
 	auto Job = Weltall::FDiscMusicWaveExport::Open(*Disc, Index, MusicFolder());
 	if (!Job) { Fail(Job.Error()); return false; }
 	MusicJob = std::move(*Job);
@@ -204,7 +222,7 @@ bool UGameAssetsSubsystem::StartTextures()
 	const Weltall::FIso9660* Disc = nullptr;
 	Weltall::EDiscRelease Release{};
 	Weltall::FGameFileIndex Index;
-	if (!ReadFirstDisc(Disc, Release, Index)) { return false; }
+	if (!ReadDisc(1, Disc, Release, Index)) { return false; }
 	auto Job = FTextureExport::Open(*Disc, Index, TexturesFolder());
 	if (!Job) { Fail(Job.Error()); return false; }
 	TextureJob = MoveTemp(*Job);
@@ -219,12 +237,48 @@ bool UGameAssetsSubsystem::StartText()
 	const Weltall::FIso9660* Disc = nullptr;
 	Weltall::EDiscRelease Release{};
 	Weltall::FGameFileIndex Index;
-	if (!ReadFirstDisc(Disc, Release, Index)) { return false; }
+	if (!ReadDisc(1, Disc, Release, Index)) { return false; }
 	auto Job = Weltall::FGameTextExport::Open(*Disc, Index, TextFolder(), std::filesystem::path(*FontFolder()));
 	if (!Job) { Fail(Job.Error()); return false; }
 	TextJob = std::move(*Job);
 	Current = {Weltall::EAssetExportState::Running, Weltall::EAssetExportKind::Text, 0, static_cast<uint64>(TextJob->TotalFiles()), Current.Revision + 1};
 	UE_LOG(LogWeltall, Log, TEXT("Exporting text to %s"), UTF8_TO_TCHAR(TextFolder().generic_u8string().c_str()));
+	return true;
+}
+
+bool UGameAssetsSubsystem::StartDisc2()
+{
+	Current.Kind = Weltall::EAssetExportKind::Disc2;
+	const Weltall::FIso9660* Disc = nullptr;
+	Weltall::EDiscRelease Release{};
+	Weltall::FGameFileIndex Index;
+	if (!ReadDisc(2, Disc, Release, Index)) { return false; }
+	const std::filesystem::path Folder = std::filesystem::path(*UGameModsSubsystem::ModsFolder()) / std::filesystem::path(std::u8string(
+		Weltall::FDisc2Export::Folder.begin(), Weltall::FDisc2Export::Folder.end()));
+	auto Job = Weltall::FDisc2Export::Open(*Disc, Index, Folder);
+	if (!Job) { Fail(Job.Error()); return false; }
+	Disc2Job = std::move(*Job);
+	Current = {Weltall::EAssetExportState::Running, Weltall::EAssetExportKind::Disc2, 0, static_cast<uint64>(Disc2Job->TotalFiles()), Current.Revision + 1};
+	UE_LOG(LogWeltall, Log, TEXT("Exporting Disc 2 to %s"), UTF8_TO_TCHAR(Folder.generic_u8string().c_str()));
+	return true;
+}
+
+bool UGameAssetsSubsystem::StartShared()
+{
+	Current.Kind = Weltall::EAssetExportKind::Shareable;
+	// The disc a game of the second disc reads its files from: the first where the player has it, which holds every map.
+	const bool bFirst = GetGameInstance()->GetSubsystem<UGameDiscsSubsystem>()->Library().PlayableDisc(1) != nullptr;
+	const Weltall::FIso9660* Disc = nullptr;
+	Weltall::EDiscRelease Release{};
+	Weltall::FGameFileIndex Index;
+	if (!ReadDisc(bFirst ? 1 : 2, Disc, Release, Index)) { return false; }
+	const Weltall::TResult<Weltall::FStoryPacks> Port = ReadStoryDocuments();
+	if (!Port) { Fail(Port.Error()); return false; }
+	auto Job = Weltall::FShareableExpansion::Open(*Disc, Index, *Port, Shared);
+	if (!Job) { Fail(Job.Error()); return false; }
+	SharedJob = std::move(*Job);
+	Current = {Weltall::EAssetExportState::Running, Weltall::EAssetExportKind::Shareable, 0, static_cast<uint64>(SharedJob->TotalFiles()), Current.Revision + 1};
+	UE_LOG(LogWeltall, Log, TEXT("Making the Disc 2 expansion in %s shareable"), UTF8_TO_TCHAR(Shared.generic_u8string().c_str()));
 	return true;
 }
 
@@ -265,11 +319,11 @@ void UGameAssetsSubsystem::UpdateProgress()
 	}
 }
 
-void UGameAssetsSubsystem::Finish(const TCHAR* Done)
+void UGameAssetsSubsystem::Finish(const TCHAR* Done, const FString& Folder)
 {
 	Current.State = Weltall::EAssetExportState::Complete;
 	++Current.Revision;
-	UE_LOG(LogWeltall, Log, TEXT("%s %s"), Done, *AssetsFolder());
+	UE_LOG(LogWeltall, Log, TEXT("%s %s"), Done, *Folder);
 }
 
 void UGameAssetsSubsystem::ResetBackgroundJobs()
@@ -277,6 +331,8 @@ void UGameAssetsSubsystem::ResetBackgroundJobs()
 	MusicJob.reset();
 	TextureJob.Reset();
 	TextJob.reset();
+	Disc2Job.reset();
+	SharedJob.reset();
 }
 
 void UGameAssetsSubsystem::TickBackground()
@@ -296,6 +352,14 @@ void UGameAssetsSubsystem::TickBackground()
 		{
 			BackgroundStep = Async(EAsyncExecution::ThreadPool, [Job = TextJob.get()]() { return Job->Step(); });
 		}
+		else if (Disc2Job)
+		{
+			BackgroundStep = Async(EAsyncExecution::ThreadPool, [Job = Disc2Job.get()]() { return Job->Step(); });
+		}
+		else if (SharedJob)
+		{
+			BackgroundStep = Async(EAsyncExecution::ThreadPool, [Job = SharedJob.get()]() { return Job->Step(); });
+		}
 		else
 		{
 			BackgroundStep = Async(EAsyncExecution::ThreadPool, [Job = TextureJob.Get()]() { return Job->Step(); });
@@ -312,26 +376,30 @@ void UGameAssetsSubsystem::TickBackground()
 	}
 	if (!Stepped)
 	{
-		Fail(Stepped.Error());
+		Fail(SharedJob ? Weltall::MakeError("Make shareable: " + Stepped.Error().Message) : Stepped.Error());
 		ResetBackgroundJobs();
 		return;
 	}
-	const uint64 Done = MusicJob ? MusicJob->Status().CompletedSongs : TextJob ? static_cast<uint64>(TextJob->CompletedFiles()) : TextureJob->CompletedItems();
+	const uint64 Done = MusicJob ? MusicJob->Status().CompletedSongs : TextJob ? static_cast<uint64>(TextJob->CompletedFiles())
+		: Disc2Job ? static_cast<uint64>(Disc2Job->CompletedFiles()) : SharedJob ? static_cast<uint64>(SharedJob->CompletedFiles()) : TextureJob->CompletedItems();
 	if (Current.Completed != Done)
 	{
 		Current.Completed = Done;
 		++Current.Revision;
 	}
 	if (!*Stepped) { return; }
-	const TCHAR* Exported = MusicJob ? TEXT("Music WAVs exported to") : TextJob ? TEXT("Text and font exported to") : TEXT("Textures exported to");
+	const TCHAR* Exported = MusicJob ? TEXT("Music WAVs exported to") : TextJob ? TEXT("Text and font exported to")
+		: Disc2Job ? TEXT("Disc 2 exported to") : SharedJob ? TEXT("The Disc 2 expansion's shareable copy written to") : TEXT("Textures exported to");
+	const FString Folder = Disc2Job ? FPaths::Combine(UGameModsSubsystem::ModsFolder(), UTF8_TO_TCHAR(std::string(Weltall::FDisc2Export::Folder).c_str()))
+		: SharedJob ? FString(UTF8_TO_TCHAR(Weltall::FShareableExpansion::CopyFolder(Shared).generic_u8string().c_str())) : AssetsFolder();
 	if (TextJob) { SaveFontSheetPicture(FontFolder(), TextJob->FontPicture()); }
 	ResetBackgroundJobs();
-	Finish(Exported);
+	Finish(Exported, Folder);
 }
 
 void UGameAssetsSubsystem::Tick(float)
 {
-	if (MusicJob || TextureJob || TextJob)
+	if (MusicJob || TextureJob || TextJob || Disc2Job || SharedJob)
 	{
 		TickBackground();
 		return;
@@ -342,7 +410,7 @@ void UGameAssetsSubsystem::Tick(float)
 	UpdateProgress();
 	if (*Stepped && ++Active == Jobs.size())
 	{
-		Finish(TEXT("Disc assets dumped to"));
+		Finish(TEXT("Disc assets dumped to"), AssetsFolder());
 	}
 }
 

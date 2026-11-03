@@ -87,7 +87,7 @@ namespace Weltall
 		}
 	}
 
-	void FVramUploadTracker::Upload(const FVramRect& Given, std::span<const uint16> Units)
+	void FVramUploadTracker::Upload(const FVramRect& Given, std::span<const uint16> Units, EVramUploadKind Kind)
 	{
 		if (Given.Width <= 0 || Given.Height <= 0)
 		{
@@ -99,7 +99,9 @@ namespace Weltall
 			return;
 		}
 		const FVramRect Rect = Wrapped(Given);
-		auto Made = std::make_shared<const FVramUpload>(Describe(Rect, Units));
+		FVramUpload Described = Describe(Rect, Units);
+		Described.Kind = Kind;
+		auto Made = std::make_shared<const FVramUpload>(Described);
 		const auto Restored = std::find_if(Readbacks.begin(), Readbacks.end(), [&](const FReadback& Readback)
 		{
 			return Readback.Rect == Rect && Readback.Crc == Made->Crc;

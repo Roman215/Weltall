@@ -2,11 +2,14 @@
 
 #include "Foundation/Result.h"
 #include "Foundation/Types.h"
+#include "Game/CharacterLooks.h"
+#include "Game/ClearGame.h"
 #include "Game/PartyOrder.h"
 #include "Game/StoryMode.h"
 
 #include <array>
 #include <span>
+#include <string>
 #include <vector>
 
 namespace Weltall
@@ -42,9 +45,11 @@ namespace Weltall
 
 		/**
 		 * The data as the port plays it: Data, but for a save of the expanded second disc made where the original
-		 * stands elsewhere, whose own place and story are put back over the original's (SaveWrite.h).
+		 * stands elsewhere, whose own place and story are put back over the original's, and a clear game's, whose
+		 * own party is (SaveWrite.h). Without bExpansionPlayed (the port lacks the save's expansion) a save of the
+		 * expanded second disc is the original's at its point.
 		 */
-		WELTALLCORE_API std::vector<uint8> PlayedData() const;
+		WELTALLCORE_API std::vector<uint8> PlayedData(bool bExpansionPlayed = true) const;
 
 		/** The play clock, in vertical blanks. */
 		WELTALLCORE_API uint32 PlayTime() const;
@@ -63,9 +68,17 @@ namespace Weltall
 
 		/** How its game tells the second disc's story, which only the port's saves keep: none chosen in any other. */
 		WELTALLCORE_API EStoryMode StoryMode() const;
+		/** The expansion a save of the expanded second disc plays, by its mod's folder; empty for any other save. */
+		WELTALLCORE_API std::string Expansion() const;
 
 		/** The order its player kept the party in, which only the port's saves keep: none set in any other. */
 		WELTALLCORE_API FPartyOrder PartyOrder() const;
+
+		/** How its player had the second Citan and the grown Emeralda drawn, which only the port's saves keep: as the story has them in any other. */
+		WELTALLCORE_API FCharacterLooks CharacterLooks() const;
+
+		/** Whether its game goes on from a clear file, which only the port's saves keep. */
+		WELTALLCORE_API EClearGame ClearGame() const;
 
 	private:
 		/** Whether the port kept anything of its own in it. */

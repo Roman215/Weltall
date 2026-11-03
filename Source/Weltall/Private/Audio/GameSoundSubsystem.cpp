@@ -1,6 +1,7 @@
 #include "Audio/GameSoundSubsystem.h"
 
 #include "Audio/GameSoundWave.h"
+#include "AudioDevice.h"
 #include "Components/AudioComponent.h"
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
@@ -28,6 +29,14 @@ bool UGameSoundSubsystem::Start(const Weltall::FIso9660& Disc)
 	Output = UGameplayStatics::CreateSound2D(GetGameInstance(), Wave, 1.0f, 1.0f, 0.0f, nullptr, true, false);
 	if (Output)
 	{
+		// A sample made waits on average half the wave's chunk, then the mixer's queued buffers (it keeps at least two)
+		// and half the one it is mixing into, before the device has it.
+		const FAudioDeviceHandle Device = World->GetAudioDevice();
+		const double MixerFrames = (FMath::Max(Device->GetNumBuffers(), 2) + 0.5) * Device->GetBufferLength();
+		const uint32 Latency = static_cast<uint32>(MixerFrames * Weltall::IGameSound::SampleRate / Device->GetSampleRate() + UGameSoundWave::ChunkFrames / 2);
+		GameSound->Sound()->SetHeard(Latency);
+		UE_LOG(LogWeltall, Log, TEXT("The game's sound is heard %u ms after it is made, besides the device's own latency"),
+			Latency * 1000 / Weltall::IGameSound::SampleRate);
 		Output->Play();
 		Output->SetPaused(bHeld);
 	}

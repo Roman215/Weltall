@@ -28,4 +28,7 @@ namespace Weltall
 	 * story's variables. Leader is the leader's script state.
 	 */
 	WELTALLCORE_API void SaveFieldVariables(FEventContext& Context, const FEventActorState& Leader);
+
+	/** The same into Variables and Game, the context's copies, leaving the field as it is. */
+	WELTALLCORE_API void SaveFieldVariables(const FEventContext& Context, const FEventActorState& Leader, FEventVariables& Variables, FGameState& Game);
 }

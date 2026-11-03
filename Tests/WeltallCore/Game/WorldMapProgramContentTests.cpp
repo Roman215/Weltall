@@ -1,6 +1,9 @@
 #include "Field/FieldGearStandIns.h"
+#include "Field/IdsFieldSprite.h"
+#include "Game/CharacterLooks.h"
 #include "Game/PartyOrder.h"
 #include "Game/WorldMapProgram.h"
+#include "Graphics/Texture.h"
 #include "Graphics/TextureRegion.h"
 #include "Menu/MenuGameMenus.h"
 #include "Sound/WorldMapMusic.h"
@@ -756,4 +759,295 @@ TEST_CASE("Out of her gear's size on the world map, Chu-Chu's model shrinks away
 	}
 	CHECK(StandIns->IsShown(FirstGearSlot + 1));
 	CHECK(HeightOf(1) == Catch::Approx(ChuChu).epsilon(0.05));
+}
+
+TEST_CASE("After its menu the world map draws the grown Emeralda as the child once her player has switched her", "[Game][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	constexpr uint8 Emeralda = 6;
+	constexpr uint8 GrownEmeralda = 10;
+	// The size of the second member's sprite file on a world map entered with Member, made from the child's record;
+	// then, Switch given, the size after the menu switches her look.
+	const auto SecondFile = [&Disc](uint8 Member, bool bSwitch)
+	{
+		auto Game = Testing::FGameLoopSession::Start(*Disc);
+		FGameSession& Session = *Game->Session;
+		FGameState& State = Session.Game();
+		if (Member != Emeralda)
+		{
+			REQUIRE(State.CopyCharacter(Emeralda, Member));
+		}
+		State.SetParty({0, Member, 0xFF});
+		State.SetJoinedCharacters(static_cast<uint16>(State.JoinedCharacters() | 1u << Member));
+		EnterWorldMap(Session);
+		auto Started = FWorldMapProgram::Start(Session);
+		REQUIRE(Started);
+		FWorldMapProgram& Program = **Started;
+		RunEntryFade(Program);
+		for (int32 Tick = 0; Tick < FadeInTicks + 2; ++Tick)
+		{
+			REQUIRE_FALSE(Frame(Program, NoButtons));
+		}
+		const FWorldMapContext& Context = Program.Runtime().Context();
+		REQUIRE(Context.MemberFiles[1]);
+		const uint32 Before = Context.MemberFiles[1]->Size();
+		if (!bSwitch)
+		{
+			return std::pair{Before, Before};
+		}
+		REQUIRE_FALSE(Frame(Program, SquarePressed, true));
+		REQUIRE_FALSE(Frame(Program, NoButtons));
+		FCharacterLooks Looks;
+		REQUIRE(Looks.Switch(Member));
+		Session.Game().SetCharacterLooks(Looks);
+		REQUIRE_FALSE(Program.Runtime().ResumeAfterMenu());
+		REQUIRE(Context.MemberFiles[1]);
+		REQUIRE(Context.SpriteSlots[FWorldMapContext::LeaderSlot + 1]);
+		CHECK(Context.SpriteSlots[FWorldMapContext::LeaderSlot + 1]->PrimaryFile == &*Context.MemberFiles[1]);
+		return std::pair{Before, Context.MemberFiles[1]->Size()};
+	};
+	const auto [Child, ChildAgain] = SecondFile(Emeralda, false);
+	const auto [Grown, Switched] = SecondFile(GrownEmeralda, true);
+	CHECK(Grown != Child);
+	CHECK(Switched == Child);
+	CHECK(ChildAgain == Child);
+}
+
+TEST_CASE("With Citan's sword put away, the world map draws the second Heimdal as the first and Fenrir in the first's stance", "[Game][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	constexpr int32 CitansGearSlot = FWorldMapContext::LeaderSlot + 4;
+	constexpr uint8 SwordCitan = 9;
+	constexpr uint8 Heimdal = 3;
+	constexpr uint8 Fenrir = 11;
+	constexpr uint8 SwordHeimdal = 16;
+	/** Fenrir's fist and open hand on one side. */
+	constexpr std::size_t Fist = 50;
+	constexpr std::size_t OpenHand = 51;
+	struct FRidden
+	{
+		int32 Gear = -1;
+		std::size_t Bones = 0;
+		std::array<uint8, 2> Hands{};
+	};
+	// The world map with Fei in Weltall and the second Citan riding Gear, his sword put away.
+	const auto Ride = [&Disc](uint8 Gear)
+	{
+		auto Game = Testing::FGameLoopSession::Start(*Disc);
+		FGameSession& Session = *Game->Session;
+		FPlayerSettings Settings = Session.Settings();
+		Settings.Field.GearModels = EFieldGearModels::Everywhere;
+		Session.SetSettings(Settings);
+		FGameState& State = Session.Game();
+		State.SetSavedEventVariable(0, 120);
+		State.SetParty({0, SwordCitan, 0xFF});
+		REQUIRE(State.SetCharacterGear(0, 0));
+		REQUIRE(State.SetCharacterGear(SwordCitan, Gear));
+		for (int32 Slot = 0; Slot < 2; ++Slot)
+		{
+			State.SetPartySlotInGear(Slot, 1);
+		}
+		FCharacterLooks Looks;
+		REQUIRE(Looks.Switch(SwordCitan));
+		State.SetCharacterLooks(Looks);
+		State.SetWorldMapPlace(Place, Entrance, CameraYaw, Scene);
+		auto Started = FWorldMapProgram::Start(Session);
+		REQUIRE(Started);
+		FWorldMapProgram& Program = **Started;
+		RunEntryFade(Program);
+		for (int32 Tick = 0; Tick < FadeInTicks + 8; ++Tick)
+		{
+			REQUIRE_FALSE(Frame(Program, NoButtons));
+		}
+		const FFieldGearStandIns* StandIns = Program.Drawing().GearStandIns();
+		REQUIRE(StandIns != nullptr);
+		FRidden Ridden;
+		Ridden.Gear = StandIns->GearOf(CitansGearSlot);
+		if (const FGearModel* Model = StandIns->LoadedModelOf(CitansGearSlot))
+		{
+			Ridden.Bones = Model->Bones.size();
+			if (Ridden.Bones > OpenHand)
+			{
+				Ridden.Hands = {Model->Bones[Fist].bShown, Model->Bones[OpenHand].bShown};
+			}
+		}
+		return Ridden;
+	};
+	const FRidden Second = Ride(SwordHeimdal);
+	CHECK(Second.Gear == Heimdal);
+	CHECK(Second.Bones == 45);
+	const FRidden Worn = Ride(Fenrir);
+	CHECK(Worn.Gear == Fenrir);
+	CHECK(Worn.Bones == 56);
+	CHECK(Worn.Hands == std::array<uint8, 2>{1, 0});
+}
+
+namespace
+{
+	/** The orange colours (hue 7-43 degrees, strongly coloured) a sprite file's palette block holds. */
+	int32 OrangeColours(const FSpriteFile& File)
+	{
+		const uint32 Palettes = File.Tables().Palettes;
+		const uint32 End = std::min<uint32>(static_cast<uint32>(File.Word(16) | File.Word(18) << 16), File.Size());
+		int32 Count = 0;
+		for (uint32 At = Palettes + 4; At + 2 <= End; At += 2)
+		{
+			const uint16 Colour = File.Word(At);
+			const int32 R = Colour & 31;
+			const int32 G = Colour >> 5 & 31;
+			const int32 B = Colour >> 10 & 31;
+			const int32 Max = std::max({R, G, B});
+			const int32 Min = std::min({R, G, B});
+			if (Max > 1 && Max == R && Max != Min)
+			{
+				const double Hue = 60.0 * (G - B) / (Max - Min);
+				Count += Hue >= 7.2 && Hue <= 43.2 && (Max - Min) * 100 >= Max * 55 ? 1 : 0;
+			}
+		}
+		return Count;
+	}
+}
+
+TEST_CASE("After its menu the world map draws Elly with purple hair once her player has switched her", "[Game][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	auto Game = Testing::FGameLoopSession::Start(*Disc);
+	FGameSession& Session = *Game->Session;
+	FGameState& State = Session.Game();
+	State.SetParty({0, FCharacterLooks::Elly, 0xFF});
+	EnterWorldMap(Session);
+	auto Started = FWorldMapProgram::Start(Session);
+	REQUIRE(Started);
+	FWorldMapProgram& Program = **Started;
+	RunEntryFade(Program);
+	for (int32 Tick = 0; Tick < FadeInTicks + 2; ++Tick)
+	{
+		REQUIRE_FALSE(Frame(Program, NoButtons));
+	}
+	const FWorldMapContext& Context = Program.Runtime().Context();
+	REQUIRE(Context.MemberFiles[1]);
+	CHECK(OrangeColours(*Context.MemberFiles[1]) > 4);
+	REQUIRE_FALSE(Frame(Program, SquarePressed, true));
+	REQUIRE_FALSE(Frame(Program, NoButtons));
+	FCharacterLooks Looks;
+	REQUIRE(Looks.Switch(FCharacterLooks::Elly));
+	Session.Game().SetCharacterLooks(Looks);
+	REQUIRE_FALSE(Program.Runtime().ResumeAfterMenu());
+	REQUIRE(Context.MemberFiles[1]);
+	CHECK(OrangeColours(*Context.MemberFiles[1]) == 0);
+	CHECK(Context.SpriteSlots[FWorldMapContext::LeaderSlot + 1]->PrimaryFile == &*Context.MemberFiles[1]);
+}
+
+TEST_CASE("The world map draws Fei as Id with Id's own sprite from the port's rows, and as Fei again after", "[Game][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const auto AsId = [](FGameState& State, bool bId)
+	{
+		FCharacterLooks Looks = State.CharacterLooks();
+		if (Looks.IsId(FCharacterLooks::Fei) != bId)
+		{
+			REQUIRE(Looks.Switch(FCharacterLooks::Fei));
+		}
+		State.SetCharacterLooks(Looks);
+	};
+	// The leader drawn as Id: his file at his picture's page, the picture in the drawing's port rows, his parts drawn from it.
+	const auto CheckId = [](const FWorldMapProgram& Program)
+	{
+		const FWorldMapContext& Context = Program.Runtime().Context();
+		REQUIRE(Program.Runtime().IdShown() != nullptr);
+		const FIdsFieldSprite& Id = *Program.Runtime().IdShown();
+		REQUIRE(Context.MemberFiles[0]);
+		CHECK(Context.MemberFiles[0]->IsResident(Context.MemberFiles[0]->Tables()));
+		CHECK(Context.MemberFiles[0]->AnimationCount(Context.MemberFiles[0]->Tables()) == 15);
+		const FSprite& Leader = *Context.SpriteSlots[FWorldMapContext::LeaderSlot];
+		CHECK(Leader.PrimaryFile == &*Context.MemberFiles[0]);
+		CHECK(Leader.Resource->TextureX == FIdsFieldSprite::TextureX);
+		CHECK(Leader.Resource->TextureY == FIdsFieldSprite::TextureY);
+		// Both his palettes at a place of their own: his frames toward the camera draw with the second, which at the
+		// leader's place would lie where the next member's palette goes.
+		CHECK(Leader.Resource->ClutX == FIdsFieldSprite::ClutX);
+		CHECK(Leader.Resource->ClutY == FIdsFieldSprite::ClutY);
+		const FSpriteFile& File = *Context.MemberFiles[0];
+		REQUIRE(File.PalettesPerSet(File.Tables()) == 2);
+		int32 Colours = 0;
+		for (int32 Colour = 0; Colour < 32; ++Colour)
+		{
+			Colours += Program.Drawing().Vram().TexelAt(FIdsFieldSprite::ClutX + Colour, FIdsFieldSprite::ClutY)
+						== File.Word(File.PaletteSet(File.Tables(), 0) + 2 * static_cast<uint32>(Colour)) ? 1 : 0;
+		}
+		CHECK(Colours == 32);
+		const FSprite& Follower = *Context.SpriteSlots[FWorldMapContext::LeaderSlot + 1];
+		const FSpriteFile& Hers = *Context.MemberFiles[1];
+		for (int32 Colour = 0; Colour < 16; ++Colour)
+		{
+			CHECK(Program.Drawing().Vram().TexelAt(Follower.Resource->ClutX + Colour, Follower.Resource->ClutY)
+				  == Hers.Word(Hers.PaletteSet(Hers.Tables(), 0) + 2 * static_cast<uint32>(Colour)));
+		}
+		const FVramRect& Rect = Id.Picture().Rect;
+		int32 Placed = 0;
+		for (int32 Row = 0; Row < Rect.Height; ++Row)
+		{
+			for (int32 Column = 0; Column < Rect.Width; ++Column)
+			{
+				Placed += Program.Drawing().Vram().TexelAt(Rect.X + Column, Rect.Y + Row)
+							== Id.Picture().Units[static_cast<std::size_t>(Row * Rect.Width + Column)] ? 1 : 0;
+			}
+		}
+		CHECK(Placed == Rect.Width * Rect.Height);
+		const FWorldMapFrame* Drawn = Program.LatestFrame();
+		REQUIRE(Drawn != nullptr);
+		int32 HisParts = 0;
+		for (const FWorldMapPolygon& Polygon : Drawn->Polygons)
+		{
+			if (Polygon.Layer == EWorldMapLayer::Sprite && Polygon.bPortRows)
+			{
+				const FTexturePage Page = FTexturePage::FromPortAttribute(Polygon.TexturePage);
+				HisParts += Page.X == FIdsFieldSprite::TextureX && Page.Y == FIdsFieldSprite::TextureY ? 1 : 0;
+			}
+		}
+		CHECK(HisParts > 0);
+	};
+	for (const bool bEnteredAsId : {false, true})
+	{
+		INFO("entered as Id " << bEnteredAsId);
+		auto Game = Testing::FGameLoopSession::Start(*Disc);
+		FGameSession& Session = *Game->Session;
+		Session.Game().SetParty({FCharacterLooks::Fei, FCharacterLooks::Elly, 0xFF});
+		AsId(Session.Game(), bEnteredAsId);
+		EnterWorldMap(Session);
+		auto Started = FWorldMapProgram::Start(Session);
+		REQUIRE(Started);
+		FWorldMapProgram& Program = **Started;
+		RunEntryFade(Program);
+		for (int32 Tick = 0; Tick < FadeInTicks + 2; ++Tick)
+		{
+			REQUIRE_FALSE(Frame(Program, NoButtons));
+		}
+		const FWorldMapContext& Context = Program.Runtime().Context();
+		const auto Leader = [&Context]() -> const FSprite& { return *Context.SpriteSlots[FWorldMapContext::LeaderSlot]; };
+		// The look switched as the menu would, the party's sprites made again on the map's next tick.
+		const auto SwitchTo = [&](bool bId)
+		{
+			AsId(Session.Game(), bId);
+			for (int32 Tick = 0; Tick < 4; ++Tick)
+			{
+				REQUIRE_FALSE(Frame(Program, NoButtons));
+			}
+		};
+		if (!bEnteredAsId)
+		{
+			SwitchTo(true);
+		}
+		CheckId(Program);
+		// As Fei again, his own file streamed where the leader's task put it.
+		SwitchTo(false);
+		CHECK(Program.Runtime().IdShown() == nullptr);
+		CHECK_FALSE(Context.MemberFiles[0]->IsResident(Context.MemberFiles[0]->Tables()));
+		const FWorldMapSpritePlace& Asked = Context.SpritePlaces[FWorldMapContext::LeaderSlot];
+		CHECK(Asked.TextureY < FVram::Height);
+		CHECK(Leader().Resource->TextureX == Asked.TextureX);
+		CHECK(Leader().Resource->TextureY == Asked.TextureY);
+		CHECK(Leader().Resource->ClutX == Asked.ClutX);
+		CHECK(Leader().Resource->ClutY == Asked.ClutY);
+	}
 }

@@ -26,6 +26,8 @@ namespace Weltall
 		{
 			constexpr uint8 Confirm = 2;
 			constexpr uint8 Buzzer = 4;
+			/** The menus' chime for an item or an Ether used. */
+			constexpr uint8 LookSwitched = 0x37;
 		}
 
 		/** Slot's bit among the panels lit; none for no slot. */
@@ -33,6 +35,22 @@ namespace Weltall
 		{
 			return Slot < 0 ? 0 : 1u << Slot;
 		}
+	}
+
+	bool FMenuMain::CanArrangeParty() const
+	{
+		if (Members > 1)
+		{
+			return true;
+		}
+		for (int32 Slot = 0; Slot < 3; ++Slot)
+		{
+			if (Member(Slot) != FGameState::EmptySlot && FCharacterLooks::CanSwitch(Member(Slot), Services.Game->IsClearGame()))
+			{
+				return true;
+			}
+		}
+		return false;
 	}
 
 	int32 FMenuMain::NextPanel(int32 Slot, bool bUp, int32 Skipped) const
@@ -102,6 +120,12 @@ namespace Weltall
 				Cursor = NextPanel(Cursor, Code == EMenuCode::Up, Picked);
 				break;
 			case EMenuCode::Confirm:
+				if (Picked == NoPick && NextPanel(Cursor, false, Cursor) == Cursor)
+				{
+					// A member alone, here for its look: nobody to swap with.
+					PlaySound(Effect::Buzzer);
+					continue;
+				}
 				if (Picked == NoPick)
 				{
 					// The pick marked in a faded red, the cursor on to the next member to swap it with.
@@ -132,6 +156,15 @@ namespace Weltall
 				Picked = NoPick;
 				TargetPointerShown.fill(false);
 				co_await RestoreStoryOrder();
+				break;
+			case EMenuCode::Triangle:
+				// The player's Square: the second Citan with his sword or without, the grown Emeralda or the child.
+				if (!SwitchLook(Cursor))
+				{
+					PlaySound(Effect::Buzzer);
+					continue;
+				}
+				PlaySound(Effect::LookSwitched);
 				break;
 			case EMenuCode::Cancel:
 			case EMenuCode::Left:
@@ -185,6 +218,20 @@ namespace Weltall
 		co_await MovePanels(From);
 	}
 
+	bool FMenuMain::SwitchLook(int32 Slot)
+	{
+		FCharacterLooks Looks = Services.Game->CharacterLooks();
+		if (!FCharacterLooks::CanSwitch(Member(Slot), Services.Game->IsClearGame()) || !Looks.Switch(Member(Slot)))
+		{
+			return false;
+		}
+		Services.Game->SetCharacterLooks(Looks);
+		UploadPortrait(Slot, Member(Slot));
+		UploadFace(Member(Slot));
+		RenderPartyNames();
+		return true;
+	}
+
 	TMenuTask<> FMenuMain::MovePanels(const std::array<int32, 3>& From)
 	{
 		const std::array<uint8, 3> Shown{Member(0), Member(1), Member(2)};
@@ -201,8 +248,11 @@ namespace Weltall
 			{
 				Moving |= Lit(Slot);
 				UploadPortrait(Slot, Member(Slot));
-				RenderMemberNames(Slot);
 			}
+		}
+		if (Moving != 0)
+		{
+			RenderPartyNames();
 		}
 		FirstMember = NextPanel(2, false);
 		// Each member's panel leaves the place it held for its new one.

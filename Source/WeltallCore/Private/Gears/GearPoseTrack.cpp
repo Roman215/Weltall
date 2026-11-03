@@ -208,6 +208,30 @@ namespace Weltall
 		return Pose;
 	}
 
+	FGearPose GearPoseOfPlaced(std::span<const FGearBone> Bones)
+	{
+		FGearPose Pose(Bones.size());
+		for (std::size_t Index = 1; Index < Bones.size(); ++Index)
+		{
+			const FGearBone& Bone = Bones[Index];
+			const FQuaternion Turn = TurnOf(Bone.World);
+			std::array<float, 3> Place = {static_cast<float>(Bone.World.T[0]), static_cast<float>(Bone.World.T[1]), static_cast<float>(Bone.World.T[2])};
+			if (Bone.Parent == FGearBone::NoParent)
+			{
+				Pose[Index] = {Turn, Place};
+				continue;
+			}
+			const FGteMatrix& Above = Bones[static_cast<std::size_t>(Bone.Parent)].World;
+			const FQuaternion Back = Inverse(TurnOf(Above));
+			for (std::size_t Axis = 0; Axis < 3; ++Axis)
+			{
+				Place[Axis] -= static_cast<float>(Above.T[Axis]);
+			}
+			Pose[Index] = {Normalized(Product(Back, Turn)), Rotated(Back, Place)};
+		}
+		return Pose;
+	}
+
 	TResult<FGearPose> ReadGearPose(std::span<const FGearSkeletonEntry> Skeleton, FGearMotionPack& Motion, int32 Record)
 	{
 		FTrackEngine Engine(Motion, Skeleton.size() + 1);

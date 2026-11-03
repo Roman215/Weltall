@@ -71,6 +71,11 @@ namespace Weltall
 		int16 ArmTurn = 0;
 		int8 HandsAt = 0;
 		int8 FeetAt = 0;
+		/**
+		 * A party gear parked where the party does not ride it (the Yggdrasil's hangar, the Generator missions): drawn as
+		 * the player has its pilot drawn (FCharacterLooks), as the party's own gears are. The crucified keep the story's.
+		 */
+		bool bParked = false;
 
 		bool Hangs() const { return RaisedArms[0] != NoArm; }
 	};

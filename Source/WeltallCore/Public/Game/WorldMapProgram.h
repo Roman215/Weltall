@@ -91,6 +91,8 @@ namespace Weltall
 		bool IsFadingOut() const { return Phase == EPhase::EntryFade || Phase == EPhase::MenuFadeOut; }
 		/** What the last frame showed, when it was a frame of a fade. */
 		const FWorldMapScreenFade& ScreenFade() const { return LastFade; }
+		/** Whether the map's own ticks run: the program running, past its entry's fade, and not its menu or that menu's fades. */
+		bool TicksMap() const { return ProgramState == EGameProgramState::Running && Phase == EPhase::Loop; }
 
 	private:
 		enum class EPhase : uint8

@@ -2,6 +2,7 @@
 
 #include "CoreMinimal.h"
 #include "Field/FieldRenderOptions.h"
+#include "Game/CharacterLooks.h"
 #include "Game/PartyOrder.h"
 #include "Input/PadLatch.h"
 #include "Rendering/WorldMapRendering.h"
@@ -43,6 +44,8 @@ struct FWorldMapStart
 	std::array<uint8, 3> Party{0, 2, 3};
 	/** The order the player keeps the party in: the story's, unless set. */
 	Weltall::FPartyOrder Order;
+	/** The looks the player has switched (FCharacterLooks): the story's, unless set. */
+	Weltall::FCharacterLooks Looks;
 	bool bInGears = false;
 	/** The Yggdrasil's place and heading (whole units), and the world map's flags (its kind, 2000h start aboard it, 4000h aboard). */
 	std::optional<std::array<int16, 4>> Vehicle;

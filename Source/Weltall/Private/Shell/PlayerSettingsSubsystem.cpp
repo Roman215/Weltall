@@ -3,6 +3,7 @@
 #include "Engine/GameInstance.h"
 #include "Engine/World.h"
 #include "HAL/FileManager.h"
+#include "Misc/CoreDelegates.h"
 #include "Misc/FileHelper.h"
 #include "Misc/Paths.h"
 #include "Shell/PlayerFolders.h"
@@ -13,8 +14,11 @@
 
 namespace
 {
-	/** What the game changes by itself (the framing, the battle speed) is written once it has rested this long. */
-	constexpr float CameraRestSeconds = 2.0f;
+	/**
+	 * What changes without being written at once (the framing and the battle speed the game keeps, the options screen's
+	 * changes while it is open) is written once it has rested this long.
+	 */
+	constexpr float UnsavedRestSeconds = 2.0f;
 }
 
 FString UPlayerSettingsSubsystem::SettingsFile()
@@ -35,14 +39,14 @@ void UPlayerSettingsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		// The first start writes the defaults, so the file lists every setting there is.
 		Save();
 	}
+	// A phone's system may end the app at any moment once it is in the background, with no word to it.
+	BackgroundHandle = FCoreDelegates::ApplicationWillEnterBackgroundDelegate.AddUObject(this, &UPlayerSettingsSubsystem::SaveUnsaved);
 }
 
 void UPlayerSettingsSubsystem::Deinitialize()
 {
-	if (UnsavedFor.IsSet())
-	{
-		Save();
-	}
+	FCoreDelegates::ApplicationWillEnterBackgroundDelegate.Remove(BackgroundHandle);
+	SaveUnsaved();
 	Super::Deinitialize();
 }
 
@@ -56,6 +60,7 @@ void UPlayerSettingsSubsystem::Change(const Weltall::FPlayerSettings& Settings)
 void UPlayerSettingsSubsystem::Follow(const Weltall::FPlayerSettings& Settings)
 {
 	Current = Settings;
+	UnsavedFor = 0.0f;
 	OnSettingsChanged.Broadcast();
 }
 
@@ -75,6 +80,14 @@ void UPlayerSettingsSubsystem::KeepBattleSpeed(Weltall::EBattleSpeed Speed)
 	{
 		Current.BattleSpeed = Speed;
 		UnsavedFor = 0.0f;
+	}
+}
+
+void UPlayerSettingsSubsystem::SaveUnsaved()
+{
+	if (UnsavedFor.IsSet())
+	{
+		Save();
 	}
 }
 
@@ -102,7 +115,7 @@ void UPlayerSettingsSubsystem::Save()
 void UPlayerSettingsSubsystem::Tick(float DeltaTime)
 {
 	*UnsavedFor += DeltaTime;
-	if (*UnsavedFor >= CameraRestSeconds)
+	if (*UnsavedFor >= UnsavedRestSeconds)
 	{
 		Save();
 	}

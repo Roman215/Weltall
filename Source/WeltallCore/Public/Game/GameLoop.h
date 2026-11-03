@@ -54,6 +54,9 @@ namespace Weltall
 		/** A game going on on the world map at once: the world map program started where the game state says the party travels. */
 		WELTALLCORE_API static TResult<std::unique_ptr<FGameLoop>> EnterWorldMap(FGameSession& Session);
 
+		/** A game going on at once with the program the kernel's globals name next, as they were given to the session. */
+		WELTALLCORE_API static TResult<std::unique_ptr<FGameLoop>> GoOn(FGameSession& Session);
+
 		WELTALLCORE_API ~FGameLoop();
 		FGameLoop(const FGameLoop&) = delete;
 		FGameLoop& operator=(const FGameLoop&) = delete;

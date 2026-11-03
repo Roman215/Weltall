@@ -57,6 +57,9 @@ namespace Weltall
 	/** The pose a skeleton's bones hold: each one's turn from its angles in its order, and its place. */
 	WELTALLCORE_API FGearPose GearPoseOf(std::span<const FGearBone> Bones);
 
+	/** The pose that places a skeleton's bones where their world matrices put them: each one's turn and place in its parent's frame. */
+	WELTALLCORE_API FGearPose GearPoseOfPlaced(std::span<const FGearBone> Bones);
+
 	/**
 	 * Record's pose snapped onto a skeleton as its load leaves it, as a script's snap leaves the bones: a record
 	 * places only the bones it holds. An error for a record past the pack's bank, or one that reads past the pack.

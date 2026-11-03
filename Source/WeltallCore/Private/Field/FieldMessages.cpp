@@ -2,6 +2,7 @@
 
 #include "Field/EventContext.h"
 #include "Game/GameStateNames.h"
+#include "Text/MessageLog.h"
 
 namespace Weltall
 {
@@ -41,13 +42,24 @@ namespace Weltall
 			return bFocusPass || Window.Age == 0;
 		}
 
+		/** The message log's name for one of the field's windows. */
+		FMessageLogKey LogKey(const FFieldMessages& Messages, const FFieldMessageWindow& Window)
+		{
+			return {EMessageLogSource::Field, static_cast<uint8>(&Window - Messages.Windows.data())};
+		}
+
 		/** The player's button: a choice ends on its cursor's line, which its owner keeps, and the text goes on. */
 		void Confirm(FEventContext& Context, FFieldMessageWindow& Window)
 		{
+			const uint8 Line = static_cast<uint8>(static_cast<uint8>(Window.ChoiceCursor) + static_cast<uint8>(Window.ChoiceFirst));
+			if (Window.bChoice)
+			{
+				LogChoice(Context.Messages.Text, LogKey(Context.Messages, Window), *Window.Text, Line);
+			}
 			Window.bChoice = false;
 			if (FEventActorState* Owner = Context.StateOf(Window.Owner))
 			{
-				Owner->Choice = static_cast<uint8>(static_cast<uint8>(Window.ChoiceCursor) + static_cast<uint8>(Window.ChoiceFirst));
+				Owner->Choice = Line;
 			}
 			Window.Text->Continue();
 		}
@@ -60,7 +72,7 @@ namespace Weltall
 			{
 				Window.Text->Queue(Window.Message);
 			}
-			Window.Text->Update(Messages.Text);
+			UpdateLoggedWindow(*Window.Text, Messages.Text, LogKey(Messages, Window));
 		}
 
 		void MarkWaiting(FFieldMessageWindow& Window)
@@ -69,6 +81,32 @@ namespace Weltall
 			{
 				Window.bTextWaits = true;
 			}
+		}
+
+		/**
+		 * Auto-advancing text: whether every open window the button reaches this tick (the focused ones and the
+		 * frontmost) has opened and stopped for it without a choice, and the glyphs they show. A window still typing,
+		 * opening, counting down a timed end or offering a choice holds the reader back, so the button is never
+		 * pressed where it would do more than a player's turning the page.
+		 */
+		bool ReachedWindowsWait(const FFieldMessages& Messages, int32& Glyphs)
+		{
+			bool bAny = false;
+			Glyphs = 0;
+			for (const FFieldMessageWindow& Window : Messages.Windows)
+			{
+				if (!Window.bOpen || (!Window.bFocus && Window.Age != 0))
+				{
+					continue;
+				}
+				if (Window.OpenTicks != 0 || !Window.Text || !Window.Text->IsStopped() || Window.bChoice)
+				{
+					return false;
+				}
+				bAny = true;
+				Glyphs += MesShownGlyphs(*Window.Text);
+			}
+			return bAny;
 		}
 
 		/** The frame as the opening leaves it this tick; each call moves the opening a step on. */
@@ -233,6 +271,7 @@ namespace Weltall
 		ResetPortraits();
 		OpenTicks = FullRateOpenTicks;
 		OpenMask = 0;
+		Reading = {};
 	}
 
 	void FFieldMessages::ResetPortraits()
@@ -326,9 +365,15 @@ namespace Weltall
 		}
 	}
 
-	void UpdateFieldMessages(FEventContext& Context, uint16 Pressed, uint16 Repeat)
+	void UpdateFieldMessages(FEventContext& Context, uint16 Pressed, uint16 Repeat, int32 Vblanks)
 	{
 		FFieldMessages& Messages = Context.Messages;
+		int32 Glyphs = 0;
+		const bool bWaits = ReachedWindowsWait(Messages, Glyphs);
+		if (Messages.Reading.Tick(Messages.Text.AutoAdvance, bWaits, Glyphs, Vblanks))
+		{
+			Pressed |= ConfirmButton;
+		}
 		++Messages.CursorTicks;
 		if ((Messages.CursorTicks & 3) == 0)
 		{

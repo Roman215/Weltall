@@ -10,22 +10,26 @@
 bool IsSafeTexturePath(const FString& File, const std::filesystem::path& Root)
 {
 	std::error_code Error;
-	const auto Requested = std::filesystem::absolute(std::filesystem::path(*File), Error).lexically_normal();
+	auto Requested = std::filesystem::absolute(std::filesystem::path(*File), Error).lexically_normal();
 	if (Error || Root.empty()) return false;
-	std::filesystem::path Component;
-	for (const auto& Part : Requested)
+	if (!Requested.has_filename()) Requested = Requested.parent_path();
+	const auto Current = std::filesystem::weakly_canonical(Root, Error);
+	if (Error || Current != Root) return false;
+	const auto Target = std::filesystem::weakly_canonical(Requested, Error);
+	if (Error) return false;
+	const auto Relative = Target.lexically_relative(Root);
+	if (Relative.empty() || Relative.is_absolute() || *Relative.begin() == "..") return false;
+	if (Relative == ".") return true;
+	// Root may be reached through links (a drive's alias, a linked home folder); nothing below it may be one. Those are
+	// the requested path's last parts, as many as the target lies below Root.
+	auto Part = Requested;
+	for (auto Below = Relative.begin(); Below != Relative.end(); ++Below, Part = Part.parent_path())
 	{
-		Component /= Part;
-		const auto Status = std::filesystem::symlink_status(Component, Error);
+		const auto Status = std::filesystem::symlink_status(Part, Error);
 		if (Error == std::errc::no_such_file_or_directory) { Error.clear(); continue; }
 		if (Error || std::filesystem::is_symlink(Status)) return false;
 	}
-	const auto Current = std::filesystem::weakly_canonical(Root, Error);
-	if (Error || Current != Root) return false;
-	const auto Target = std::filesystem::weakly_canonical(std::filesystem::path(*File), Error);
-	if (Error) return false;
-	const auto Relative = Target.lexically_relative(Root);
-	return !Relative.empty() && !Relative.is_absolute() && *Relative.begin() != "..";
+	return true;
 }
 
 std::filesystem::path CanonicalTextureRoot(const FString& Root)

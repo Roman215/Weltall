@@ -8,7 +8,9 @@
 
 #include <catch_amalgamated.hpp>
 
+#include <algorithm>
 #include <memory>
+#include <optional>
 #include <vector>
 
 using namespace Weltall;
@@ -40,11 +42,13 @@ namespace
 		return {Movie.Lba, static_cast<uint32>(Movie.Size) / MovieSectorBytes};
 	}
 
-	FMoviePlayer MakePlayer(const FIso9660& Disc, FGameSoundSystem& Sound, bool bSkippable, uint32 EndFrame = FMoviePlayback::DefaultEndFrame)
+	FMoviePlayer MakePlayer(const FIso9660& Disc, FGameSoundSystem& Sound, bool bSkippable, uint32 EndFrame = FMoviePlayback::DefaultEndFrame,
+		bool bCircleSkips = false)
 	{
 		FMoviePlayback Playback;
 		Playback.EndFrame = EndFrame;
 		Playback.bSkippable = bSkippable;
+		Playback.bCircleSkips = bCircleSkips;
 		return FMoviePlayer(Disc.Image(), MovieFifteen(Disc), Playback, Sound);
 	}
 
@@ -70,6 +74,49 @@ namespace
 			}
 		}
 		return -1;
+	}
+
+	/** The sound frames a host playing in step with the vertical blanks has taken after Blanks of them. */
+	int64 InStep(int64 Blanks)
+	{
+		return Blanks * 263 * 3413 * IGameSound::SampleRate / 53693175;
+	}
+
+	/**
+	 * The picture shown after each vertical blank until the movie ends, the game's sound having taken Taken(blank) frames
+	 * of it before that blank (the host's audio thread), heard Latency frames later; unheard without one.
+	 */
+	template <typename FTaken>
+	std::vector<uint32> PicturesShown(const FIso9660& Disc, FTaken&& Taken, std::optional<uint32> Latency = 0)
+	{
+		const auto Sound = MakeSound(Disc);
+		if (Latency)
+		{
+			Sound->SetHeard(*Latency);
+		}
+		FMoviePlayer Player = MakePlayer(Disc, *Sound, false);
+		REQUIRE(Player.Start());
+		std::vector<uint32> Shown;
+		std::vector<int16> Stereo;
+		int64 Made = 0;
+		for (int32 Blank = 1; Blank <= 1000; ++Blank)
+		{
+			const int64 Due = Taken(Blank);
+			if (Due > Made)
+			{
+				Stereo.assign(static_cast<std::size_t>(Due - Made) * 2, 0);
+				Sound->Render(Stereo);
+				Made = Due;
+			}
+			const auto Playing = Player.Vblank(NoButtons);
+			REQUIRE(Playing);
+			Shown.push_back(Player.PictureNumber());
+			if (!*Playing)
+			{
+				break;
+			}
+		}
+		return Shown;
 	}
 
 	/** Plays vertical blanks until the movie shows picture Number. */
@@ -116,6 +163,27 @@ TEST_CASE("Cross skips a movie after 5 vertical blanks; held from the start, onc
 	FMoviePlayer HeldFromStart = MakePlayer(*Disc, *Sound, true);
 	REQUIRE(HeldFromStart.Start());
 	CHECK(PlayOut(HeldFromStart, Cross, 200) == 92 + 4);
+}
+
+TEST_CASE("The Japanese commands' program skips on Circle, held from the start at its second reading, and no longer on Cross", "[Media][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const auto Sound = MakeSound(*Disc);
+	constexpr FPadState Circle{FPadState::Bit(EPadButton::Circle)};
+	FMoviePlayer Pressed = MakePlayer(*Disc, *Sound, true, FMoviePlayback::DefaultEndFrame, true);
+	REQUIRE(Pressed.Start());
+	REQUIRE(PlayOut(Pressed, NoButtons, 60) == -1);
+	CHECK(PlayOut(Pressed, Circle, 100) == 5);
+
+	// Its test of the reading before is still of Cross, which a held Circle never sets: the second reading skips.
+	FMoviePlayer HeldFromStart = MakePlayer(*Disc, *Sound, true, FMoviePlayback::DefaultEndFrame, true);
+	REQUIRE(HeldFromStart.Start());
+	CHECK(PlayOut(HeldFromStart, Circle, 200) == 2 + 4);
+
+	FMoviePlayer Crossed = MakePlayer(*Disc, *Sound, true, FMoviePlayback::DefaultEndFrame, true);
+	REQUIRE(Crossed.Start());
+	REQUIRE(PlayOut(Crossed, NoButtons, 60) == -1);
+	CHECK(PlayOut(Crossed, Cross, 200) == -1);
 }
 
 TEST_CASE("A movie that forbids skipping plays on through Cross", "[Media][Content]")
@@ -220,4 +288,57 @@ TEST_CASE("A movie its program skips shows no more pictures and stops 5 vertical
 	CHECK(PlayOut(Player, NoButtons, 100) == FMoviePlayer::SkipVblanks);
 	CHECK(Player.PictureNumber() == Shown);
 	CHECK(Sound->Lock().Spu().QueuedCdInput() == 0);
+}
+
+// The host plays the movie's sound on its own thread; the pictures follow what it has played, as the drive keeps them together.
+TEST_CASE("A movie whose sound is played in step with the vertical blanks shows its pictures as one whose sound is not", "[Media][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const std::vector<uint32> Unheard = PicturesShown(*Disc, [](int32) { return int64{0}; });
+	REQUIRE(Unheard.back() == 137);
+	CHECK(PicturesShown(*Disc, InStep) == Unheard);
+	// Sound nobody hears, taken in bursts ahead of the pictures, leaves them to the vertical blanks.
+	CHECK(PicturesShown(*Disc, [](int32 Blank) { return InStep(Blank + 8 - Blank % 8); }, std::nullopt) == Unheard);
+	// Heard 50 ms after it is played, each picture waits for its own sound: three vertical blanks later, a fourth at times.
+	const std::vector<uint32> Late = PicturesShown(*Disc, InStep, IGameSound::SampleRate / 20);
+	REQUIRE(Late.size() >= Unheard.size() + 2);
+	for (std::size_t Blank = 100; Blank < Unheard.size(); ++Blank)
+	{
+		CHECK(Late[Blank] <= Unheard[Blank - 2]);
+		CHECK(Late[Blank] >= Unheard[Blank - 4]);
+	}
+}
+
+TEST_CASE("A movie's pictures wait for its sound held back, and go on by the vertical blanks once nothing takes it", "[Media][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const std::vector<uint32> Unheard = PicturesShown(*Disc, [](int32) { return int64{0}; });
+	// The host's sound stops for 20 vertical blanks: at most the picture due already follows; then all is 20 blanks later.
+	const std::vector<uint32> Held = PicturesShown(*Disc, [](int32 Blank) { return InStep(Blank <= 100 ? Blank : std::max(100, Blank - 20)); });
+	CHECK(Held[119] <= Held[99] + 1);
+	for (std::size_t Blank = 140; Blank < Unheard.size(); ++Blank)
+	{
+		CHECK(Held[Blank] >= Unheard[Blank - 21]);
+		CHECK(Held[Blank] <= Unheard[Blank - 19]);
+	}
+	// Never taken again, the sound holds the pictures half a second; then the vertical blanks keep the time and the movie ends.
+	const std::vector<uint32> Lost = PicturesShown(*Disc, [](int32 Blank) { return InStep(std::min(Blank, 100)); });
+	CHECK(Lost.back() == 137);
+	CHECK(Lost.size() <= Unheard.size() + 31);
+}
+
+TEST_CASE("A movie's pictures catch up with its sound after the vertical blanks of a stall are dropped", "[Media][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const std::vector<uint32> Unheard = PicturesShown(*Disc, [](int32) { return int64{0}; });
+	// The game thread stalls for half a second after blank 100: its vertical blanks are dropped while the sound plays on.
+	// The pictures go on from the sound's whole frames, so one may come a vertical blank later than it would have.
+	const std::vector<uint32> Stalled = PicturesShown(*Disc, [](int32 Blank) { return InStep(Blank <= 100 ? Blank : Blank + 30); });
+	for (std::size_t Blank = 101; Blank + 30 < Unheard.size(); ++Blank)
+	{
+		CHECK(Stalled[Blank] <= Unheard[Blank + 30]);
+		CHECK(Stalled[Blank] + 1 >= Unheard[Blank + 30]);
+	}
+	CHECK(Stalled.size() + 30 <= Unheard.size() + 1);
+	CHECK(Stalled.size() + 30 >= Unheard.size());
 }

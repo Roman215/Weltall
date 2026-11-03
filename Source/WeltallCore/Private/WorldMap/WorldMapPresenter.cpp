@@ -136,6 +136,7 @@ namespace Weltall
 		{
 			return MakeError("world map texture file " + std::to_string(File) + ": " + Images.Error().Message);
 		}
+		const FVram::FKindScope SceneryKind(MapVram, EVramUploadKind::Scenery);
 		for (const FVramImage& Upload : *Images)
 		{
 			MapVram.Upload(Upload);
@@ -195,6 +196,7 @@ namespace Weltall
 		{
 			Scratch.Rect = {TextClutX, TextClutY, static_cast<int16>(TextClut.size()), 1};
 			Scratch.Units.assign(TextClut.begin(), TextClut.end());
+			const FVram::FKindScope TextKind(MapVram, EVramUploadKind::Text);
 			MapVram.Upload(Scratch);
 		}
 		PlaceNameText.Units.clear();
@@ -215,7 +217,8 @@ namespace Weltall
 		BillboardArea.BlockZ = Context.Start.Z >> 23;
 		BillboardArea.Across = FWorldMapDrawingTables::DrawnBlocksAcross;
 		BillboardArea.BlockStates.assign(FWorldMapDrawingTables::DrawnBlocks, 0);
-		Runtime.Context().Sprites.FlushUploads(MapVram);
+		FlushSpriteUploads(Runtime);
+		PlaceIdsPicture(Runtime, true);
 		Scene = &Runtime.Scene();
 		Ticks = 0;
 		return std::nullopt;
@@ -245,7 +248,8 @@ namespace Weltall
 			return Error;
 		}
 		const FWorldMapContext& Context = Runtime.Context();
-		Runtime.Context().Sprites.FlushUploads(MapVram);
+		FlushSpriteUploads(Runtime);
+		PlaceIdsPicture(Runtime, false);
 		if (Runtime.PassEnded())
 		{
 			StepAnimations();
@@ -264,6 +268,25 @@ namespace Weltall
 			DrawScreen(Context, Frame.Screen);
 		}
 		return std::nullopt;
+	}
+
+	void FWorldMapPresenter::FlushSpriteUploads(FWorldMapRuntime& Runtime)
+	{
+		const FVram::FKindScope CharactersKind(MapVram, EVramUploadKind::Characters);
+		Runtime.Context().Sprites.FlushUploads(MapVram);
+	}
+
+	void FWorldMapPresenter::PlaceIdsPicture(const FWorldMapRuntime& Runtime, bool bEntered)
+	{
+		if (!bEntered && Runtime.PartyLoads() == PartyLoadsPlaced)
+		{
+			return;
+		}
+		PartyLoadsPlaced = Runtime.PartyLoads();
+		if (const FIdsFieldSprite* Id = Runtime.IdShown())
+		{
+			MapVram.UploadToPortRows(Id->Picture());
+		}
 	}
 
 	std::optional<FError> FWorldMapPresenter::StartAnimations(std::span<const uint8> Section, std::span<const FWorldMapTextureAnimation> Known, bool bPalettes)
@@ -326,6 +349,7 @@ namespace Weltall
 			{
 				Upload.Units[Unit] = LittleEndian::ReadU16(Running.Images, At + Unit * 2);
 			}
+			Upload.Kind = EVramUploadKind::Scenery;
 			MapVram.Upload(Upload);
 		}
 	}
@@ -401,6 +425,7 @@ namespace Weltall
 			{
 				Scratch.Rect = {TextVramX, static_cast<int16>(Text.VramY + Strip / 2 * TextRows), static_cast<int16>(Pitch), TextRows};
 				Scratch.Units = Text.Units;
+				const FVram::FKindScope TypedKind(MapVram, EVramUploadKind::Text);
 				MapVram.Upload(Scratch);
 			});
 		}
@@ -517,6 +542,7 @@ namespace Weltall
 		const std::array<std::array<int16, 3>, 3>& M = Placed.M;
 		FFieldGearStandIns::FSight Sight;
 		Sight.Gear = Context.GearsShown[Party];
+		Sight.Looks = Context.Game != nullptr ? Context.Game->CharacterLooks() : FCharacterLooks{};
 		Sight.bGoes = Sprite.Animation() == GearWalkAnimation;
 		Sight.Position = Sprite.Position;
 		Sight.FloorY = static_cast<int16>(Sprite.Position[1] >> 16);

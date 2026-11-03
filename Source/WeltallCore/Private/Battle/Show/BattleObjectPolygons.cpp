@@ -164,16 +164,15 @@ namespace Weltall
 			}
 		}
 
-		const FGearBonePackets* BonePackets(FBattleObjects& Objects, const FBattleObject& Object, std::size_t Bone, std::size_t& Cursor)
+		const FGearBonePackets* BonePackets(FBattleObjects& Objects, std::span<const FGearBonePackets> Packets, int32 Slot, std::size_t Bone, std::size_t& Cursor)
 		{
-			const std::vector<FGearBonePackets>& Packets = *Object.Packets;
 			while (Cursor < Packets.size() && Packets[Cursor].Bone < Bone)
 			{
 				++Cursor;
 			}
 			if (Cursor == Packets.size() || Packets[Cursor].Bone != Bone)
 			{
-				Objects.Fail("object " + std::to_string(Object.Slot) + "'s bone " + std::to_string(Bone) + " has a part its making built nothing for");
+				Objects.Fail("object " + std::to_string(Slot) + "'s bone " + std::to_string(Bone) + " has a part its making built nothing for");
 				return nullptr;
 			}
 			return &Packets[Cursor];
@@ -191,7 +190,7 @@ namespace Weltall
 				{
 					continue;
 				}
-				const FGearBonePackets* Packets = BonePackets(Objects, Stage, Bone, Cursor);
+				const FGearBonePackets* Packets = BonePackets(Objects, *Stage.Packets, FBattleObjects::StageSlot, Bone, Cursor);
 				if (Packets == nullptr)
 				{
 					return;

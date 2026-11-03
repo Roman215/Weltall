@@ -37,32 +37,54 @@ You'll need your own copy of the USA release or a supported English undub. No ga
 
 ## What's new
 
-- Added an Android version for phones and tablets (64-bit, Android 10 or later). Install the APK below, then add
-  your disc images from inside the game, as Playing below explains. While you play by touch, a PlayStation
-  controller is drawn on the screen, and Bluetooth or USB controllers work too. Under Options → Controls → Touch
-  screen, you can swap its d-pad for an analog stick, make it more see-through, and turn off its vibration.
-- On Android, Options → Saves backs up your saves to a zip file and restores them, so you can move a game from a
-  computer to your phone. Options → Modding adds Perfect Works Build and texture packs from a zip file or a folder,
-  and lists them with their sizes so you can remove them.
-- The French translation by Atelier Traduction (version 1.1) now plays, with English or Japanese voices. Patch your
-  USA discs and put the patched images in `Games`.
-- Added analog movement on the field and the world map: the stick walks in any direction, and slowly when you push
-  it lightly. It's on by default, under Options → Controls → Analog movement.
-- Switch Pro controllers now work on Windows over USB or Bluetooth, and so do controllers that work as one, as many
-  sold for PC, Android, iOS and the Switch do. Their buttons go by where they sit, so B is × and A is ○, and they
-  vibrate in the Battling arena. If your controller isn't recognized, please report it.
-- In battle, the attack buttons are now laid out as they sit on your controller. With Button layout set to Circle
-  confirms or Japan, the 3-point ○ attack is at the right and × to cancel is at the bottom, as in the Japanese
-  release.
-- Weltall now has its own icon, a red pixel W, on Windows and Android. While it runs on Windows, its window shows the
-  X from your discs' save icon.
-- Reworded the options and messages to read more plainly.
+### After the ending
+
+- Added a clear save. On the ending's last picture, wait a few seconds and press Confirm to save. Loading it puts
+  you back before the final dungeon with your endgame progress.
+- Added New Game+. With a clear save available, choose New Game on the title screen, then pick the clear save to
+  start from. Choose whether to keep money, equipment, items, Deathblows and levels, and whether to remove the
+  7-AP limiter. Story items stay behind.
+- Clearing the game also unlocks additional character looks and party options for repeat playthroughs.
+  Their details are shown in the game after you unlock them.
+
+### Playing
+
+- Added a message log: press L, or a controller's L3, to read the dialogue so far. The game waits while it is open.
+- Added auto-advancing dialogue under Options → Display → Auto-advance text. It's off by default, and choices
+  always wait for you.
+- Added save states on the field and world map. These are Weltall's own format; use Options → Saves → Export card
+  to move a game to a PlayStation emulator.
+- Added integer scaling under Options → Display, to keep the CRT filter's scanlines evenly spaced.
+- The battle HUD's moving parts now move smoothly on displays above 60 Hz, alongside the battle scene.
+- Options → Controls → Stop at doors pauses movement briefly after a map change, so a held or fidgeted stick
+  doesn't carry you straight into the next scene. It defaults to half a second; you can change it or turn it off.
+- Options → Controls → Camera buttons lets the shoulder buttons zoom instead of turning the camera.
+- On the Assets page, choose which parts of a texture pack to use: fonts, faces, menus and HUD, characters,
+  scenery, or models and effects.
+
+### Translations and modding
+
+- Added support for SadNES cITy's Italian translation (version 1.2.1), including its subtitled movies and Japanese
+  commands. Use patched USA images, or put the translation's `.xpt` and movie `.ppf` files in a folder under `Mods`.
+  Options → Modding → Italian lets you choose its voices, commands and movies.
+- Disc 2 expansions now load from the `Mods` folder, with a choice of expansion when Disc 2 begins. Two example
+  scenes are included to extract and edit. Export Disc 2 writes the disc's maps and battle text as editable
+  documents; Make shareable turns your edits into patches containing only your changes. See
+  [Writing an expansion](https://github.com/Roman215/Weltall/blob/main/Docs/Story/writing-an-expansion.md) to get started.
 
 ### Fixes
 
-- Fixed Weltall not starting from a copy made on a Mac, or from a drive a Mac has written to. The hidden files macOS
-  leaves beside each file are now skipped.
-- When a `.cue` file's `.bin` file is missing, the game now names the missing file.
+- Fixed texture packs not loading on Linux when their folder's capitalization differs, or when a parent folder
+  is reached through a link, such as on an SD card.
+- Fixed 3D Gears appearing dark red in maps such as the Yggdrasil's hangar and the Battling arena's entrance.
+- Fixed movies falling out of sync with their sound after a pause in rendering.
+- Fixed battles stopping on missing enemy or attack names in the Brazilian Portuguese translation.
+- Fixed the Gear menu leaving out defense from Perfect Works Build's rebalanced parts.
+- Fixed 3D scenes being too large for their HUD in 4:3 and narrower windows, and map textures missing after a
+  movie shown over the game screen.
+- Fixed message portraits sometimes using a previous face, and party followers landing late after a jump.
+- Fixed missing attack effects and gaps at the arm and leg joints of postgame Gear models.
+- Android now saves changed settings when the app goes into the background.
 
 ## Playing
 
@@ -74,8 +96,8 @@ You'll need your own copy of the USA release or a supported English undub. No ga
 On Android 10 or later (64-bit, Vulkan), install the APK instead. Copy the disc images from a computer
 by USB into a folder inside the device's Download folder, such as `Download/Xenogears` (Android doesn't
 let apps pick Download itself), then start Weltall, tap **Add folder** and pick that folder. Weltall
-isn't on Google Play or registered with Google, so your
-phone may ask you to allow apps from unverified developers first: the
+isn't on Google Play or registered with Google. When you open the APK, your phone may ask you to allow
+your browser or file manager to install apps. The
 [README](https://github.com/Roman215/Weltall#android) explains how.
 
 On Windows, settings and saves are in `%LOCALAPPDATA%\\Weltall`. On Linux, settings are in
@@ -87,15 +109,15 @@ Saves page in Options. See the
 ## What to expect
 
 Both discs are playable, and gameplay behavior has been checked against the original game's code.
-My own playthrough is still in progress, with about 25 hours played without a hang. Automated tests
-have run every map and story battle, along with long stretches of the story from save to save. You
-should be able to play from start to finish, and I'm fixing reported issues as they come in.
+I've finished my own playthrough, including the ending and a clear save. Automated tests have run
+every map and story battle, along with long stretches of the story from save to save. You can play
+from start to finish, and I'm fixing reported issues as they come in.
 
 Players have run the Linux build on a Steam Deck and on CachyOS with an AMD graphics card. If you run
 into problems on Linux, please report them.
 
-The Android version is new: I've played it on my own phone, and it's been checked on Android's
-emulator. If you run into problems on Android, please report them with your phone or tablet's model.
+I've played the Android version on my own phone, and it's also been checked on Android's emulator.
+If you run into problems on Android, please report them with your phone or tablet's model.
 
 If the game stops with an error on screen, attach the log file it names to a
 [bug report](https://github.com/Roman215/Weltall/issues/new?template=bug_report.md) and describe what you

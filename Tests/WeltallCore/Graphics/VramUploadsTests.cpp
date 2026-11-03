@@ -148,3 +148,36 @@ TEST_CASE("Upload parts lie where the GPU wraps their rectangles' corners", "[Gr
 	REQUIRE(Vram.UploadParts().size() == 1);
 	CHECK(Vram.UploadParts()[0].Rect == FVramRect{1000, 10, 4, 4});
 }
+
+TEST_CASE("An upload keeps the kind its image names, else the kind the VRAM uploads under", "[Graphics]")
+{
+	FVram Vram;
+	Vram.SetUploadKind(EVramUploadKind::Scenery);
+	Vram.Upload(Image(0, 0, 4, 1, 0));
+	{
+		const FVram::FKindScope TypedKind(Vram, EVramUploadKind::Text);
+		Vram.Upload(Image(16, 0, 4, 1, 100));
+		FVramImage Face = Image(32, 0, 4, 1, 200);
+		Face.Kind = EVramUploadKind::Portraits;
+		Vram.Upload(Face);
+	}
+	Vram.Upload(Image(48, 0, 4, 1, 300));
+	CHECK(PartAt(Vram, {0, 0, 4, 1})->Upload->Kind == EVramUploadKind::Scenery);
+	CHECK(PartAt(Vram, {16, 0, 4, 1})->Upload->Kind == EVramUploadKind::Text);
+	CHECK(PartAt(Vram, {32, 0, 4, 1})->Upload->Kind == EVramUploadKind::Portraits);
+	CHECK(PartAt(Vram, {48, 0, 4, 1})->Upload->Kind == EVramUploadKind::Scenery);
+
+	// Units read back and put back bring their uploads' own kinds, whatever the VRAM uploads under then.
+	const FVramRect Kept{0, 0, 64, 1};
+	FVramImage Read{Kept, std::vector<uint16>(64)};
+	for (int32 X = 0; X < 64; ++X)
+	{
+		Read.Units[static_cast<std::size_t>(X)] = Vram.At(X, 0);
+	}
+	Vram.NoteReadback(Kept);
+	Vram.Upload(Image(0, 0, 64, 1, 1000));
+	const FVram::FKindScope OtherKind(Vram, EVramUploadKind::ModelsAndEffects);
+	Vram.Upload(Read);
+	CHECK(PartAt(Vram, {16, 0, 4, 1})->Upload->Kind == EVramUploadKind::Text);
+	CHECK(PartAt(Vram, {32, 0, 4, 1})->Upload->Kind == EVramUploadKind::Portraits);
+}

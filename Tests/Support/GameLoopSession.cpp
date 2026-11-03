@@ -27,17 +27,19 @@ namespace Weltall::Testing
 		}
 		Game->Sound = std::move(*Sound);
 		Game->Unheard = std::make_unique<FUnheardGameSound>(*Game->Sound->Sound());
-		auto Session = FGameSession::PowerOn(Disc.Image(), *Game->Index, *Game->Executable, Identity->Release, *Game->Sound);
+		auto Session = FGameSession::PowerOn(Disc.Image(), *Game->Index, *Game->Executable, *Identity, *Game->Sound);
 		if (!Session)
 		{
 			FAIL(Session.Error().Message);
 		}
 		Game->Session = std::move(*Session);
 		// The tests play as the original does unless they say otherwise: the run button runs, doors open for the button
-		// alone, the camera follows as the game's, the gears are drawn as their sprites.
+		// alone, a direction held walks on into the next map, the camera follows as the game's, the gears are drawn as
+		// their sprites.
 		FPlayerSettings Settings = Game->Session->Settings();
 		Settings.Controls.bAlwaysRun = false;
 		Settings.Controls.bWalkIntoDoors = false;
+		Settings.Controls.DoorPause = NoDoorPause;
 		Settings.Camera.bSteadyFollow = false;
 		Settings.Field.GearModels = EFieldGearModels::Off;
 		Game->Session->SetSettings(Settings);

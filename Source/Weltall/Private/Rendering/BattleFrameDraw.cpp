@@ -8,7 +8,6 @@
 #include "Graphics/Texture.h"
 #include "Menu/MenuDrawing.h"
 #include "Presentation/DrawList.h"
-#include "Presentation/ScreenLayout.h"
 #include "Rendering/DrawListRendering.h"
 #include "Rendering/VramTexture.h"
 #include "ScenePolygonOrder.h"
@@ -92,9 +91,10 @@ namespace
 				Out.Object = 0;
 				Out.Corner = 0;
 			}
-			const Weltall::FTexturePage Page = Weltall::FTexturePage::FromAttribute(Quad.TexturePage);
+			// A sprite's parts may lie in VRAM's port rows (Id's battle sprite).
+			const Weltall::FTexturePage Page = Weltall::FTexturePage::FromPortAttribute(Quad.TexturePage);
 			FFieldScenePolygonState& State = Draw.DynamicPolygons.AddDefaulted_GetRef();
-			State.Texture = FVramTexture::Pack(Page, Weltall::FClutPosition::FromAttribute(Quad.Clut));
+			State.Texture = FVramTexture::Pack(Page, Weltall::FClutPosition::FromPortAttribute(Quad.Clut));
 			State.Flags = FieldPolygonFlags::Sprite | ((Quad.ColorCode & BattleRawTexels) != 0 ? FieldPolygonFlags::Raw : 0);
 			if (Item.bSprite)
 			{
@@ -258,9 +258,9 @@ namespace
 				Out.Object = 0;
 				Out.Corner = 0;
 			}
-			const Weltall::FTexturePage Page = Weltall::FTexturePage::FromAttribute(Quad.TexturePage);
+			const Weltall::FTexturePage Page = Weltall::FTexturePage::FromPortAttribute(Quad.TexturePage);
 			FFieldScenePolygonState& State = Draw.DynamicPolygons.AddDefaulted_GetRef();
-			State.Texture = FVramTexture::Pack(Page, Weltall::FClutPosition::FromAttribute(Quad.Clut));
+			State.Texture = FVramTexture::Pack(Page, Weltall::FClutPosition::FromPortAttribute(Quad.Clut));
 			State.Flags = (Quad.ColorCode & BattleRawTexels) != 0 ? FieldPolygonFlags::Raw : 0;
 			State.TexelMin = PackBattleTexel(FMath::Min(Quad.U0, Quad.U1), FMath::Min(Quad.V0, Quad.V1));
 			State.TexelMax = PackBattleTexel(FMath::Max(Quad.U0, Quad.U1) - 1, FMath::Max(Quad.V0, Quad.V1) - 1);
@@ -656,22 +656,18 @@ void BuildBattleFrameDraw(const Weltall::FBattleShowFrame& Frame, const Weltall:
 }
 
 void AddBattleFramePasses(FRDGBuilder& GraphBuilder, const FFieldSceneMesh& Mesh, const FVramTexture& Vram, const FVramTexture& IconVram,
-	const FBattleFrameDraw& Draw, FRDGTextureRef Output, const FIntRect& Area)
+	const FBattleFrameDraw& Draw, FRDGTextureRef Output, const FScreenArea& Area)
 {
-	AddFieldScenePasses(GraphBuilder, Mesh, Vram, Draw.Scene, Output, Area);
+	const FScreenArea Rows = Area.Rows(Weltall::MenuScreenSize);
+	AddFieldScenePasses(GraphBuilder, Mesh, Vram, Draw.Scene, Output, Rows);
 	if (!Draw.Fade.Primitives.empty())
 	{
-		AddDrawListPasses(GraphBuilder, Vram, FDrawListFrame{&Draw.Fade, nullptr, nullptr, 1.0f}, Output, Area, Weltall::MenuScreenSize);
+		AddDrawListPasses(GraphBuilder, Vram, FDrawListFrame{&Draw.Fade, nullptr, nullptr, 1.0f}, Output, Rows, Weltall::MenuScreenSize);
 	}
-	AddFieldSceneOverlayPasses(GraphBuilder, Mesh, Vram, Draw.OverFade, Output, Area);
+	AddFieldSceneOverlayPasses(GraphBuilder, Mesh, Vram, Draw.OverFade, Output, Rows);
 	if (!Draw.Hud.Primitives.empty())
 	{
-		const Weltall::FScreenLayout Layout = Weltall::FScreenLayout::Fit(Area.Width(), Area.Height(), Weltall::MenuScreenSize);
-		const Weltall::FDisplayRect Placed =
-			Layout.ToDisplay({0, 0, static_cast<int16>(Weltall::MenuScreenSize.Width), static_cast<int16>(Weltall::MenuScreenSize.Height)});
-		const FIntPoint Origin = Area.Min + FIntPoint(Placed.X, Placed.Y);
-		AddIconDrawListPasses(GraphBuilder, Vram, IconVram, Draw.Hud, Output, FIntRect(Origin, Origin + FIntPoint(Placed.Width, Placed.Height)),
-			Weltall::MenuScreenSize);
+		AddIconDrawListPasses(GraphBuilder, Vram, IconVram, Draw.Hud, Output, Area.ScreenRect(Weltall::MenuScreenSize), Weltall::MenuScreenSize);
 	}
-	AddFieldSceneOverlayPasses(GraphBuilder, Mesh, Vram, Draw.OverHud, Output, Area);
+	AddFieldSceneOverlayPasses(GraphBuilder, Mesh, Vram, Draw.OverHud, Output, Rows);
 }

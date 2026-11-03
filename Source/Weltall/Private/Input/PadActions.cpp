@@ -15,7 +15,8 @@ namespace
 
 	constexpr const TCHAR* ActionNames[Weltall::ControlActionCount] = {TEXT("Up"), TEXT("Down"), TEXT("Left"), TEXT("Right"), TEXT("Cross"),
 		TEXT("Circle"), TEXT("Square"), TEXT("Triangle"), TEXT("L1"), TEXT("R1"), TEXT("L2"), TEXT("R2"), TEXT("Start"), TEXT("Select"),
-		TEXT("ViewTurn"), TEXT("ViewTilt"), TEXT("ViewZoom"), TEXT("ViewReset")};
+		TEXT("ViewTurn"), TEXT("ViewTilt"), TEXT("ViewZoom"), TEXT("ViewReset"), TEXT("SaveState"), TEXT("LoadState"), TEXT("NextStateSlot"),
+		TEXT("PreviousStateSlot"), TEXT("MessageLog")};
 
 	/** A stick's travel the player's resting thumb does not reach. */
 	constexpr float StickDeadZone = 0.2f;
@@ -99,10 +100,36 @@ Weltall::FFieldViewInput UPadActions::ReadView(const UEnhancedPlayerInput& Input
 	View.Turn = Pushed(EControlAction::ViewTurn) * Weltall::FFieldViewInput::TurnPerSecond * StickScale * DeltaSeconds + Moved(EControlAction::ViewTurn) * MouseDegrees;
 	View.Tilt = Pushed(EControlAction::ViewTilt) * Weltall::FFieldViewInput::TiltPerSecond * StickScale * DeltaSeconds + Moved(EControlAction::ViewTilt) * MouseDegrees;
 	View.Zoom = Pushed(EControlAction::ViewZoom) * Weltall::FFieldViewInput::ZoomPerSecond * DeltaSeconds + Moved(EControlAction::ViewZoom) * ZoomPerWheelNotch;
+	View.Wheel = Moved(EControlAction::ViewZoom);
+	if (Bound.CameraButtons == Weltall::ECameraButtons::Zoom)
+	{
+		const auto Held = [this, &Input](EControlAction Action) { return Input.GetActionValue(Actions[static_cast<int32>(Action)]).Get<bool>() ? 1.0f : 0.0f; };
+		View.Zoom += (Held(EControlAction::R1) - Held(EControlAction::L1)) * Weltall::FFieldViewInput::ZoomPerSecond * DeltaSeconds;
+	}
 	const bool bReset = Input.GetActionValue(Actions[static_cast<int32>(EControlAction::ViewReset)]).Get<bool>();
 	View.bReset = bReset && !bResetHeld;
 	bResetHeld = bReset;
 	return View;
+}
+
+TArray<Weltall::EControlAction, TFixedAllocator<Weltall::PortActionCount>> UPadActions::ReadPortKeys(const UEnhancedPlayerInput& Input)
+{
+	TArray<EControlAction, TFixedAllocator<Weltall::PortActionCount>> Pressed;
+	uint8 Held = 0;
+	for (int32 Key = 0; Key < Weltall::PortActionCount; ++Key)
+	{
+		const int32 Index = static_cast<int32>(EControlAction::SaveState) + Key;
+		if (Input.GetActionValue(Actions[Index]).Get<bool>())
+		{
+			Held |= static_cast<uint8>(1u << Key);
+			if ((PortKeysHeld & (1u << Key)) == 0)
+			{
+				Pressed.Add(static_cast<EControlAction>(Index));
+			}
+		}
+	}
+	PortKeysHeld = Held;
+	return Pressed;
 }
 
 Weltall::FPadState UPadActions::ReadHeld(const UEnhancedPlayerInput& Input) const
@@ -117,6 +144,10 @@ Weltall::FPadState UPadActions::ReadHeld(const UEnhancedPlayerInput& Input) cons
 		}
 	}
 	Held.StickButtons = PadStick::OnlyStickHolds(Bound, Held, [&Input](const FKey& Key) { return Input.IsPressed(Key); });
+	if (Bound.CameraButtons == Weltall::ECameraButtons::Zoom)
+	{
+		Held.ZoomButtons = Held.Buttons & (Weltall::FPadState::Bit(Weltall::EPadButton::L1) | Weltall::FPadState::Bit(Weltall::EPadButton::R1));
+	}
 	if (Stick != 0)
 	{
 		const TPair<FKey, FKey> Axes = PadStick::Axes(Stick);

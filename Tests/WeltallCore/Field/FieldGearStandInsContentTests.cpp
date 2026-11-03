@@ -1245,3 +1245,262 @@ TEST_CASE("In gears, Brigandier's and Fenrir's models dash with the map's thrust
 		CHECK(Dashing > 20);
 	}
 }
+
+TEST_CASE("In gears with Citan's sword put away, the second Heimdal stands in as the first and Fenrir as itself in the first's stance", "[Field][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	constexpr int32 Heimdal = 3;
+	constexpr int32 Fenrir = 11;
+	constexpr int32 SwordHeimdal = 16;
+	constexpr uint8 SwordCitan = 9;
+	/** Fenrir's sword strip, its fist and its open hand on the other side. */
+	constexpr std::size_t SwordStrip = 46;
+	constexpr std::size_t Fist = 50;
+	constexpr std::size_t OpenHand = 51;
+	constexpr int32 Settle = BoardAt + BoardFor + 60;
+
+	struct FStood
+	{
+		int32 ModelNumber = -1;
+		std::size_t Bones = 0;
+		std::array<float, 2> Legs{};
+		std::array<uint8, 3> Hands{};
+	};
+	// Fei rides the gear in the hangar and stands in it; its stand-in is found by the model it draws.
+	const auto Stand = [&Disc](int32 Gear, bool bWithoutSword, int32 Drawn)
+	{
+		auto Models = Testing::EnterFieldMap(*Disc, HangarMap, [Gear, bWithoutSword](FGameState& Game)
+		{
+			REQUIRE(Game.SetCharacterGear(0, static_cast<uint8>(Gear)));
+			FCharacterLooks Looks;
+			if (bWithoutSword)
+			{
+				REQUIRE(Looks.Switch(SwordCitan));
+			}
+			Game.SetCharacterLooks(Looks);
+		});
+		Models->Play->Drawing().SetGearStandIns(EFieldGearModels::Everywhere);
+		const FFieldGearStandIns* StandIns = Models->Play->Drawing().GearStandIns();
+		REQUIRE(StandIns != nullptr);
+		for (int32 Tick = 0; Tick < Settle; ++Tick)
+		{
+			std::vector<FPadState> Held(static_cast<std::size_t>(Models->Play->VblanksPerTick()));
+			for (FPadState& Vblank : Held)
+			{
+				Vblank.Buttons = Tick >= BoardAt && Tick < BoardAt + BoardFor ? FPadState::Bit(EPadButton::L2) | FPadState::Bit(EPadButton::R2) : 0;
+			}
+			REQUIRE_FALSE(Models->Play->Tick(Held, EFieldCulling::InRange, Models->Frame));
+		}
+		FStood Stood;
+		const FEventContext& Context = Models->Play->Field().Context();
+		for (int32 Actor = 0; Actor < static_cast<int32>(Context.States.size()); ++Actor)
+		{
+			if (StandIns->GearOf(Actor) != Drawn || !StandIns->IsShown(Actor))
+			{
+				continue;
+			}
+			const FGearModel* Model = StandIns->LoadedModelOf(Actor);
+			const std::optional<std::array<int16, 3>> Of = StandIns->ModelOf(Actor);
+			REQUIRE(Model != nullptr);
+			REQUIRE(Of);
+			Stood.ModelNumber = (*Of)[1];
+			Stood.Bones = Model->Bones.size();
+			Stood.Legs = LegsAboveFloor(*Model);
+			if (Stood.Bones > OpenHand)
+			{
+				Stood.Hands = {Model->Bones[SwordStrip].bShown, Model->Bones[Fist].bShown, Model->Bones[OpenHand].bShown};
+			}
+		}
+		return Stood;
+	};
+
+	const FStood Second = Stand(SwordHeimdal, true, Heimdal);
+	CHECK(Second.ModelNumber == Heimdal);
+	CHECK(Second.Bones == 45);
+	CHECK(std::max(Second.Legs[0], Second.Legs[1]) < 0.05f);
+
+	// Fenrir as the story has it: its own stance, the open hand its opening shows; without the sword, the first Heimdal's
+	// stance worn, its fist shown as Heimdal's is, both feet on the floor.
+	const FStood Own = Stand(Fenrir, false, Fenrir);
+	const FStood Worn = Stand(Fenrir, true, Fenrir);
+	CHECK(Own.ModelNumber == Fenrir);
+	CHECK(Own.Hands == std::array<uint8, 3>{0, 0, 1});
+	CHECK(Worn.ModelNumber == Fenrir);
+	CHECK(Worn.Bones == 56);
+	CHECK(Worn.Hands == std::array<uint8, 3>{0, 1, 0});
+	INFO("Fenrir's legs " << Worn.Legs[0] << " and " << Worn.Legs[1] << " of its height above the floor");
+	CHECK(std::max(Worn.Legs[0], Worn.Legs[1]) < 0.05f);
+}
+
+TEST_CASE("In gears with Fei drawn as Id, his gear stands in as Id's red gear of its time, at its own size against his gear's", "[Field][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	constexpr int32 Settle = BoardAt + BoardFor + 60;
+	constexpr int16 SceneModel = static_cast<int16>(EFieldGearModelKind::SceneEnemy);
+
+	struct FStood
+	{
+		std::array<int16, 3> Model{-1, -1, -1};
+		std::size_t Bones = 0;
+		std::array<float, 2> Legs{};
+		float Scale = 0.0f;
+	};
+	// Fei rides his gear in the hangar and stands in it; his stand-in is his gear's or a red gear's (the hangar's soldiers'
+	// gears are scene models too).
+	const auto Stand = [&Disc](uint8 Gear, bool bId)
+	{
+		auto Models = Testing::EnterFieldMap(*Disc, HangarMap, [Gear, bId](FGameState& Game)
+		{
+			if (Gear != FCharacterLooks::Weltall)
+			{
+				REQUIRE(Game.CopyGear(FCharacterLooks::Weltall, Gear));
+				REQUIRE(Game.SetCharacterGear(FCharacterLooks::Fei, Gear));
+			}
+			FCharacterLooks Looks;
+			if (bId)
+			{
+				REQUIRE(Looks.Switch(FCharacterLooks::Fei));
+			}
+			Game.SetCharacterLooks(Looks);
+		});
+		Models->Play->Drawing().SetGearStandIns(EFieldGearModels::Everywhere);
+		const FFieldGearStandIns* StandIns = Models->Play->Drawing().GearStandIns();
+		REQUIRE(StandIns != nullptr);
+		for (int32 Tick = 0; Tick < Settle; ++Tick)
+		{
+			std::vector<FPadState> Held(static_cast<std::size_t>(Models->Play->VblanksPerTick()));
+			for (FPadState& Vblank : Held)
+			{
+				Vblank.Buttons = Tick >= BoardAt && Tick < BoardAt + BoardFor ? FPadState::Bit(EPadButton::L2) | FPadState::Bit(EPadButton::R2) : 0;
+			}
+			REQUIRE_FALSE(Models->Play->Tick(Held, EFieldCulling::InRange, Models->Frame));
+		}
+		FStood Stood;
+		const FEventContext& Context = Models->Play->Field().Context();
+		for (int32 Actor = 0; Actor < static_cast<int32>(Context.States.size()); ++Actor)
+		{
+			const std::optional<std::array<int16, 3>> Of = StandIns->ModelOf(Actor);
+			const bool bFeis = Of && (((*Of)[0] == SceneModel && ((*Of)[1] == 74 || (*Of)[1] == 70)) || StandIns->GearOf(Actor) == Gear);
+			if (!bFeis || !StandIns->IsShown(Actor))
+			{
+				continue;
+			}
+			const FGearModel* Model = StandIns->LoadedModelOf(Actor);
+			REQUIRE(Model != nullptr);
+			REQUIRE(Model->Placement);
+			Stood.Model = *Of;
+			Stood.Bones = Model->Bones.size();
+			Stood.Legs = LegsAboveFloor(*Model);
+			const std::array<float, 3>& Across = {Model->Placement->M[0][0], Model->Placement->M[1][0], Model->Placement->M[2][0]};
+			Stood.Scale = std::sqrt(Across[0] * Across[0] + Across[1] * Across[1] + Across[2] * Across[2]);
+		}
+		return Stood;
+	};
+
+	// The red Weltall of his first disc's fights over Weltall and Weltall-2, the red gear of his second disc's over
+	// Xenogears: each drawn at the scale his own gear would be, so it keeps its own size against it, on the floor.
+	for (const auto [Gear, Scene, Bones] : {std::tuple<uint8, int16, std::size_t>{FCharacterLooks::Weltall, 74, 62}, {FCharacterLooks::Weltall2, 74, 62},
+			 {FCharacterLooks::Xenogears, 70, 37}})
+	{
+		INFO("gear " << int32(Gear));
+		const FStood Own = Stand(Gear, false);
+		const FStood Red = Stand(Gear, true);
+		CHECK(Own.Model == std::array<int16, 3>{static_cast<int16>(EFieldGearModelKind::BattleGear), Gear, 0});
+		CHECK(Red.Model == std::array<int16, 3>{SceneModel, Scene, 0});
+		CHECK(Red.Bones == Bones);
+		REQUIRE(Own.Scale > 0.0f);
+		CHECK(std::abs(Red.Scale / Own.Scale - 1.0f) < 0.01f);
+		INFO("legs " << Red.Legs[0] << " and " << Red.Legs[1] << " of its height above the floor");
+		CHECK(std::min(Red.Legs[0], Red.Legs[1]) < 0.05f);
+	}
+}
+
+TEST_CASE("In the Yggdrasil's hangar with Fei drawn as Id, his parked gear stands in as Id's red gear, the crucified keep the story's", "[Field][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc2);
+	constexpr int32 YggdrasilHangar = 291;
+	constexpr std::array<int16, 3> Xenogears{static_cast<int16>(EFieldGearModelKind::BattleGear), FCharacterLooks::Xenogears, 0};
+	constexpr std::array<int16, 3> RedGear{static_cast<int16>(EFieldGearModelKind::SceneEnemy), 70, 0};
+	// The models the hangar's actors stand in with after some ticks, Fei in Xenogears, drawn as Id or not.
+	const auto Parked = [&Disc](bool bId)
+	{
+		auto Models = Testing::EnterFieldMap(*Disc, YggdrasilHangar, [bId](FGameState& Game)
+		{
+			REQUIRE(Game.SetCharacterGear(FCharacterLooks::Fei, FCharacterLooks::Xenogears));
+			FCharacterLooks Looks;
+			if (bId)
+			{
+				REQUIRE(Looks.Switch(FCharacterLooks::Fei));
+			}
+			Game.SetCharacterLooks(Looks);
+		});
+		Models->Play->Drawing().SetGearStandIns(EFieldGearModels::Everywhere);
+		const FFieldGearStandIns* StandIns = Models->Play->Drawing().GearStandIns();
+		REQUIRE(StandIns != nullptr);
+		for (int32 Tick = 0; Tick < 60; ++Tick)
+		{
+			std::vector<FPadState> Held(static_cast<std::size_t>(Models->Play->VblanksPerTick()));
+			REQUIRE_FALSE(Models->Play->Tick(Held, EFieldCulling::InRange, Models->Frame));
+		}
+		std::vector<std::array<int16, 3>> Shown;
+		for (int32 Actor = 0; Actor < static_cast<int32>(Models->Play->Field().Context().States.size()); ++Actor)
+		{
+			if (const std::optional<std::array<int16, 3>> Of = StandIns->ModelOf(Actor); Of && StandIns->IsShown(Actor))
+			{
+				Shown.push_back(*Of);
+			}
+		}
+		return Shown;
+	};
+	const std::vector<std::array<int16, 3>> Own = Parked(false);
+	const std::vector<std::array<int16, 3>> AsId = Parked(true);
+	CHECK(std::count(Own.begin(), Own.end(), Xenogears) == 1);
+	CHECK(std::count(Own.begin(), Own.end(), RedGear) == 0);
+	CHECK(std::count(AsId.begin(), AsId.end(), Xenogears) == 0);
+	CHECK(std::count(AsId.begin(), AsId.end(), RedGear) == 1);
+	CHECK(AsId.size() == Own.size());
+}
+
+TEST_CASE("In the Yggdrasil's hangar Elly's Regurus is parked in Vierge's place, drawn with its own model", "[Field][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc2);
+	constexpr int32 YggdrasilHangar = 291;
+	constexpr uint8 Elly = 1;
+	constexpr uint8 Vierge = 2;
+	constexpr uint8 Regurus = 10;
+	const auto Parked = [&Disc](uint8 EllysGear)
+	{
+		auto Models = Testing::EnterFieldMap(*Disc, YggdrasilHangar, [EllysGear](FGameState& Game)
+		{
+			Game.SetJoinedCharacters(static_cast<uint16>(Game.JoinedCharacters() | 1 << Elly));
+			Game.SetMenuCharacters(static_cast<uint16>(Game.MenuCharacters() | 1 << Elly));
+			REQUIRE(Game.SetCharacterGear(Elly, EllysGear));
+		});
+		Models->Play->Drawing().SetGearStandIns(EFieldGearModels::Everywhere);
+		const FFieldGearStandIns* StandIns = Models->Play->Drawing().GearStandIns();
+		REQUIRE(StandIns != nullptr);
+		for (int32 Tick = 0; Tick < 60; ++Tick)
+		{
+			std::vector<FPadState> Held(static_cast<std::size_t>(Models->Play->VblanksPerTick()));
+			REQUIRE_FALSE(Models->Play->Tick(Held, EFieldCulling::InRange, Models->Frame));
+		}
+		std::vector<std::array<int16, 3>> Shown;
+		for (int32 Actor = 0; Actor < static_cast<int32>(Models->Play->Field().Context().States.size()); ++Actor)
+		{
+			if (const std::optional<std::array<int16, 3>> Of = StandIns->ModelOf(Actor); Of && StandIns->IsShown(Actor))
+			{
+				Shown.push_back(*Of);
+			}
+		}
+		return Shown;
+	};
+	const auto Count = [](const std::vector<std::array<int16, 3>>& Shown, uint8 Gear)
+	{ return std::count(Shown.begin(), Shown.end(), std::array<int16, 3>{static_cast<int16>(EFieldGearModelKind::BattleGear), Gear, 0}); };
+	const std::vector<std::array<int16, 3>> InVierge = Parked(Vierge);
+	const std::vector<std::array<int16, 3>> InRegurus = Parked(Regurus);
+	CHECK(Count(InVierge, Vierge) == 1);
+	CHECK(Count(InVierge, Regurus) == 0);
+	CHECK(Count(InRegurus, Vierge) == 0);
+	CHECK(Count(InRegurus, Regurus) == 1);
+	CHECK(InRegurus.size() == InVierge.size());
+}

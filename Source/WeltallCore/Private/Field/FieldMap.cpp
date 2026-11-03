@@ -87,6 +87,15 @@ namespace Weltall
 			}
 			return Sectors;
 		}
+
+		void ApplyPlayersMessages(const FCdImage& Image, int32 MapNumber, std::vector<uint8>& Messages, FReplacedMessages& Replaced)
+		{
+			if (std::optional<FAppliedMessages> Applied = ApplyMessageOverrides(Image, MessageTables::Field(MapNumber), Messages, EMessageWindows::Table))
+			{
+				Messages = std::move(Applied->Table);
+				Replaced = std::move(Applied->Replaced);
+			}
+		}
 	}
 
 	TResult<FFieldMap> ParseFieldMap(std::span<const uint8> ArchiveSectors, std::span<const uint8> TextureStreamSectors)
@@ -143,6 +152,17 @@ namespace Weltall
 		return Map;
 	}
 
+	bool HoldsFieldMap(const FCdImage& Image, const FGameFileIndex& Index, int32 MapNumber)
+	{
+		if (MapNumber < 0 || MapNumber >= FieldMapCount)
+		{
+			return false;
+		}
+		const FIndexRecord* Record = Index.Find(MapDirectory, FirstMapFile + 2 * MapNumber);
+		const TResult<std::vector<uint8>> Sectors = Record != nullptr ? ReadFileSectors(Image, *Record) : TResult<std::vector<uint8>>(MakeError("no record"));
+		return !Sectors || Sectors->size() < PlaceholderText.size() || !std::equal(PlaceholderText.begin(), PlaceholderText.end(), Sectors->begin());
+	}
+
 	TResult<FFieldArchive> LoadFieldArchive(const FCdImage& Image, const FGameFileIndex& Index, int32 MapNumber)
 	{
 		if (MapNumber < 0 || MapNumber >= FieldMapCount)
@@ -184,11 +204,25 @@ namespace Weltall
 		{
 			return MakeError("field map " + std::to_string(MapNumber) + ": " + Map.Error().Message);
 		}
-		if (std::optional<FAppliedMessages> Applied = ApplyMessageOverrides(Image, MessageTables::Field(MapNumber), Map->Messages, EMessageWindows::Table))
+		std::vector<uint8> DiscMessages = Map->Messages;
+		ApplyPlayersMessages(Image, MapNumber, Map->Messages, Map->ReplacedMessages);
+		if (Map->Messages != DiscMessages)
 		{
-			Map->Messages = std::move(Applied->Table);
-			Map->ReplacedMessages = std::move(Applied->Replaced);
+			Map->DiscMessages = std::move(DiscMessages);
 		}
 		return Map;
+	}
+
+	TResult<std::vector<uint8>> LoadFieldMapMessages(const FCdImage& Image, const FGameFileIndex& Index, int32 MapNumber)
+	{
+		TResult<FFieldArchive> Archive = LoadFieldArchive(Image, Index, MapNumber);
+		if (!Archive)
+		{
+			return Archive.Error();
+		}
+		std::vector<uint8> Messages = std::move(Archive->Section(EFieldSection::Messages));
+		FReplacedMessages Replaced;
+		ApplyPlayersMessages(Image, MapNumber, Messages, Replaced);
+		return Messages;
 	}
 }

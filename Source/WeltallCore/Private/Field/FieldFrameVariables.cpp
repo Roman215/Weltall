@@ -64,8 +64,11 @@ namespace Weltall
 
 	void SaveFieldVariables(FEventContext& Context, const FEventActorState& Leader)
 	{
-		FGameState& Game = *Context.GameState;
-		FEventVariables& Variables = Context.Variables;
+		SaveFieldVariables(Context, Leader, Context.Variables, *Context.GameState);
+	}
+
+	void SaveFieldVariables(const FEventContext& Context, const FEventActorState& Leader, FEventVariables& Variables, FGameState& Game)
+	{
 		Game.SetFieldPlace(static_cast<uint16>(Context.MapNumber), static_cast<uint16>(Game.SavedEventVariable(SavedCameraDirection) << DirectionShift),
 			Game.SavedEventVariable(SavedEntrance), static_cast<uint16>(Context.Songs->ChosenSong()));
 		Variables.Set(BattleActingTurns, static_cast<int16>(Game.BattleActingTurns));

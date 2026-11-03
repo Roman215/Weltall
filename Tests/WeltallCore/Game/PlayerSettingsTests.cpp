@@ -59,6 +59,7 @@ namespace
 		Settings.BattleSpeed = EBattleSpeed::Quadruple;
 		Settings.Balance = {ERewardRate::OneAndAHalf, ERewardRate::Quadruple, EEncounterRate::Quarter};
 		Settings.PerfectWorks = {true, false, EPerfectWorksPortraits::Resized, true, false, false, true, false, true, true};
+		Settings.Expansions = {false, "Elly's errand"};
 		return Settings;
 	}
 
@@ -79,6 +80,7 @@ namespace
 		CHECK(A.BattleSpeed == B.BattleSpeed);
 		CHECK(A.Balance == B.Balance);
 		CHECK(A.PerfectWorks == B.PerfectWorks);
+		CHECK(A.Expansions == B.Expansions);
 	}
 }
 
@@ -167,6 +169,8 @@ TEST_CASE("The settings' text lists every setting and reads back the same", "[Se
 	CHECK(ValueOf(Defaults, "sound.output") == "stereo");
 	CHECK(ValueOf(Defaults, "display.window_size").empty());
 	CHECK(ValueOf(Defaults, "display.aspect") == "window");
+	CHECK(ValueOf(Defaults, "display.integer_scaling") == "false");
+	CHECK(ReadPlayerSettings("display.integer_scaling = true\n").Display.bIntegerScaling);
 	CHECK(ValueOf(Defaults, "display.crt_filter") == "off");
 	CHECK(ReadPlayerSettings("display.crt_filter = tv\n").Display.Crt == ECrtFilter::Television);
 	CHECK(ReadPlayerSettings("display.crt_filter = scanlines\n").Display.Crt == ECrtFilter::Off);
@@ -184,6 +188,8 @@ TEST_CASE("The settings' text lists every setting and reads back the same", "[Se
 	CHECK(ValueOf(Defaults, "camera.zoom") == "1.25");
 	CHECK(ValueOf(Defaults, "camera.world_map_zoom") == "1");
 	CHECK(ValueOf(Defaults, "controls.view_zoom") == "MouseWheelAxis -Gamepad_RightY");
+	CHECK(ValueOf(Defaults, "controls.message_log") == "L Gamepad_LeftThumbstick");
+	CHECK(ReadPlayerSettings("controls.message_log = H\n").Controls.Keys(EControlAction::MessageLog) == std::vector<std::string>{"H"});
 	CHECK(ValueOf(Defaults, "camera.steady_follow") == "true");
 	CHECK(ValueOf(Defaults, "controls.always_run") == "true");
 	CHECK_FALSE(ReadPlayerSettings("controls.always_run = false\n").Controls.bAlwaysRun);
@@ -198,6 +204,20 @@ TEST_CASE("The settings' text lists every setting and reads back the same", "[Se
 	CHECK_FALSE(ReadPlayerSettings("controls.touch_vibration = false\n").Controls.bTouchVibration);
 	CHECK(ValueOf(Defaults, "controls.walk_into_doors") == "true");
 	CHECK_FALSE(ReadPlayerSettings("controls.walk_into_doors = false\n").Controls.bWalkIntoDoors);
+	CHECK(ValueOf(Defaults, "controls.door_pause") == "5");
+	CHECK(Defaults.find("controls.stop_at_doors") == std::string::npos);
+	CHECK(ReadPlayerSettings("controls.door_pause = 0\n").Controls.DoorPause == NoDoorPause);
+	CHECK(ReadPlayerSettings("controls.door_pause = 12\n").Controls.DoorPause == LongestDoorPause);
+	// The earlier On/Off row's Off reads as no pause, its On as the default; a pause written beside it wins.
+	CHECK(ReadPlayerSettings("controls.stop_at_doors = false\n").Controls.DoorPause == NoDoorPause);
+	CHECK(ReadPlayerSettings("controls.stop_at_doors = true\n").Controls.DoorPause == DefaultDoorPause);
+	CHECK(ReadPlayerSettings("controls.stop_at_doors = false\ncontrols.door_pause = 3\n").Controls.DoorPause == 3);
+	CHECK(ValueOf(Defaults, "assets.packs.text") == "true");
+	CHECK(ValueOf(Defaults, "assets.packs.models_and_effects") == "true");
+	CHECK_FALSE(ReadPlayerSettings("assets.packs.text = false\n").PackKinds.bText);
+	CHECK_FALSE(ReadPlayerSettings("assets.packs.portraits = false\n").PackKinds.bPortraits);
+	CHECK(ValueOf(Defaults, "controls.camera_buttons") == "rotate");
+	CHECK(ReadPlayerSettings("controls.camera_buttons = zoom\n").Controls.CameraButtons == ECameraButtons::Zoom);
 	CHECK(ValueOf(Defaults, "controls.original_button_icons") == "false");
 	CHECK(ReadPlayerSettings("controls.original_button_icons = true\n").Controls.bOriginalButtonIcons);
 	CHECK_FALSE(ReadPlayerSettings("controls.original_button_icons = invalid\n").Controls.bOriginalButtonIcons);
@@ -213,6 +233,9 @@ TEST_CASE("The settings' text lists every setting and reads back the same", "[Se
 	CHECK(ReadPlayerSettings("controls.stick_sensitivity = 0\n").Controls.StickSensitivity == LowestSensitivity);
 	CHECK(ReadPlayerSettings("controls.stick_sensitivity = 2.5\n").Controls.StickSensitivity == DefaultSensitivity);
 	CHECK(ReadPlayerSettings("game.text_speed = instant\n").TextSpeed == EMesTextSpeed::Instant);
+	CHECK(ValueOf(Defaults, "game.auto_advance") == "off");
+	CHECK(ReadPlayerSettings("game.auto_advance = fast\n").AutoAdvance == EMesAutoAdvance::Fast);
+	CHECK(ReadPlayerSettings("game.auto_advance = always\n").AutoAdvance == EMesAutoAdvance::Off);
 	CHECK(ValueOf(Defaults, "game.battle_speed") == "normal");
 	CHECK(ReadPlayerSettings("game.battle_speed = 2x\n").BattleSpeed == EBattleSpeed::Double);
 	CHECK(ReadPlayerSettings("game.battle_speed = 3x\n").BattleSpeed == EBattleSpeed::Normal);
@@ -227,6 +250,9 @@ TEST_CASE("The settings' text lists every setting and reads back the same", "[Se
 	CHECK(ValueOf(Defaults, "mods.perfect_works.portraits") == "fixed");
 	CHECK(ValueOf(Defaults, "mods.perfect_works.arena") == "original");
 	CHECK(ReadPlayerSettings("mods.perfect_works.arena = expert\n").PerfectWorks.Arena == EPerfectWorksArena::Expert);
+	// Expansions are played until the player turns them off, the first the question finds until one is chosen.
+	CHECK(ValueOf(Defaults, "mods.disc2_expansions") == "true");
+	CHECK(ValueOf(Defaults, "mods.disc2_expansion").empty());
 	CHECK(ReadPlayerSettings("mods.perfect_works = true\nmods.perfect_works.portraits = resized\n").PerfectWorks
 		== FPerfectWorksOptions{true, true, EPerfectWorksPortraits::Resized});
 	CHECK(ReadPlayerSettings("field.sorting = per_pixel\n").Field.Sorting == EFieldSorting::DepthBuffer);
@@ -268,6 +294,8 @@ TEST_CASE("The settings' text lists every setting and reads back the same", "[Se
 	CHECK(ValueOf(Text, "mods.perfect_works") == "true");
 	CHECK(ValueOf(Text, "mods.perfect_works.portraits") == "resized");
 	CHECK(ValueOf(Text, "mods.perfect_works.title_screen") == "false");
+	CHECK(ValueOf(Text, "mods.disc2_expansions") == "false");
+	CHECK(ValueOf(Text, "mods.disc2_expansion") == "Elly's errand");
 	CHECK(ValueOf(Text, "controls.mouse_sensitivity") == "8");
 	CheckSame(ReadPlayerSettings(Text), Settings);
 }

@@ -110,8 +110,9 @@ namespace Weltall
 			std::array<int16, 3> Position{};
 		};
 
+		/** As every map's load sets them: light 0 white at half strength, from above; the others dark. */
 		std::array<int16, 2 * MatrixWords> Words{0x1F8, -0xFC1, -0x1F8, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0,
-			0x800, 0, 0, 0, 0x800, 0, 0, 0, 0x800};
+			0x800, 0, 0, 0x800, 0, 0, 0x800};
 		std::array<uint8, 3> Ambient{0x1E, 0x1E, 0x1E};
 		std::array<FPointLight, PointLights> Points;
 
@@ -247,8 +248,16 @@ namespace Weltall
 		 * made): what the frames draw. The scripts' later parameters change nothing drawn.
 		 */
 		FFieldPanorama Backdrop;
-		/** After a lost battle, until the next map: the defeat's picture is where the title's backdrop reads its own. */
+		/**
+		 * After a lost battle, until the next map or a movie shown over the screen: the defeat's picture is where the
+		 * title's backdrop reads its own.
+		 */
 		bool bDefeatPicture = false;
+		/**
+		 * How often the map's texture stream has come in again since its load: after every movie shown over the screen,
+		 * over whatever the scripts and the movie left in its places.
+		 */
+		int32 TextureStreams = 0;
 		FFieldGearLights GearLights;
 		/** FieldSceneryDrift bits. */
 		uint8 SceneryDrift = 0;
@@ -325,6 +334,8 @@ namespace Weltall
 		WELTALLCORE_API void SaveEffectTextures();
 		/** Puts the effects' textures back, when they are kept aside. */
 		WELTALLCORE_API void RestoreEffectTextures();
+		/** The map's texture stream comes in again, the title's own picture with it where the defeat's was. */
+		WELTALLCORE_API void StreamTexturesAgain();
 
 		/**
 		 * One frame of the fade layers, as the field runs them before drawing: each active layer steps

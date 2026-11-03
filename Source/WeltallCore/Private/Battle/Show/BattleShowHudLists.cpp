@@ -487,8 +487,8 @@ namespace Weltall
 		}
 		if (Window == ComboListWindow && Work.bComboShown)
 		{
-			Link(Work.ComboBar[Work.FiguresBuffer & 1]);
-			Link(Work.ComboRest[Work.FiguresBuffer & 1]);
+			Link(Work.ComboBar[Work.FiguresBuffer & 1], BattleHudBlendKeys::ComboBar(0));
+			Link(Work.ComboRest[Work.FiguresBuffer & 1], BattleHudBlendKeys::ComboBar(1));
 		}
 		if (Window == ItemListWindow)
 		{

@@ -6,7 +6,6 @@
 #include "Menu/MenuProgram.h"
 #include "Menu/MenuResources.h"
 #include "Menu/MenuStoreHint.h"
-#include "Presentation/ScreenLayout.h"
 #include "Rendering/DrawListRendering.h"
 #include "Rendering/SharedRenderResource.h"
 #include "Rendering/VramTexture.h"
@@ -33,12 +32,12 @@ class FMenuScreenFrame final : public IScreenFrame
 public:
 	FMenuScreenFrame(TSharedRef<FVramTexture> InVram, TSharedRef<FVramTexture> InIconVram) : Vram(MoveTemp(InVram)), IconVram(MoveTemp(InIconVram)) {}
 
-	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override
+	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override
 	{
 		if (GearMesh.IsValid())
 		{
-			// The whole area cleared to black, the gear drawn on the field's widened screen.
-			AddFieldScenePasses(GraphBuilder, *GearMesh, *Vram, GearDraw, Output, Area);
+			// The screen's rows cleared to black, the gear drawn on the field's widened screen.
+			AddFieldScenePasses(GraphBuilder, *GearMesh, *Vram, GearDraw, Output, Area.Rows(Weltall::MenuScreenSize));
 		}
 		else if (Background.IsValid())
 		{
@@ -48,11 +47,7 @@ public:
 		{
 			return;
 		}
-		const Weltall::FScreenLayout Layout = Weltall::FScreenLayout::Fit(Area.Width(), Area.Height(), Weltall::MenuScreenSize);
-		const Weltall::FDisplayRect Placed =
-			Layout.ToDisplay({0, 0, static_cast<int16>(Weltall::MenuScreenSize.Width), static_cast<int16>(Weltall::MenuScreenSize.Height)});
-		const FIntPoint Origin = Area.Min + FIntPoint(Placed.X, Placed.Y);
-		const FIntRect ScreenRect(Origin, Origin + FIntPoint(Placed.Width, Placed.Height));
+		const FIntRect ScreenRect = Area.ScreenRect(Weltall::MenuScreenSize);
 		// The menu's frame is drawn between two of its frames already: one list, drawn as it is.
 		AddIconDrawListPasses(GraphBuilder, *Vram, *IconVram, Layer, Output, ScreenRect, Weltall::MenuScreenSize);
 	}
@@ -160,7 +155,8 @@ TSharedPtr<const IScreenFrame> FMenuView::Capture(TSharedPtr<const IScreenFrame>
 	if (Sheet != nullptr && !Builder.Icons.empty())
 	{
 		static const FMenuViewNoGlyphs NoGlyphs;
-		Icons.Apply(Next->Layer, Builder.Icons, Glyphs != nullptr ? *Glyphs : NoGlyphs, *Sheet, Weltall::MenuSheetButtonPictures, Frames[Now].Keys);
+		Icons.Apply(Next->Layer, Builder.Icons, Glyphs != nullptr ? *Glyphs : NoGlyphs, *Sheet, Weltall::MenuSheetButtonPicturesOf(bJapaneseCommands),
+			Frames[Now].Keys);
 		IconVram->Follow(Icons.Pictures());
 	}
 	if (bGearScene && GearMesh.IsValid())

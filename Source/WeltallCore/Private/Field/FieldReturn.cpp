@@ -83,6 +83,7 @@ namespace Weltall
 
 	std::optional<FError> SaveFieldForReturn(const FEventContext& Context, IFieldActorModels& Models, FFieldSnapshot& Saved)
 	{
+		Saved.ScriptsKey = Context.ScriptsKey;
 		Saved.Actors.resize(Context.States.size());
 		for (std::size_t Actor = 0; Actor < Context.States.size(); ++Actor)
 		{
@@ -169,6 +170,10 @@ namespace Weltall
 
 	std::optional<FError> RestoreFieldForReturn(const FFieldSnapshot& Saved, const FGameState& Game, FEventContext& Context)
 	{
+		if (Saved.ScriptsKey != Context.ScriptsKey)
+		{
+			return ReturnError(Context, "its scripts are not the ones it was saved with");
+		}
 		if (Saved.Actors.size() != Context.States.size())
 		{
 			return ReturnError(Context, "it saved " + std::to_string(Saved.Actors.size()) + " script actors and has " + std::to_string(Context.States.size()));

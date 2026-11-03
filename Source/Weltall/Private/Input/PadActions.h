@@ -34,16 +34,19 @@ public:
 
 	/**
 	 * The buttons held as the player's input last evaluated its actions, with the directions only a stick holds and
-	 * that stick's tilt (PadStick).
+	 * that stick's tilt (PadStick), and L1 and R1 as zoom buttons where the bindings' camera buttons zoom.
 	 */
 	Weltall::FPadState ReadHeld(const UEnhancedPlayerInput& Input) const;
 
 	/**
 	 * What the player did to the field's view over DeltaSeconds: a stick or key pushed all the way
 	 * moves it at FFieldViewInput's rates, the mouse by how far it moved, each scaled by the player's
-	 * sensitivity; the reset once as it is pressed.
+	 * sensitivity, L1 and R1 held as a stick pushed where the camera buttons zoom; the reset once as it is pressed.
 	 */
 	Weltall::FFieldViewInput ReadView(const UEnhancedPlayerInput& Input, float DeltaSeconds);
+
+	/** The port's own keys (Weltall::IsPortAction) pressed since the last read, in the actions' order: each press once, however long it is held. */
+	TArray<Weltall::EControlAction, TFixedAllocator<Weltall::PortActionCount>> ReadPortKeys(const UEnhancedPlayerInput& Input);
 
 private:
 	UInputAction* MakeAction(const TCHAR* Name, EInputActionValueType Type);
@@ -64,6 +67,8 @@ private:
 	int32 Stick = 0;
 
 	bool bResetHeld = false;
+	/** Which of the port's own keys were held at the last read, a bit each in the actions' order. */
+	uint8 PortKeysHeld = 0;
 	/** The bindings' sensitivities as the view's scales: degrees for a count of the mouse, and the stick's rates' factor. */
 	float MouseDegrees = Weltall::MouseDegreesPerCount(Weltall::DefaultSensitivity);
 	float StickScale = 1.0f;

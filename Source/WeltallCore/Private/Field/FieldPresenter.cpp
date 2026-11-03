@@ -31,7 +31,6 @@ namespace Weltall
 		/** Where every map's entry puts the message font's CLUTs. */
 		constexpr int16 TextClutX = 256;
 		constexpr int16 TextClutY = 240;
-		constexpr int32 NoCharacter = -1;
 		/** A place's CLUT row when the TIM's CLUT is not placed. */
 		constexpr int16 ClutNotPlaced = -1;
 		/** The characters' drawn things are keyed by actor: its sprite's passes (its shadow is the last key). */
@@ -74,7 +73,6 @@ namespace Weltall
 	FFieldPresenter::FFieldPresenter(const FFieldDrawingTables& InTables, const FCdImage& InImage, const FGameFileIndex& InIndex)
 		: DrawingTables(InTables), Image(&InImage), Index(&InIndex), Members(std::make_unique<FFieldMemberStandIns>(InImage, InIndex))
 	{
-		FacesLoaded.fill(NoCharacter);
 	}
 
 	TResult<FFieldPresenter> FFieldPresenter::Start(const FFieldDrawingTables& Tables, const FCdImage& Image, const FGameFileIndex& Index)
@@ -175,21 +173,21 @@ namespace Weltall
 	std::optional<FError> FFieldPresenter::EnterMap(FFieldRuntime& Runtime)
 	{
 		FEventContext& Context = Runtime.Context();
-		Scratch.Rect = {TextClutX, TextClutY, static_cast<int16>(DrawingTables.TextClut.size()), 1};
-		Scratch.Units.assign(DrawingTables.TextClut.begin(), DrawingTables.TextClut.end());
-		FieldVram.Upload(Scratch);
+		const FVram::FKindScope SceneryKind(FieldVram, EVramUploadKind::Scenery);
+		{
+			const FVram::FKindScope TextKind(FieldVram, EVramUploadKind::Text);
+			Scratch.Rect = {TextClutX, TextClutY, static_cast<int16>(DrawingTables.TextClut.size()), 1};
+			Scratch.Units.assign(DrawingTables.TextClut.begin(), DrawingTables.TextClut.end());
+			FieldVram.Upload(Scratch);
+		}
 		// The archive's images go in as the load reads the archive, before the scripts' init; the init's VRAM changes
 		// follow, then the gears, which load at the end of the map's load (over any slot's images where they lie), and
 		// the texture stream comes in after them.
 		UploadFieldArchiveImages(Runtime.Map(), FieldVram);
 		ApplyVramOperations(Context.Render, Context.Render.VramOperations);
 		ApplyGearVramChanges(Context);
-		UploadFieldTextureStream(Runtime.Map(), FieldVram, Context.Movement.ActionMode != 0);
-		if (Context.Options.bMoonGlowFades)
-		{
-			FadeMoonGlow(Context.RunningMap, FieldVram);
-		}
-		Context.Models->SpriteSystem()->FlushUploads(FieldVram);
+		UploadMapTextureStream(Runtime);
+		FlushSpriteUploads(Context);
 		// The picture of the screen moved once the textures are in.
 		ApplyVramOperations(Context.Render, Context.Render.PictureMoves);
 		TResult<FFieldScene> Scene = BuildFieldScene(Runtime.Map());
@@ -205,6 +203,7 @@ namespace Weltall
 		MapSpriteSheets = FieldSpriteSheetRegions(Runtime.Map());
 		MapLoadsSeen = Runtime.MapLoads();
 		GearLoadsSeen = Context.Gears.Loads;
+		TextureStreamsSeen = Context.Render.TextureStreams;
 		Ticks = 0;
 		if (StandIns)
 		{
@@ -218,6 +217,25 @@ namespace Weltall
 		CutsceneWatch.Reset();
 		PartyWatch.Reset();
 		return std::nullopt;
+	}
+
+	void FFieldPresenter::UploadMapTextureStream(FFieldRuntime& Runtime)
+	{
+		const FEventContext& Context = Runtime.Context();
+		UploadFieldTextureStream(Runtime.Map(), FieldVram, Context.Movement.ActionMode != 0);
+		if (Context.Options.bMoonGlowFades)
+		{
+			FadeMoonGlow(Context.RunningMap, FieldVram);
+		}
+	}
+
+	void FFieldPresenter::FollowTextureStreams(FFieldRuntime& Runtime)
+	{
+		if (Runtime.Context().Render.TextureStreams != TextureStreamsSeen)
+		{
+			UploadMapTextureStream(Runtime);
+			TextureStreamsSeen = Runtime.Context().Render.TextureStreams;
+		}
 	}
 
 	void FFieldPresenter::SetPilotStandIns(bool bOn)
@@ -260,12 +278,15 @@ namespace Weltall
 		// The map's first ticks draw nothing but the screen's 2D layer, over black.
 		const bool bSceneDrawn = Runtime.Context().SettleTicks == 0;
 		const int32 PicturesTaken = Runtime.Context().Render.Cover.Taken;
-		// Gears loaded again between ticks (after a movie) place their textures before the tick's changes.
+		const FVram::FKindScope SceneryKind(FieldVram, EVramUploadKind::Scenery);
+		// Gears loaded again between ticks (after a movie) place their textures before the tick's changes, and the
+		// map's textures stream in after them.
 		if (Runtime.Context().Gears.Loads != GearLoadsSeen)
 		{
 			ApplyGearVramChanges(Runtime.Context());
 			GearLoadsSeen = Runtime.Context().Gears.Loads;
 		}
+		FollowTextureStreams(Runtime);
 		Drawn = &Frame;
 		TickingRuntime = &Runtime;
 		SpriteModelCapture.clear();
@@ -325,11 +346,13 @@ namespace Weltall
 			ApplyVramOperations(Context.Render, Context.Render.VramOperations);
 			ApplyGearVramChanges(Context);
 			GearLoadsSeen = Context.Gears.Loads;
+			FollowTextureStreams(Runtime);
 			ApplyVramOperations(Context.Render, Context.Render.PictureMoves);
 		}
 		// The pause's picture goes into the buffer on display, the one the last tick did not draw into.
 		if (Runtime.LastFrame() == EFieldFrame::Paused)
 		{
+			const FVram::FKindScope HudKind(FieldVram, EVramUploadKind::MenusAndHud);
 			Scratch = DrawingTables.PauseImage;
 			Scratch.Rect.X = static_cast<int16>(Scratch.Rect.X + FFieldDrawingTables::PauseX);
 			Scratch.Rect.Y = static_cast<int16>(Scratch.Rect.Y + FFieldDrawingTables::PauseY + FieldBufferHeight * ((Context.DrawBuffer + 1) & 1));
@@ -338,6 +361,7 @@ namespace Weltall
 		// Every tick loads, after the scripts' VRAM changes, the compass's palette, the directions the camera may not turn to black.
 		if (Runtime.LastFrame() == EFieldFrame::Tick)
 		{
+			const FVram::FKindScope HudKind(FieldVram, EVramUploadKind::MenusAndHud);
 			const auto Palette = FieldCompassPalette(DrawingTables.Compass, CompassColors, Context.Camera.ForbiddenDirections);
 			Scratch.Rect = {CompassColorsPlace.X, CompassColorsPlace.Y, static_cast<int16>(Palette.size()), 1};
 			Scratch.Units.assign(Palette.begin(), Palette.end());
@@ -351,8 +375,11 @@ namespace Weltall
 		{
 			return FaceError;
 		}
-		TypeFieldMessageText(Context.Messages, DrawingTables, FieldVram, Scratch);
-		Context.Models->SpriteSystem()->FlushUploads(FieldVram);
+		{
+			const FVram::FKindScope TextKind(FieldVram, EVramUploadKind::Text);
+			TypeFieldMessageText(Context.Messages, DrawingTables, FieldVram, Scratch);
+		}
+		FlushSpriteUploads(Context);
 		// After the sprites' uploads, as the frame makes them: the scrollers' copies, then the faded CLUT rows.
 		ApplyVramOperations(Context.Render, Context.Render.LineScrollMoves);
 		if (Context.Render.ClutFade.bLoaded)
@@ -414,6 +441,7 @@ namespace Weltall
 
 	FVramRect FFieldPresenter::UploadMoviePicture(const FMdecPicture& Picture, const FFieldMovieRequest& Movie, uint32 Number)
 	{
+		const FVram::FKindScope MovieKind(FieldVram, EVramUploadKind::Other);
 		const std::size_t Buffer = (Number & 1) * 2;
 		const int16 Height = static_cast<int16>(std::min<int32>(Picture.Height, std::max<int32>(Movie.Height, 0)));
 		Scratch.Rect = {Movie.Buffers[Buffer], Movie.Buffers[Buffer + 1], static_cast<int16>(Picture.Width), Height};
@@ -525,14 +553,22 @@ namespace Weltall
 		}
 	}
 
+	void FFieldPresenter::FlushSpriteUploads(const FEventContext& Context)
+	{
+		const FVram::FKindScope CharactersKind(FieldVram, EVramUploadKind::Characters);
+		Context.Models->SpriteSystem()->FlushUploads(FieldVram);
+	}
+
 	std::optional<FError> FFieldPresenter::LoadFaces(const FEventContext& Context)
 	{
-		// A slot's faces go into VRAM when the disc has read them, as the messages' faces cache has it.
+		const FVram::FKindScope PortraitsKind(FieldVram, EVramUploadKind::Portraits);
+		// A slot's faces go into VRAM each time the disc has read them, as the messages' faces cache has it: a face read
+		// again after the cache was emptied covers whatever the scripts loaded over it meanwhile.
 		for (std::size_t Slot = 0; Slot < FacesLoaded.size(); ++Slot)
 		{
 			const FFieldPortraitSlot& Cached = Context.Messages.Portraits[Slot];
 			const bool bRead = Cached.Load == FFieldPortraitSlot::Read || Cached.Load == FFieldPortraitSlot::Ready;
-			if (!bRead || Cached.Character == FFieldPortraitSlot::None || FacesLoaded[Slot] == Cached.Character)
+			if (!bRead || Cached.Character == FFieldPortraitSlot::None || FacesLoaded[Slot] == Cached.ReadNumber)
 			{
 				continue;
 			}
@@ -548,7 +584,7 @@ namespace Weltall
 					return Error;
 				}
 			}
-			FacesLoaded[Slot] = Cached.Character;
+			FacesLoaded[Slot] = Cached.ReadNumber;
 		}
 		return std::nullopt;
 	}
@@ -569,7 +605,8 @@ namespace Weltall
 			bCutsceneWatched = true;
 			if (Context->GameState != nullptr)
 			{
-				Members->Arrange(*Context, Context->GameState->PartyOrder(), !CutsceneWatch.InCutscene() && PartyWatch.Together());
+				Members->Arrange(*Context, Context->GameState->PartyOrder(), Context->GameState->CharacterLooks(),
+					!CutsceneWatch.InCutscene() && PartyWatch.Together());
 			}
 		}
 		// The party drawn in its player's order: a party slot's sprite as the member shown in its place.
@@ -587,7 +624,9 @@ namespace Weltall
 		FFieldSpritePass Used = Look.StandIn != nullptr ? FFieldMemberStandIns::PassFor(Sprite, *Look.StandIn, Pass) : Pass;
 		if (StandIns && Context != nullptr)
 		{
-			if (const FSprite* StandIn = StandIns->Follow(*Context, TickingRuntime->Sprites(), Actor, Sprite, Ticks, FieldVram, Members->ShownFor(*Context, Actor)))
+			const FFieldMemberStandIns::FLookedFile LookedFile = Members->LookedFileFor(*Context, Actor);
+			if (const FSprite* StandIn = StandIns->Follow(*Context, TickingRuntime->Sprites(), Actor, Sprite, Ticks, FieldVram, Members->PicturedFor(*Context, Actor),
+					LookedFile.File, LookedFile.Picture))
 			{
 				Shown = StandIn;
 				Used = FFieldPilotStandIns::PassFor(Sprite, *StandIn, Pass);

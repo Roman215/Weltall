@@ -98,6 +98,8 @@ namespace Weltall
 	{
 		FMenuStoreFile& File = Files.Files[static_cast<std::size_t>(Card * PerCard + Number)];
 		File.Head = SaveFileHead(File.Data, File.Slot);
+		const TResult<FOriginalSave> Save = FOriginalSave::FromData(File.Data);
+		File.ClearGame = Save ? Save->ClearGame() : EClearGame::None;
 		// Each block of the file takes the card's next cell.
 		for (int32 Block = 0; Block < File.Head[Header::Blocks]; ++Block)
 		{
@@ -108,10 +110,13 @@ namespace Weltall
 
 	std::array<uint8, 0x200> FMenuMain::SaveFileHead(const std::vector<uint8>& Data, int32 Slot) const
 	{
+		// Listed as the port plays it: a clear game's own party, where the original's save beside it has Elly away.
+		const TResult<FOriginalSave> Save = FOriginalSave::FromData(Data);
+		const std::vector<uint8> Played = Save ? Save->PlayedData() : Data;
 		std::array<uint8, 0x200> Head{};
-		const std::array<uint8, SaveHeaderSize> Header = MenuSaveHeader(Resources, Slot, Data);
+		const std::array<uint8, SaveHeaderSize> Header = MenuSaveHeader(Resources, Slot, Played);
 		std::copy(Header.begin(), Header.end(), Head.begin());
-		std::copy_n(Data.begin(), std::min(Data.size(), Head.size() - SaveHeaderSize), Head.begin() + SaveHeaderSize);
+		std::copy_n(Played.begin(), std::min(Played.size(), Head.size() - SaveHeaderSize), Head.begin() + SaveHeaderSize);
 		return Head;
 	}
 
@@ -124,7 +129,7 @@ namespace Weltall
 		{
 			Colours.Units[Unit] = LittleEndian::ReadU16(File.Head, Header::Colours + Unit * 2);
 		}
-		Upload(Colours);
+		Upload(Colours, EVramUploadKind::MenusAndHud);
 		// Three frames whatever the icon has: a one-frame icon's others are the data's start.
 		const int32 FirstRow = IconPixelsY + Card * PerCard;
 		for (int32 Frame = 0; Frame < IconFrames; ++Frame)
@@ -135,7 +140,7 @@ namespace Weltall
 			{
 				Pixels.Units[Unit] = LittleEndian::ReadU16(File.Head, Header::Pixels + static_cast<std::size_t>(Frame) * 0x80 + Unit * 2);
 			}
-			Upload(Pixels);
+			Upload(Pixels, EVramUploadKind::MenusAndHud);
 		}
 		const uint8 First = static_cast<uint8>(FirstRow);
 		const uint8 Second = static_cast<uint8>(FirstRow + FrameRows);

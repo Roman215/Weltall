@@ -1,7 +1,9 @@
 #include "Support/StorySweepStrength.h"
 
 #include "Game/GameState.h"
+#include "Game/KeepElly.h"
 
+#include <algorithm>
 #include <array>
 #include <cstring>
 #include <span>
@@ -84,6 +86,51 @@ namespace Weltall::Testing
 			Put(Record, GearMaxHp, StrongFrame);
 			Put(Record, GearDefense, StrongArmor);
 			Put(Record, GearEtherDefense, StrongArmor);
+		}
+	}
+
+	void BringEllyBack(FGameState& State)
+	{
+		constexpr uint8 Elly = 1;
+		constexpr uint16 EllyBit = 1 << Elly;
+		constexpr uint8 Regurus = 10;
+		State.SetJoinedCharacters(static_cast<uint16>(State.JoinedCharacters() | EllyBit));
+		State.SetMenuCharacters(static_cast<uint16>(State.MenuCharacters() | EllyBit));
+		State.SetCharacterGear(Elly, Regurus);
+		std::array<uint8, 3> Party = State.Party();
+		if (std::find(Party.begin(), Party.end(), Elly) == Party.end())
+		{
+			Party[1] = Elly;
+			State.SetParty(Party);
+		}
+		State.SetClearGame(EClearGame::ClearFile);
+	}
+
+	void DrawFeiAsId(FGameState& State)
+	{
+		constexpr uint8 Fei = 0;
+		if (!State.IsClearGame())
+		{
+			State.SetClearGame(EClearGame::NewGamePlus);
+		}
+		FCharacterLooks Looks = State.CharacterLooks();
+		if (!Looks.IsId(Fei))
+		{
+			Looks.Switch(Fei);
+			State.SetCharacterLooks(Looks);
+		}
+	}
+
+	void KeepEllyInParty(FGameState& State)
+	{
+		constexpr uint8 Elly = 1;
+		State.SetClearGame(EClearGame::KeepElly);
+		KeepElly::Hold(State);
+		std::array<uint8, 3> Party = State.Party();
+		if ((State.JoinedCharacters() & 1 << Elly) != 0 && KeepElly::IsBack(State) && std::find(Party.begin(), Party.end(), Elly) == Party.end())
+		{
+			Party[1] = Elly;
+			State.SetParty(Party);
 		}
 	}
 }

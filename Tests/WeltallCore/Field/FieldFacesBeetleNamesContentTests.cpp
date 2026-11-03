@@ -7,6 +7,8 @@
 
 #include <catch_amalgamated.hpp>
 
+#include <algorithm>
+
 using namespace Weltall;
 
 // Both Perfect ART Works and the Xenogears HD Portraits Project, Beetle PSX HW packs, name Fei's face 46c8e27-bc2f6e29:
@@ -52,4 +54,19 @@ TEST_CASE("A message's face is named as Beetle PSX HW's packs name it", "[Field]
 	CHECK((Parts[0].UploadUnitsWide == 32 && Parts[0].UploadUnitsHigh == 64));
 	CHECK((Parts[0].FromU == 0 && Parts[0].FromV == 0 && Parts[0].U == 0 && Parts[0].V == 0));
 	CHECK((Parts[0].Width == 64 && Parts[0].Height == 64));
+	CHECK(Parts[0].Kind == EVramUploadKind::Portraits);
+
+	// Beside it, the window's typed lines are text, the map's pages scenery and the party's frames characters.
+	for (int32 Frame = 0; Frame < 30; ++Frame)
+	{
+		Game->Frame();
+	}
+	const auto Holds = [&Drawing](EVramUploadKind Kind)
+	{
+		const auto Held = Drawing.Vram().UploadParts();
+		return std::any_of(Held.begin(), Held.end(), [Kind](const FVramUploadPart& Part) { return Part.Upload->Kind == Kind; });
+	};
+	CHECK(Holds(EVramUploadKind::Text));
+	CHECK(Holds(EVramUploadKind::Scenery));
+	CHECK(Holds(EVramUploadKind::Characters));
 }

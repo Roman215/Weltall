@@ -4,6 +4,7 @@
 #include "Foundation/Types.h"
 #include "Gears/GearChannels.h"
 #include "Gears/GearCloth.h"
+#include "Gears/GearDress.h"
 #include "Gears/GearEngine.h"
 #include "Gears/GearFiles.h"
 #include "Gears/GearFrame.h"
@@ -108,6 +109,9 @@ namespace Weltall
 		 * there. None: its matrices are the world's.
 		 */
 		std::optional<FAffine> Placement;
+		/** Another model drawn over its bones in its stead (FGearModels::Wear), and that model's bones as last placed. */
+		std::shared_ptr<const IGearDress> Dress;
+		std::vector<FGearBone> DressBones;
 	};
 
 	/** A texture block a load placed in VRAM, which the renderer uploads. */
@@ -162,6 +166,12 @@ namespace Weltall
 		 * script 0. The model pack is the load's alone; the model keeps the motion pack.
 		 */
 		[[nodiscard]] WELTALLCORE_API std::optional<FError> Load(int32 Slot, FGearModelPack&& ModelPack, FGearMotionPack&& MotionPack, const FGearTexturePlace& Place, const FGteVector& Position);
+
+		/**
+		 * Slot's model drawn as Dress from now on: Dress's textures go up at the model's place over its own, its parts
+		 * and texture regions are the drawing's; the model goes on as itself. False, changing nothing, for an empty slot.
+		 */
+		WELTALLCORE_API bool Wear(int32 Slot, std::shared_ptr<const IGearDress> Dress);
 
 		/**
 		 * Loads a model as Load does and leaves it still: no script starts, and its motion pack's sound effects are

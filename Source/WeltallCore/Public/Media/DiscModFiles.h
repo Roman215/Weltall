@@ -22,6 +22,11 @@ namespace Weltall
 		std::filesystem::path Path;
 		/** A packed section 5 (a field map's scripts) written over the file's own place for it, cut or padded to fit. */
 		std::filesystem::path Section5;
+		/** Where the file lies in Path, for a mod that packs its files into one; a Size of 0 is the whole of Path. */
+		uint64 Offset = 0;
+		uint64 Size = 0;
+		/** The file made in memory, read in place of Path. */
+		std::shared_ptr<const std::vector<uint8>> Bytes{};
 	};
 
 	/** Perfect Works Build's rebalance of the Battling arena: none, its Basic mode, or its Expert mode (Basic's with tweaks for two players). */
@@ -69,6 +74,9 @@ namespace Weltall
 
 		/** Record's file from the mod, read now; none where the mod has none. */
 		WELTALLCORE_API TResult<std::optional<FFileReplacement>> Read(const FIndexRecord& Record) const;
+
+		/** The mod's file whose record starts at sector Lba, read now, for a reader that finds files otherwise (the disc's file system). */
+		WELTALLCORE_API TResult<std::optional<FFileReplacement>> ReadAt(uint32 Lba) const;
 
 		std::size_t Count() const { return BySector.size(); }
 		const FModProgramChanges& Changes() const { return ProgramChanges; }

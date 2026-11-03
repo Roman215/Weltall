@@ -155,7 +155,23 @@ namespace Weltall
 
 	bool FCdImage::ReadRaw(uint32 Lba, std::span<uint8> Destination) const
 	{
-		return Lba < Sectors && Source->Read(TrackOffset + static_cast<uint64>(Lba) * SectorSize, Destination);
+		if (Lba >= Sectors || !Source->Read(TrackOffset + static_cast<uint64>(Lba) * SectorSize, Destination))
+		{
+			return false;
+		}
+		if (RawPatch && IsRaw())
+		{
+			for (std::size_t Sector = 0; Sector * SectorSize < Destination.size(); ++Sector)
+			{
+				const uint32 Read = Lba + static_cast<uint32>(Sector);
+				if (Read >= RawPatchSectors[0] && Read < RawPatchSectors[1]
+					&& !RawPatch->Apply(Read, Destination.subspan(Sector * SectorSize, std::min<std::size_t>(SectorSize, Destination.size() - Sector * SectorSize))))
+				{
+					return false;
+				}
+			}
+		}
+		return true;
 	}
 
 	TResult<std::vector<uint8>> FCdImage::ReadSourceSector(uint32 Lba) const
@@ -180,6 +196,11 @@ namespace Weltall
 			}
 		}
 		return Mods ? Mods->Read(Record) : TResult<std::optional<FFileReplacement>>(std::optional<FFileReplacement>{});
+	}
+
+	TResult<std::optional<FFileReplacement>> FCdImage::ReadModFileAt(uint32 Lba) const
+	{
+		return Mods ? Mods->ReadAt(Lba) : TResult<std::optional<FFileReplacement>>(std::optional<FFileReplacement>{});
 	}
 
 	TResult<std::optional<std::vector<uint8>>> FCdImage::ReadMusicReplacement(uint64 Key) const

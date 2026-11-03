@@ -203,7 +203,7 @@ namespace Weltall
 			{
 				FMenuLabel& Name = Deathblows.Names[At];
 				FMenuLabel& Cost = Deathblows.Costs[At];
-				Name.Width = static_cast<uint8>(RenderString(NameTyping, NameImage, Services.Text.Tables->String(Character, Row), 0));
+				Name.Width = static_cast<uint8>(RenderString(NameTyping, NameImage, Services.Text.Tables->String(DrawnCharacter(Character), Row), 0));
 				uint16 Glyph = NoGlyph;
 				const std::size_t CostAt = FirstDeathblowCommand + At * CommandSize;
 				if (Row < CharacterSkills::FirstUpperTier && bLearned && CostAt < Commands.size())

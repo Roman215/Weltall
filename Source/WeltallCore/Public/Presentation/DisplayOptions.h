@@ -50,6 +50,8 @@ namespace Weltall
 		ECrtFilter Crt = ECrtFilter::Off;
 		/** The player's own look, which Custom draws with. */
 		FCrtLook CustomCrt = FCrtLook::Monitor();
+		/** Every game screen is drawn at a whole number of display pixels a pixel, the picture smaller for it (PictureArea). */
+		bool bIntegerScaling = false;
 
 		bool operator==(const FDisplayOptions&) const = default;
 	};

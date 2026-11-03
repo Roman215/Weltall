@@ -36,6 +36,33 @@ TEST_CASE("The kernel's pad swaps Circle with Cross and Triangle with Square and
 	CHECK(FKernelPad::LogicalButtons(0x0010) == LogicalSquare);
 }
 
+TEST_CASE("The Japanese commands swap the first port's face buttons back before the map, the second port's not", "[Input]")
+{
+	FKernelPad Pad;
+	Pad.SetJapaneseCommands(true);
+	Pad.Vblank(Holding({EPadButton::Circle, EPadButton::Square, EPadButton::Up}), 1, Holding({EPadButton::Circle, EPadButton::Square}));
+	const auto Words = Pad.PopBoth();
+	REQUIRE(Words.has_value());
+	CHECK((*Words)[0].Held == (LogicalCircle | LogicalSquare | LogicalUp));
+	CHECK((*Words)[1].Held == (LogicalCross | LogicalTriangle));
+	CHECK(Pad.FirstPortButtons(Holding({EPadButton::Cross, EPadButton::Triangle})) == (LogicalCross | LogicalTriangle));
+	CHECK(FKernelPad::FirstPortButtons(FKernelPad::ReportWord(Holding({EPadButton::Cross})), false) == LogicalCircle);
+}
+
+TEST_CASE("The Japanese commands' swap reads a pair held together as its first button alone", "[Input]")
+{
+	// Each pair's second test sets the first's bit back and clears its own: Circle with Cross gives Circle, Square with Triangle Square.
+	CHECK(FKernelPad::SwapFaceButtons(0x0060) == 0x0020);
+	CHECK(FKernelPad::SwapFaceButtons(0x0090) == 0x0080);
+	CHECK(FKernelPad::SwapFaceButtons(0x0020) == 0x0040);
+	CHECK(FKernelPad::SwapFaceButtons(0x0010) == 0x0080);
+	CHECK(FKernelPad::SwapFaceButtons(0xF90F) == 0xF90F);
+	FKernelPad Pad;
+	Pad.SetJapaneseCommands(true);
+	CHECK(Pad.FirstPortButtons(Holding({EPadButton::Circle, EPadButton::Cross})) == LogicalCross);
+	CHECK(Pad.FirstPortButtons(Holding({EPadButton::Square, EPadButton::Triangle})) == LogicalTriangle);
+}
+
 TEST_CASE("A held button repeats 32 vblanks after the last press, then on every count divisible by 4", "[Input]")
 {
 	FKernelPad Pad;
@@ -219,4 +246,18 @@ TEST_CASE("The field's merged words keep the stick where the tick's last vblank 
 	CHECK(Merged.StickX == 0xFF);
 	CHECK(Merged.StickY == FPadState::StickCentre);
 	CHECK(Merged.bAnalog);
+}
+
+TEST_CASE("The field's merged words keep the shoulders the player held to zoom", "[Input]")
+{
+	constexpr uint16 LogicalL1 = 0x0004;
+	constexpr uint16 LogicalR1 = 0x0008;
+	FKernelPad Pad;
+	FPadState Zooming = Holding({EPadButton::L1, EPadButton::Up});
+	Zooming.ZoomButtons = FPadState::Bit(EPadButton::L1);
+	Pad.Vblank(Zooming, 1);
+	Pad.Vblank(Holding({EPadButton::R1}), 2);
+	const FKernelPadWords Merged = Pad.TakeMerged();
+	CHECK(Merged.Held == (LogicalUp | LogicalL1 | LogicalR1));
+	CHECK(Merged.ZoomHeld == LogicalL1);
 }

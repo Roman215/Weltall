@@ -246,15 +246,18 @@ namespace
 		TShaderMapRef<FScreenDrawListPS> PixelShader(ShaderMap, Permutation);
 		const FIntPoint TargetSize = Output->Desc.Extent;
 		const FVector4f Placement(ScreenRect.Min.X, ScreenRect.Min.Y, ScreenRect.Width(), ScreenRect.Height());
+		// As on a television, nothing shows above or below the screen's rows; a fill wider than the screen still reaches across.
+		const FIntRect Rows(0, FMath::Clamp(ScreenRect.Min.Y, 0, TargetSize.Y), TargetSize.X, FMath::Clamp(ScreenRect.Max.Y, 0, TargetSize.Y));
 		const FVector2f ScreenSize(Screen.Width, Screen.Height);
 		FRHITexture* TextureArray = Textures.Layers != nullptr ? Textures.Layers->TextureArray() : nullptr;
 		FRHITexture* VramUnits = Textures.Vram != nullptr ? Textures.Vram->Texture() : nullptr;
 		const FTextureReplacementResources Replacements = Textures.Vram != nullptr ? Textures.Vram->Replacements() : FTextureReplacementResources{};
 
 		GraphBuilder.AddPass(RDG_EVENT_NAME("ScreenDrawList"), PassParameters, ERDGPassFlags::Raster,
-			[PassParameters, &Runs, VertexShader, PixelShader, TargetSize, Placement, ScreenSize, TextureArray, VramUnits, Replacements](FRDGAsyncTask, FRHICommandList& RHICmdList)
+			[PassParameters, &Runs, VertexShader, PixelShader, TargetSize, Rows, Placement, ScreenSize, TextureArray, VramUnits, Replacements](FRDGAsyncTask, FRHICommandList& RHICmdList)
 			{
 				RHICmdList.SetViewport(0.0f, 0.0f, 0.0f, static_cast<float>(TargetSize.X), static_cast<float>(TargetSize.Y), 1.0f);
+				RHICmdList.SetScissorRect(true, Rows.Min.X, Rows.Min.Y, Rows.Max.X, Rows.Max.Y);
 				FScreenDrawListVS::FParameters VertexParameters;
 				VertexParameters.Vertices = PassParameters->Vertices;
 				VertexParameters.ScreenRect = Placement;

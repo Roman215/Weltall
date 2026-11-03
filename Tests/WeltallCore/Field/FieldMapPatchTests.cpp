@@ -1,7 +1,9 @@
 #include "Field/EventAssembly.h"
 #include "Field/FieldMapPatch.h"
+#include "Story/DiscIdentity.h"
 #include "Story/DiscText.h"
 #include "Text/MesText.h"
+#include "Text/MessageTable.h"
 
 #include <catch_amalgamated.hpp>
 
@@ -54,20 +56,35 @@ namespace
 		return Patch ? std::string("read") : Patch.Error().Message;
 	}
 
-	/** A disc whose one battle event, number 3, has two messages: a narration of two pages, and a line. */
+	/**
+	 * A disc whose one battle event, number 3, has two messages: a narration of two pages, and a line; and whose one
+	 * field map, number 5, has the same two, the first in a window wider and taller than its text, then one that starts
+	 * past the table's bytes.
+	 */
 	struct FTestDiscText final : IDiscText
 	{
 		FBytes Table;
+		FBytes MapTable;
 
 		FTestDiscText()
 		{
 			const std::vector<FAddedMessage> Own = {*MesMessageOfText("First.{page}\nSecond,\nlonger."), *MesMessageOfText("Other.")};
 			Table = *BuildMessageTable(Own);
+			std::vector<FAddedMessage> OnMap = Own;
+			OnMap[0].WidthUnits = 40;
+			OnMap[0].Lines = 4;
+			OnMap.push_back({});
+			MapTable = *BuildMessageTable(OnMap);
 		}
 
 		std::span<const uint8> BattleEventMessages(int32 Event) const override
 		{
 			return Event == 3 ? std::span<const uint8>(Table) : std::span<const uint8>();
+		}
+
+		std::span<const uint8> FieldMapMessages(int32 Number) const override
+		{
+			return Number == 5 ? std::span<const uint8>(MapTable) : std::span<const uint8>();
 		}
 	};
 
@@ -219,11 +236,13 @@ TEST_CASE("A map patch names a message of the disc's own, which is read as the p
 	CHECK(Applied("map 12\nmessage Told from event 3 message 2\n", &Disc) == "left alone");
 	CHECK(Applied("map 12\nmessage Told from event 3 message 0 page 3\n", &Disc) == "left alone");
 
-	const std::string_view Shape = "line 2: a message of the disc's own reads 'message Name from event E message K', or with 'page P' after it";
+	const std::string_view Shape = "line 2: a message of the disc's own reads 'message Name from event E message K' or 'message Name from map M message K', "
+		"or with 'page P' after it";
 	CHECK(Refused("map 1\nmessage Told from event 3\n") == Shape);
 	CHECK(Refused("map 1\nmessage Told from event 3 message 0 page 0\n") == Shape);
 	CHECK(Refused("map 1\nmessage Told from event 3 message 0 pages 1\n") == Shape);
-	CHECK(Refused("map 1\nmessage Told from map 3 message 0\n") == Shape);
+	CHECK(Refused("map 1\nmessage Told from event 256 message 0\n") == Shape);
+	CHECK(Refused("map 1\nmessage Told from scene 3 message 0\n") == Shape);
 	CHECK(Refused("map 1\nmessage 1st from event 3 message 0\n") == Shape);
 	CHECK(Refused("map 1\nmessage Told from event 3 message 0\nmessage Told\n{\n}\n") == "line 3: a message named twice");
 
@@ -237,6 +256,71 @@ TEST_CASE("A map patch names a message of the disc's own, which is read as the p
 	REQUIRE(OwnTable->Count() == 1);
 	CHECK(MesTextOfCodes(OwnTable->String(0)) == "First.");
 	CHECK_FALSE(Own->Build());
+}
+
+TEST_CASE("A map patch names a field map's message of the disc's own, in the window its table gives it", "[Field]")
+{
+	const FTestDiscText Disc;
+	const std::string_view Text =
+		"map 12\n"
+		"message Whole from map 5 message 0\n"
+		"message Told from map 5 message 0 page 2\n"
+		"Added:\n"
+		"    Message Whole 0\n"
+		"    Message Told 0\n"
+		"    End\n";
+	const auto Patch = FFieldMapPatch::Parse(Text);
+	if (!Patch)
+	{
+		FAIL(Patch.Error().Message);
+	}
+	FMap Target = Map();
+	const auto Result = Patch->Apply(Target.Scripts, Target.Messages, &Disc);
+	if (!Result)
+	{
+		FAIL(Result.Error().Message);
+	}
+	REQUIRE(*Result);
+	// The whole message keeps the window the map's table sizes it to; its page alone has only its own size.
+	const auto Table = FMessageTable::Parse(Target.Messages);
+	REQUIRE(Table);
+	REQUIRE(Table->Count() == 4);
+	CHECK(MesTextOfCodes(Table->String(2)) == "First.{page}\nSecond,\nlonger.");
+	CHECK(Table->WidthUnits(2) == 40);
+	CHECK(Table->Lines(2) == 4);
+	CHECK(MesTextOfCodes(Table->String(3)) == "Second,\nlonger.");
+	CHECK(Table->WidthUnits(3) == 14);
+	CHECK(Table->Lines(3) == 2);
+
+	// Read from the map's table, not the event's of the same number, and only from a disc that has the map and the message.
+	CHECK(Applied("map 12\nmessage Told from map 5 message 1\n", &Disc) == "applied");
+	CHECK(Applied("map 12\nmessage Told from map 3 message 0\n", &Disc) == "left alone");
+	CHECK(Applied("map 12\nmessage Told from event 5 message 0\n", &Disc) == "left alone");
+	CHECK(Applied("map 12\nmessage Told from map 5 message 3\n", &Disc) == "left alone");
+	CHECK(Applied("map 12\nmessage Told from map 5 message 1 page 2\n", &Disc) == "left alone");
+	// A message the table starts past its bytes is one the disc does not hold.
+	CHECK(Applied("map 12\nmessage Told from map 5 message 2\n", &Disc) == "left alone");
+	CHECK(Applied("map 12\nmessage Told from map 5 message 0\n") == "line 2: a message of the disc's own, and no disc's text to read it from");
+
+	// Only a map of the disc's has messages of the disc's own.
+	const std::string_view Shape = "line 2: a message of the disc's own reads 'message Name from event E message K' or 'message Name from map M message K', "
+		"or with 'page P' after it";
+	CHECK(Refused("map 1\nmessage Told from map 730 message 0\n") == Shape);
+	CHECK(Refused("map 1\nmessage Told from map 5\n") == Shape);
+	CHECK(Refused("map 1\nmessage Told from map 5 message 0 page 0\n") == Shape);
+	CHECK(Refused("map 1\nmessage Told from map 729 message 0\n") == "read");
+
+	// A map made from a disc map takes one into its own table the same way.
+	const auto Own = FFieldMapPatch::Parse("map 1000 from 7\nmessage Whole from map 5 message 0\nactors 1\nactor 0 script 0:\n    Message Whole 0\n    Return\n");
+	REQUIRE(Own);
+	const auto Built = Own->Build(&Disc);
+	REQUIRE(Built);
+	const auto OwnTable = FMessageTable::Parse(Built->Messages);
+	REQUIRE(OwnTable);
+	REQUIRE(OwnTable->Count() == 1);
+	CHECK(MesTextOfCodes(OwnTable->String(0)) == "First.{page}\nSecond,\nlonger.");
+	CHECK(OwnTable->WidthUnits(0) == 40);
+	CHECK(OwnTable->Lines(0) == 4);
 }
 
 TEST_CASE("A map patch names the player's setting it is added under, or none", "[Field]")
@@ -415,4 +499,238 @@ TEST_CASE("A map of its own that cannot be what it says is refused with its line
 	const auto Built = Unbuilt->Build();
 	REQUIRE_FALSE(Built);
 	CHECK(Built.Error().Message == "line 4: no instruction is named 'Fly'");
+}
+
+TEST_CASE("A disc map given whole is built in place of the disc's scripts and messages, naming the disc's map it was written for", "[Field]")
+{
+	// The small map as Export Disc 2 writes it, built again: the same section, the same messages.
+	const FMap Disc = Map();
+	const auto Section = AssembleEventScripts(MapScripts);
+	REQUIRE(Section);
+	const auto Text = WriteWholeFieldMapText(5, *Section, Disc.Messages);
+	REQUIRE(Text);
+	CHECK(Text->starts_with("map 5 whole\ndisc "));
+	CHECK(ExportMark::LeftAsWritten(*Text));
+	const auto Whole = FFieldMapPatch::Parse(*Text);
+	REQUIRE(Whole);
+	CHECK(Whole->IsWhole());
+	CHECK(Whole->Map() == 5);
+	CHECK_FALSE(Whole->Base());
+	CHECK(Whole->WrittenFor() == FieldMapIdentity(*Section, Disc.Messages));
+	const auto Built = Whole->Build();
+	REQUIRE(Built);
+	CHECK(Built->EventScripts == *Section);
+	CHECK(FieldMapIdentity(Built->EventScripts, Built->Messages) == Whole->WrittenFor());
+
+	// Edited, it is built as edited, and still names the disc's map it was written for.
+	std::string Edited = *Text;
+	Edited.replace(Edited.find("Hello."), 6, "Howdy.");
+	CHECK_FALSE(ExportMark::LeftAsWritten(Edited));
+	const auto Changed = FFieldMapPatch::Parse(Edited);
+	REQUIRE(Changed);
+	CHECK(Changed->WrittenFor() == Whole->WrittenFor());
+	const auto Rebuilt = Changed->Build();
+	REQUIRE(Rebuilt);
+	CHECK(Rebuilt->EventScripts == *Section);
+	const auto Table = FMessageTable::Parse(Rebuilt->Messages);
+	REQUIRE(Table);
+	CHECK(MesTextOfCodes(Table->String(0)) == "Howdy.");
+	CHECK(MesTextOfCodes(Table->String(1)) == "Go away.");
+	CHECK(FieldMapIdentity(Rebuilt->EventScripts, Rebuilt->Messages) != Whole->WrittenFor());
+
+	// It is never added to a map as a patch is.
+	FMap Target = Map();
+	const auto Applied = Whole->Apply(Target.Scripts, Target.Messages);
+	REQUIRE_FALSE(Applied);
+	CHECK(Applied.Error().Message == "a whole map is built in place of the disc's, not added to it");
+}
+
+TEST_CASE("A whole map that cannot be what it says is refused with its line", "[Field]")
+{
+	const std::string Disc = "disc " + std::string(40, 'a') + "\n";
+	CHECK(Refused("map 730 whole\n" + Disc) == "line 1: a whole map is one of the disc's: 'map N whole', N below 730");
+	CHECK(Refused("map 5 whole\nactors 1\n") == "a whole map names the disc's map it was written for: 'disc' and its SHA-1");
+	CHECK(Refused("map 5 whole\ndisc 12ab\n") == "line 2: 'disc' takes the SHA-1 of the disc's map, once");
+	CHECK(Refused("map 5 whole\n" + Disc + Disc) == "line 3: 'disc' takes the SHA-1 of the disc's map, once");
+	CHECK(Refused("map 5\nexported " + std::string(40, 'b') + "\n") == "line 2: only a whole map carries an export's mark");
+	CHECK(Refused("map 730 from 5\n" + Disc) == "line 2: only a disc map's patch or whole map names the disc's map it was written for");
+	CHECK(Refused("map 730 over 5\n" + Disc) == "line 2: only a disc map's patch or whole map names the disc's map it was written for");
+	CHECK(Refused("map 800\n" + Disc) == "line 2: only a disc map's patch or whole map names the disc's map it was written for");
+	CHECK(Refused("map 5 whole\n" + Disc + "expect @0x0000 Return\n") == "line 3: a whole map gives every script itself, and expects or detours none of the disc's");
+	CHECK(Refused("map 5 whole\n" + Disc + "option fix.rps_helper\n") == "line 3: a whole map is not added under a setting");
+	CHECK(Refused("map 5 whole\n" + Disc + "encounters from 15\n") == "line 3: a whole map keeps the disc map's encounters");
+}
+
+namespace
+{
+	/** A small map that begins with two entrances, then its scripts. */
+	constexpr std::string_view EntranceScripts =
+		"actors 1\n"
+		"entrances\n"
+		"entrance x 10 z 20 layer 0 camera 2 facing keep\n"
+		"entrance x -30 z 40 layer 1 camera keep facing 3\n"
+		"actor 0 script 0:\n"
+		"    Return\n";
+
+	FEventScripts ScriptsOf(std::string_view Text)
+	{
+		const auto Section = AssembleEventScripts(Text);
+		REQUIRE(Section);
+		auto Scripts = FEventScripts::Parse(*Section);
+		REQUIRE(Scripts);
+		return std::move(*Scripts);
+	}
+
+	std::string DiscLine(const FSha1::FDigest& Identity)
+	{
+		return "disc " + FSha1::ToHex(Identity) + "\n";
+	}
+}
+
+TEST_CASE("A patch that names the disc's map it was written for goes on that map alone", "[Field]")
+{
+	const FMap Disc = Map();
+	const auto Section = AssembleEventScripts(MapScripts);
+	REQUIRE(Section);
+	const auto Identity = FieldMapIdentity(*Section, Disc.Messages);
+	REQUIRE(Identity);
+	const std::string Text = "map 12\n" + DiscLine(*Identity) + "message Extra\n{\nOne more.\n}\nactor 1 script 3:\n    Message Extra 0\n    End\n";
+	const auto Patch = FFieldMapPatch::Parse(Text);
+	REQUIRE(Patch);
+	CHECK(Patch->WrittenFor() == Identity);
+
+	FMap Target = Map();
+	auto Result = Patch->Apply(Target.Scripts, Target.Messages, nullptr, &*Identity);
+	REQUIRE(Result);
+	CHECK(*Result);
+	CHECK(FMessageTable::Parse(Target.Messages)->Count() == 3);
+
+	// Another map's identity, or none to check against, leaves the map as it is.
+	FSha1::FDigest Other = *Identity;
+	Other[0] ^= 1;
+	FMap Elsewhere = Map();
+	const FBytes Code = CodeOf(Elsewhere.Scripts);
+	Result = Patch->Apply(Elsewhere.Scripts, Elsewhere.Messages, nullptr, &Other);
+	REQUIRE(Result);
+	CHECK_FALSE(*Result);
+	Result = Patch->Apply(Elsewhere.Scripts, Elsewhere.Messages);
+	REQUIRE(Result);
+	CHECK_FALSE(*Result);
+	CHECK(CodeOf(Elsewhere.Scripts) == Code);
+	CHECK(Elsewhere.Messages == Disc.Messages);
+}
+
+TEST_CASE("A patch gives one of the map's own messages anew in its place, the others following the map's", "[Field]")
+{
+	const FTestDiscText Disc;
+	const std::string_view Text =
+		"map 12\n"
+		"message msg1 anew size 20 3\n"
+		"{\n"
+		"Leave me be.\n"
+		"}\n"
+		"message Extra\n"
+		"{\n"
+		"One more.\n"
+		"}\n"
+		"message msg0 anew from map 5 message 1\n"
+		"actor 0 script 2:\n"
+		"    Message Extra 0\n"
+		"    Message msg1 0\n"
+		"    End\n";
+	const auto Patch = FFieldMapPatch::Parse(Text);
+	if (!Patch)
+	{
+		FAIL(Patch.Error().Message);
+	}
+	REQUIRE(Patch->NamedMessages().size() == 3);
+	CHECK(Patch->NamedMessages()[0].Anew == 1);
+	CHECK_FALSE(Patch->NamedMessages()[1].Anew);
+
+	FMap Target = Map();
+	const FBytes Before = CodeOf(Target.Scripts);
+	const auto Result = Patch->Apply(Target.Scripts, Target.Messages, &Disc);
+	if (!Result)
+	{
+		FAIL(Result.Error().Message);
+	}
+	REQUIRE(*Result);
+	const auto Table = FMessageTable::Parse(Target.Messages);
+	REQUIRE(Table);
+	REQUIRE(Table->Count() == 3);
+	CHECK(MesTextOfCodes(Table->String(0)) == "Other.");
+	CHECK(MesTextOfCodes(Table->String(1)) == "Leave me be.");
+	CHECK(Table->WidthUnits(1) == 20);
+	CHECK(Table->Lines(1) == 3);
+	CHECK(MesTextOfCodes(Table->String(2)) == "One more.");
+
+	// The map's own scripts name the messages as before; the added message is numbered after the map's own.
+	const FBytes After = CodeOf(Target.Scripts);
+	CHECK(FBytes(After.begin(), After.begin() + static_cast<std::ptrdiff_t>(Before.size())) == Before);
+	const FBytes Added = {
+		0xD2, 0x02, 0x00, 0x00,  // Message Extra 0
+		0xD2, 0x01, 0x00, 0x00,  // Message msg1 0
+		0x00,                    // End
+	};
+	CHECK(FBytes(After.begin() + static_cast<std::ptrdiff_t>(Before.size()), After.end()) == Added);
+}
+
+TEST_CASE("A message given anew that the map does not have leaves the map as it is", "[Field]")
+{
+	CHECK(Applied("map 12\nmessage msg2 anew\n{\nNo such one.\n}\n") == "left alone");
+	CHECK(Applied("map 12\nmessage msg1 anew\n{\nThere is.\n}\n") == "applied");
+}
+
+TEST_CASE("A patch that names the disc's map gives its entrances anew, within the map's table", "[Field]")
+{
+	const FEventScripts Disc = ScriptsOf(EntranceScripts);
+	const FSha1::FDigest Any{};
+	const std::string Text = "map 12\n" + DiscLine(Any) + "entrance 1 x 50 z -60 layer 2 camera 4 facing 5\n";
+	const auto Patch = FFieldMapPatch::Parse(Text);
+	if (!Patch)
+	{
+		FAIL(Patch.Error().Message);
+	}
+	FEventScripts Target = Disc;
+	FBytes Messages = *BuildMessageTable({});
+	auto Result = Patch->Apply(Target, Messages, nullptr, &Any);
+	REQUIRE(Result);
+	REQUIRE(*Result);
+	const auto Given = Target.Entrance(1);
+	REQUIRE(Given);
+	CHECK(Given->X == 50);
+	CHECK(Given->Z == -60);
+	CHECK(Given->Layer == 2);
+	CHECK(Given->CameraDirection == 4);
+	CHECK(Given->Facing == 5);
+	CHECK(Target.Entrance(0)->X == 10);
+	CHECK(FBytes(Target.Code() + 15, Target.Code() + Target.CodeSize()) == FBytes(Disc.Code() + 15, Disc.Code() + Disc.CodeSize()));
+
+	// An entrance past the table would be the code's bytes: the map is left as it is.
+	const auto Past = FFieldMapPatch::Parse("map 12\n" + DiscLine(Any) + "entrance 2 x 50 z -60 layer 2 camera 4 facing 5\n");
+	REQUIRE(Past);
+	FEventScripts Untouched = Disc;
+	Result = Past->Apply(Untouched, Messages, nullptr, &Any);
+	REQUIRE(Result);
+	CHECK_FALSE(*Result);
+	CHECK(FBytes(Untouched.Code(), Untouched.Code() + Untouched.CodeSize()) == FBytes(Disc.Code(), Disc.Code() + Disc.CodeSize()));
+}
+
+TEST_CASE("Messages and entrances given anew that cannot be what they say are refused with their line", "[Field]")
+{
+	const std::string Disc = DiscLine(FSha1::FDigest{});
+	CHECK(Refused("map 12\nmessage Hello anew\n{\nHi.\n}\n") == "line 2: a message given anew is named by its number in the map: 'message msgK anew'");
+	CHECK(Refused("map 12\nmessage msg1 anew\n{\nHi.\n}\nmessage msg1 anew from map 5 message 0\n") == "line 6: a message named twice");
+	CHECK(Refused("map 12\nmessage msg1 anew size 20\n") == "line 2: a message reads 'message Name' or 'message Name size width lines'");
+	CHECK(Refused("map 730 from 5\nmessage msg1 anew\n{\nHi.\n}\n") == "line 2: a map built whole numbers its messages in their order: none is given anew");
+	CHECK(Refused("map 5 whole\n" + Disc + "message msg1 anew\n{\nHi.\n}\n") == "line 3: a map built whole numbers its messages in their order: none is given anew");
+	CHECK(Refused("map 730 over 5\nmessage msg1 anew\n{\nHi.\n}\n") == "read");
+	CHECK(Refused("map 12\nentrance 1 x 50 z -60 layer 2 camera 4 facing 5\n")
+		== "line 2: an entrance is given anew only by a patch that names the disc's map it was written for ('disc')");
+	CHECK(Refused("map 5 whole\n" + Disc + "entrance 1 x 50 z -60 layer 2 camera 4 facing 5\n")
+		== "line 3: an entrance is given anew only by a patch that names the disc's map it was written for ('disc')");
+	CHECK(Refused("map 12\n" + Disc + "entrance 1 x 50 z -60 layer 2 camera 4 facing 5\nentrance 1 x 0 z 0 layer 0 camera 0 facing 0\n")
+		== "line 4: an entrance given anew twice");
+	CHECK(Refused("map 12\n" + Disc + "entrance 1 x 50 z -60 layer 2 camera 4\n") == "line 3: an entrance given anew reads 'entrance K x N z N layer N camera N facing N'");
+	CHECK(Refused("map 12\n" + Disc + "entrance 1 x 99999 z -60 layer 2 camera 4 facing 5\n") == "line 3: an entrance's number is out of range");
 }

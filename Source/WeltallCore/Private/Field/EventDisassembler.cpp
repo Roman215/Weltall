@@ -32,16 +32,6 @@ namespace Weltall
 			bool bReached = false;
 		};
 
-		/** Positions stay within the map and a map has at most four walkmesh layers: what tells a record from the code after the table. */
-		bool CanBeEntrance(std::span<const uint8> Record)
-		{
-			constexpr int32 Reach = 0x3000;
-			constexpr uint8 Layers = 4;
-			const int32 X = LittleEndian::ReadS16(Record, 0);
-			const int32 Z = LittleEndian::ReadS16(Record, 2);
-			return X > -Reach && X < Reach && Z > -Reach && Z < Reach && Record[4] < Layers;
-		}
-
 		/**
 		 * The bytecode as lines in order, every byte in one: the entrance table (its length is not recorded: it
 		 * ends at the first reached instruction, or before, at a record that cannot be an entrance), the reached
@@ -56,7 +46,8 @@ namespace Weltall
 				Result.push_back({ELine::EntranceMark, 0, 1});
 				Position = 1;
 				const std::size_t FirstReached = Threads.Reached.empty() ? 0 : Threads.Reached.front();
-				while (Position + EntranceBytes <= FirstReached && CanBeEntrance(Code.subspan(Position, EntranceBytes)))
+				const std::size_t Records = EntranceRecords(Code, FirstReached);
+				for (std::size_t Record = 0; Record < Records; ++Record)
 				{
 					Result.push_back({ELine::Entrance, Position, EntranceBytes});
 					Position += EntranceBytes;
@@ -303,62 +294,23 @@ namespace Weltall
 			}
 
 			/** A jump names its label where a line starts at its target, and the offset itself where none does. */
-			void WriteOperand(FEventOperandKind Kind, int32 Stored, uint8 Flags)
+			void WriteJump(std::string& Text, std::size_t Target) const
 			{
-				if (Kind.Kind != EEventOperand::Jump)
-				{
-					AppendOperand(Out, Kind, Stored, Flags);
-					return;
-				}
-				const std::size_t Target = static_cast<std::size_t>(Stored);
 				if (LineStarts.contains(Target))
 				{
-					Out += LabelOf(Target);
+					Text += LabelOf(Target);
 				}
 				else
 				{
-					Out += "@0x";
-					AppendHex(Out, static_cast<uint32>(Target), 4);
+					Text += "@0x";
+					AppendHex(Text, static_cast<uint32>(Target), 4);
 				}
 			}
 
 			void WriteInstruction(const FLine& Line)
 			{
-				const FEventInstruction Instruction = *ReadEventInstruction(Code, Line.Offset);
-				const FEventOperandList& Operands = *Instruction.Operands;
-				const uint8 Flags = Instruction.Flags();
-				const bool bIf = Instruction.Shape->Opcode == EventOpcode::If;
 				const std::size_t Start = Out.size();
-				Out += "    ";
-				Out += Instruction.Shape->Name;
-				int32 Written = 0;
-				for (int32 Operand = 0; Operand < Operands.Count; ++Operand)
-				{
-					const FEventOperandKind Kind = Operands.Kinds[static_cast<std::size_t>(Operand)];
-					if (Kind.Kind == EEventOperand::Flags)
-					{
-						continue;
-					}
-					Out += ' ';
-					// If reads as a sentence: its test between its two values, "else" before where it goes when the test fails.
-					if (bIf && Written == 1)
-					{
-						Out += EventTestName(Flags & TestBits);
-						Out += ' ';
-					}
-					if (bIf && Written == 2)
-					{
-						Out += "else ";
-					}
-					WriteOperand(Kind, Instruction.Values[static_cast<std::size_t>(Operand)], Flags);
-					++Written;
-				}
-				const uint8 Named = static_cast<uint8>(Operands.FlagBits | (bIf ? TestBits : uint8{0}));
-				if ((Flags & ~Named) != 0)
-				{
-					Out += " flags=0x";
-					AppendHex(Out, static_cast<uint32>(Flags & ~Named), 2);
-				}
+				AppendInstruction(Out, *ReadEventInstruction(Code, Line.Offset), [this](std::string& Text, std::size_t Target) { WriteJump(Text, Target); });
 				WriteOffset(Start, Line.Offset, Line.bReached);
 			}
 

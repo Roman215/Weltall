@@ -3,6 +3,7 @@
 #include "Text/MesFont.h"
 #include "Text/MesGlyphs.h"
 
+#include <algorithm>
 namespace Weltall
 {
 	namespace
@@ -73,6 +74,8 @@ namespace Weltall
 		constexpr int16 TitleUnits = 0x40;
 		constexpr int16 TitleRows = 0x20;
 		constexpr int32 TitleGlyphs = 32;
+		/** The details show the title's second line, the chapter's name: "XENOGEARS/No.01 " fills the first. */
+		constexpr int32 ShownLineFirst = 16;
 		constexpr std::size_t TitleBytes = 0x40;
 		constexpr std::size_t TitleInHead = 4;
 		constexpr int32 TitlePageX = 0x140;
@@ -92,6 +95,36 @@ namespace Weltall
 		constexpr int16 BandTop = 0x4A;
 		constexpr int16 BandBottom = 0x8A;
 		constexpr int16 BandRight = 0x140;
+		/** The message text's space, before the French title's star. */
+		constexpr uint8 TextSpace = 0x10;
+
+		/**
+		 * Types Code's glyph into the title image at Place (a 16-pixel cell, 16 to a line) in its body's ink, not its
+		 * outline; whether it has any body (a space has none).
+		 */
+		bool TypeTitleGlyph(FVramImage& Image, const FMesFont& Font, FMesCode Code, int32 Place)
+		{
+			const FMesFont::FCell Cell = Font.Cell(Code);
+			const int32 Left = Place % 16 * GlyphCell;
+			const int32 Top = Place / 16 * GlyphCell + GlyphTop;
+			bool bInked = false;
+			for (int32 Row = 0; Row < FMesFont::CellHeight; ++Row)
+			{
+				for (int32 Column = 0; Column < FMesFont::CellWidth; ++Column)
+				{
+					// The glyph's body (1, or 3 where it borders another body pixel).
+					if ((Cell[static_cast<std::size_t>(Row * FMesFont::CellWidth + Column)] & 1) == 0)
+					{
+						continue;
+					}
+					const int32 X = Left + Column;
+					uint16& Unit = Image.Units[static_cast<std::size_t>((Top + Row) * TitleUnits + X / 4)];
+					Unit = static_cast<uint16>(Unit | Ink << (X % 4 * 4));
+					bInked = true;
+				}
+			}
+			return bInked;
+		}
 	}
 
 	void FMenuMain::ShowFileDetails(uint8 File)
@@ -270,6 +303,7 @@ namespace Weltall
 	{
 		TitleImage.Rect = {TitleX, TitleY, TitleUnits, TitleRows};
 		TitleImage.Units.assign(static_cast<std::size_t>(TitleUnits * TitleRows), 0);
+		const FVram::FKindScope TypedKind(MenuVram, EVramUploadKind::Text);
 		MenuVram.Upload(TitleImage);
 		Flags[MenuFlag::FileDetails] = 0;
 	}
@@ -283,36 +317,27 @@ namespace Weltall
 		}
 		// The card title in the game's own font (the console draws it from the BIOS's font, which the port has
 		// not), a glyph in each 16-pixel cell, 16 to a line.
-		const std::span<const uint8> Head(Files.Files[static_cast<std::size_t>(File)].Head);
+		const FMenuStoreFile& Listed = Files.Files[static_cast<std::size_t>(File)];
+		const std::span<const uint8> Head(Listed.Head);
+		const FMesFont& Font = *Services.Text.Font;
 		TitleImage.Rect = {TitleX, TitleY, TitleUnits, TitleRows};
 		TitleImage.Units.assign(static_cast<std::size_t>(TitleUnits * TitleRows), 0);
 		std::size_t At = TitleInHead;
+		int32 LastInked = -1;
 		for (int32 Place = 0; Place < TitleGlyphs && At < TitleInHead + TitleBytes && Head[At] != 0; ++Place)
 		{
 			const bool bWide = Head[At] >= 0x80;
 			const std::optional<FMesCode> Glyph = bWide ? MesCodeOfFullWidth(Head[At], Head[At + 1]) : std::nullopt;
 			At += bWide ? 2 : 1;
-			if (!Glyph)
+			if (Glyph && TypeTitleGlyph(TitleImage, Font, *Glyph, Place))
 			{
-				continue;
+				LastInked = Place;
 			}
-			const FMesFont::FCell Cell = Services.Text.Font->Cell(*Glyph);
-			const int32 Left = Place % 16 * GlyphCell;
-			const int32 Top = Place / 16 * GlyphCell + GlyphTop;
-			for (int32 Row = 0; Row < FMesFont::CellHeight; ++Row)
-			{
-				for (int32 Column = 0; Column < FMesFont::CellWidth; ++Column)
-				{
-					// The glyph's body (1, or 3 where it borders another body pixel), not its outline.
-					if ((Cell[static_cast<std::size_t>(Row * FMesFont::CellWidth + Column)] & 1) == 0)
-					{
-						continue;
-					}
-					const int32 X = Left + Column;
-					uint16& Unit = TitleImage.Units[static_cast<std::size_t>((Top + Row) * TitleUnits + X / 4)];
-					Unit = static_cast<uint16>(Unit | Ink << (X % 4 * 4));
-				}
-			}
+		}
+		// A clear game's save: the font's star a space after the chapter's name, on the line the details show.
+		if (Listed.ClearGame != EClearGame::None && Font.Star())
+		{
+			TypeTitleGlyph(TitleImage, Font, *Font.Star(), std::clamp(LastInked + 2, ShownLineFirst, TitleGlyphs - 1));
 		}
 		Upload(TitleImage);
 	}
@@ -355,7 +380,19 @@ namespace Weltall
 	{
 		const std::vector<uint8>& Data = Files.Files[static_cast<std::size_t>(File)].Data;
 		const uint16 Progress = Data.size() >= Summary::StoryProgress + 2 ? LittleEndian::ReadU16(Data, Summary::StoryProgress) : uint16{0};
-		const std::span<const uint8> Title = Resources.FrenchChapterTitle(Progress);
+		const std::span<const uint8> Chapter = Resources.FrenchChapterTitle(Progress);
+		std::vector<uint8> Title(Chapter.begin(), Chapter.end());
+		const std::optional<FMesCode>& Star = Services.Text.Font->Star();
+		if (!Title.empty() && Files.Files[static_cast<std::size_t>(File)].ClearGame != EClearGame::None && Star)
+		{
+			// Before the title's end (0): a space and the star, as for the English title.
+			Title.insert(Title.end() - 1, TextSpace);
+			if (Star->Lead != 0)
+			{
+				Title.insert(Title.end() - 1, Star->Lead);
+			}
+			Title.insert(Title.end() - 1, Star->Code);
+		}
 		FVramImage Line{{TitleX, FrenchTitleY, TitleUnits, FrenchTitleRows}, std::vector<uint16>(static_cast<std::size_t>(TitleUnits * FrenchTitleRows), 0)};
 		if (!Title.empty())
 		{

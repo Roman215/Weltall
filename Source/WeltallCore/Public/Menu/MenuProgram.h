@@ -9,6 +9,8 @@
 #include "Menu/MenuOptions.h"
 #include "Menu/MenuPrimitive.h"
 #include "Menu/MenuTask.h"
+#include "Mods/ExpansionMods.h"
+#include "Mods/ItalianPatch.h"
 #include "Mods/PerfectWorks.h"
 #include "Presentation/DisplayOptions.h"
 #include "Text/MesWindow.h"
@@ -17,6 +19,8 @@
 #include <memory>
 #include <optional>
 #include <string>
+#include <string_view>
+#include <vector>
 
 namespace Weltall
 {
@@ -49,6 +53,8 @@ namespace Weltall
 		Shop = 4,
 		GearShop = 5,
 		DiscChange = 6,
+		/** The port's own, which no script asks for: the clear file's save on the ending's last picture (ClearFile.h). */
+		ClearFile = 0x10,
 	};
 
 	/** What the game asks of the menu. */
@@ -78,6 +84,29 @@ namespace Weltall
 		virtual void SetOutputMode(int32 Mode) = 0;
 	};
 
+	/** A Disc 2 expansion of the Mods folder, as the Modding page shows it. */
+	struct FMenuExpansion
+	{
+		/** Its mod's folder, by which the player's choice names it. */
+		std::string Folder;
+		FModInfo Info;
+		/** False for one whose documents cannot be played; the log says why. */
+		bool bPlayable = false;
+		/** Set for one that is Export Disc 2's export as it was written, which changes nothing until edited. */
+		bool bUnchanged = false;
+		/** How many of its documents are written for another disc than the player's, once tried on it; the log names them. */
+		int32 ForAnotherDisc = 0;
+	};
+
+	/** What copying the example scenes into the Mods folder came to. */
+	enum class EExampleScenesCopy : uint8
+	{
+		Copied,
+		/** A copy is in the Mods folder already, which only a copy that replaces it goes over. */
+		AlreadyThere,
+		Failed,
+	};
+
 	/** The mods the game found in its Mods folder, as the options screen offers them. */
 	struct FMenuMods
 	{
@@ -86,6 +115,11 @@ namespace Weltall
 		std::string PerfectWorksVersion;
 		/** What the game took from it as it started; the settings' choice applies from the next start. */
 		FPerfectWorksOptions PerfectWorksInUse;
+		/** SadNES cITy's Italian translation's patch was found, and what the game took from it as it started. */
+		bool bItalian = false;
+		FItalianOptions ItalianInUse{};
+		/** The Disc 2 expansions of the Mods folder as the game started (StoryLibrary.h), in their folders' order. */
+		std::vector<FMenuExpansion> Expansions{};
 	};
 
 	/**
@@ -107,6 +141,10 @@ namespace Weltall
 		virtual IMenuDeviceFiles* DeviceFiles() const { return nullptr; }
 		/** The mods found; none where the game looked for none. */
 		virtual FMenuMods Mods() const { return {}; }
+		/** Whether the game has its example scenes to copy into the Mods folder. */
+		virtual bool HasExampleScenes() const { return false; }
+		/** Copies them into the Mods folder as an expansion (ExamplesFolder), replacing a copy there only with bReplace. */
+		virtual EExampleScenesCopy CopyExampleScenes(bool) { return EExampleScenesCopy::Failed; }
 		/** The voices and movie subtitles the game was given, which the Sound page offers; none where it says nothing of them. */
 		virtual FSoundSources SoundSources() const { return {}; }
 	};
@@ -205,6 +243,19 @@ namespace Weltall
 		 * prompt. Off: no game is asked, and each plays the original's.
 		 */
 		bool bStoryExpansion = false;
+		/**
+		 * The expansion the second disc's question offers now (the Modding page may change it while the question is
+		 * asked), which a game answered Extended plays: its mod's folder (ExpansionMods.h), empty for the port's own, and
+		 * its mod.txt's words. None: there is none to offer.
+		 */
+		std::function<std::optional<FMenuExpansion>()> OfferedExpansion;
+		/**
+		 * Whether a save of the expanded second disc that plays the expansion of a mod folder can be played so: one
+		 * that cannot loads as the original second disc's game at its point. None: every such save can.
+		 */
+		std::function<bool(std::string_view)> PlaysExpansion;
+		/** A line told to the player over the game, and for the log why: a save loaded otherwise than it was made. None: nothing is told. */
+		std::function<void(std::string Line, std::string Why)> Tell;
 		/**
 		 * Where a game of the expanded second disc goes on in the original's: a save made where the original stands
 		 * elsewhere is the original's at that point, keeping the game's own place for the port. None: every save is

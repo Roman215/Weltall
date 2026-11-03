@@ -4,7 +4,6 @@
 #include "Menu/MenuButtonIcons.h"
 #include "Menu/MenuDrawing.h"
 #include "Menu/MenuPrimitive.h"
-#include "Presentation/ScreenLayout.h"
 #include "Rendering/DrawListRendering.h"
 #include "Rendering/SharedRenderResource.h"
 #include "Rendering/VramTexture.h"
@@ -37,14 +36,10 @@ namespace
 	public:
 		FMenuIconSheetFrame(TSharedRef<FVramTexture> InPictures, const Weltall::FDrawList& InList) : Pictures(MoveTemp(InPictures)), List(InList) {}
 
-		virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override
+		virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override
 		{
-			const Weltall::FScreenLayout Layout = Weltall::FScreenLayout::Fit(Area.Width(), Area.Height(), Weltall::MenuScreenSize);
-			const Weltall::FDisplayRect Placed =
-				Layout.ToDisplay({0, 0, static_cast<int16>(Weltall::MenuScreenSize.Width), static_cast<int16>(Weltall::MenuScreenSize.Height)});
-			const FIntPoint Origin = Area.Min + FIntPoint(Placed.X, Placed.Y);
 			const FDrawListFrame Frame{&List, nullptr, nullptr, 1.0f};
-			AddDrawListPasses(GraphBuilder, *Pictures, Frame, Output, FIntRect(Origin, Origin + FIntPoint(Placed.Width, Placed.Height)), Weltall::MenuScreenSize);
+			AddDrawListPasses(GraphBuilder, *Pictures, Frame, Output, Area.ScreenRect(Weltall::MenuScreenSize), Weltall::MenuScreenSize);
 		}
 
 	private:

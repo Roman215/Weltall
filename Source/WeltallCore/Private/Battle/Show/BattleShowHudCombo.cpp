@@ -72,7 +72,7 @@ namespace Weltall
 			Place(BlankImage(0x1B, ComboRow), NameX, static_cast<int16>(0x100 + Down), 0x1B, ComboRow);
 			if (bAccept || Deathblow != NoDeathblow)
 			{
-				const std::span<const uint8> Name = bAccept ? TableString(ComboLabelTable, AcceptLabel) : TableString(Battle->PartyCharacters[Slot], Deathblow);
+				const std::span<const uint8> Name = bAccept ? TableString(ComboLabelTable, AcceptLabel) : TableString(Battle->PartyLooks().Drawn(Battle->PartyCharacters[Slot]), Deathblow);
 				FVramImage Typed = BlankImage(NarrowUnits);
 				RenderMesString(Text, ListTyping, Name, Typed, 0);
 				Place(Typed, NameX, static_cast<int16>(0x102 + Down), NarrowUnits, TextRows);

@@ -44,8 +44,11 @@ namespace Weltall
 		/** How many menu frames listening waits for a key: five seconds. */
 		static constexpr int32 ListenFrames = 300;
 
-		/** Shows the device the player last used; Keys must outlive the page. */
-		WELTALLCORE_API explicit FMenuControlsPage(IMenuKeys& InKeys);
+		/**
+		 * Shows the device the player last used; Keys must outlive the page. With the Japanese commands
+		 * (FKernelPad::HasJapaneseCommands) the help names the buttons the game reads for each part.
+		 */
+		WELTALLCORE_API explicit FMenuControlsPage(IMenuKeys& InKeys, bool bInJapaneseCommands = false);
 		/** Listening stops with the page. */
 		WELTALLCORE_API ~FMenuControlsPage();
 		FMenuControlsPage(const FMenuControlsPage&) = delete;
@@ -89,6 +92,7 @@ namespace Weltall
 		void StopListening();
 
 		IMenuKeys& Keys;
+		bool bJapaneseCommands = false;
 		EInputFamily Shown = EInputFamily::KeyboardAndMouse;
 		EButtonIconSet PadIcons = EButtonIconSet::Xbox;
 		int32 Slot = 0;

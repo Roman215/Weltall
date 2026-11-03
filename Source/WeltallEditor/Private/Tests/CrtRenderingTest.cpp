@@ -15,14 +15,13 @@ namespace
 	public:
 		FCrtTestFrame(Weltall::FScreenSize InScreen, int32 InRow) : Screen(InScreen), Row(InRow) {}
 
-		virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override
+		virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override
 		{
 			const float Level = Grey / 255.0f;
 			AddClearRenderTargetPass(GraphBuilder, Output, FLinearColor(Level, Level, Level), Area);
 			if (Row >= 0)
 			{
-				const Weltall::FDisplayRect Placed = Weltall::FScreenLayout::Fit(Area.Width(), Area.Height(), Screen).ToDisplay(
-					{0, static_cast<int16>(Row), static_cast<int16>(Screen.Width), 1});
+				const Weltall::FDisplayRect Placed = Area.Layout(Screen).ToDisplay({0, static_cast<int16>(Row), static_cast<int16>(Screen.Width), 1});
 				const FIntPoint Min = Area.Min + FIntPoint(Placed.X, Placed.Y);
 				AddClearRenderTargetPass(GraphBuilder, Output, FLinearColor::White, FIntRect(Min, Min + FIntPoint(Placed.Width, Placed.Height)));
 			}

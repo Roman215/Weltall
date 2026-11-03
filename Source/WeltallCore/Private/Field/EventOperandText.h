@@ -3,6 +3,8 @@
 #include "Field/EventInstructionSet.h"
 #include "Foundation/Types.h"
 
+#include <cstddef>
+#include <functional>
 #include <optional>
 #include <string>
 #include <string_view>
@@ -22,4 +24,12 @@ namespace Weltall::EventAssemblyText
 
 	/** The operand Word spells for Kind (not a jump, not the flags byte); none where it spells none. */
 	std::optional<FOperandWord> OperandOfWord(FEventOperandKind Kind, std::string_view Word);
+
+	/**
+	 * Adds an instruction as the scripts' text writes it, indented: its name, then its operands, an If's as a sentence and
+	 * the flags byte's other bits last; Jump adds a jump's target (a label or an offset), Message, where given, a
+	 * message's operand (else msgN).
+	 */
+	void AppendInstruction(std::string& Out, const FEventInstruction& Instruction, const std::function<void(std::string&, std::size_t)>& Jump,
+		const std::function<void(std::string&, int32)>& Message = {});
 }

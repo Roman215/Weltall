@@ -30,6 +30,7 @@ namespace Weltall
 		FMenuOptionsState& State = OptionsState;
 		if (State.Row == AssetRow::External) { State.Settings.bExternalAssets = !State.Settings.bExternalAssets; }
 		else if (State.Row == AssetRow::Capture) { State.Settings.bCaptureTextures = !State.Settings.bCaptureTextures; }
+		else if (bool* Shown = AssetRowPackKind(State.Settings.PackKinds, State.Row)) { *Shown = !*Shown; }
 		else { return false; }
 		Services.Settings->Change(State.Settings);
 		FillAssetRows();
@@ -39,7 +40,7 @@ namespace Weltall
 	bool FMenuMain::ActivateAssetOption()
 	{
 		const int32 Row = OptionsState.Row;
-		if (Row == AssetRow::External || Row == AssetRow::Capture) { return StepAssetOption(); }
+		if (Row == AssetRow::External || Row == AssetRow::Capture || AssetRowPackKind(OptionsState.Settings.PackKinds, Row) != nullptr) { return StepAssetOption(); }
 		const std::optional<EAssetExportKind> Kind = AssetRowExport(Row);
 		if (!Kind) { return false; }
 		IMenuAssets& Assets = *Services.Settings->Assets();

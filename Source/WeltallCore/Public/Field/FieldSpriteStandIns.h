@@ -13,6 +13,7 @@ namespace Weltall
 {
 	class FVram;
 	struct FGteArctangents;
+	struct FVramImage;
 
 	/**
 	 * Sprites the presenter draws in place of the game's, each following one of them: in a sprite system of their own
@@ -40,13 +41,14 @@ namespace Weltall
 
 		/**
 		 * Place's stand-in, a sprite of File, brought up to Followed: playing Animation from Followed's starts, at Scale
-		 * (4.12) of its size, in its place, tint and blend. Followed's own animation runs after the drawing unless
+		 * (4.12) of its size, in its place, tint and blend, falling and landing as it does. Followed's own animation runs after the drawing unless
 		 * bAnimates is off (its actor paused or frozen). Tick numbers the field's ticks: a stand-in steps once a tick,
-		 * however many passes draw it, and its new frame goes into Vram's port rows. None where its script stopped on
-		 * something the kernel would not run (for the rest of the map).
+		 * however many passes draw it, and its new frame goes into Vram's port rows. A resident File draws from Picture
+		 * instead, its texture's origin the picture's corner, which goes into Vram's port rows as the stand-in is made.
+		 * None where its script stopped on something the kernel would not run (for the rest of the map).
 		 */
 		WELTALLCORE_API const FSprite* Follow(int32 Place, const FSpriteFile& File, int32 Animation, const FSprite& Followed, bool bAnimates, int32 Scale,
-			uint32 Tick, const FGteArctangents* Arctangents, FVram& Vram);
+			uint32 Tick, const FGteArctangents* Arctangents, FVram& Vram, const FVramImage* Picture = nullptr);
 
 		/** The pass a stand-in is drawn in for its sprite's: the same place and sorting, at its scale (4.12), with its own pivot. */
 		WELTALLCORE_API static FFieldSpritePass PassFor(const FSprite& Followed, const FSprite& StandIn, const FFieldSpritePass& Pass, int32 Scale);
@@ -79,7 +81,7 @@ namespace Weltall
 			bool bFailed = false;
 		};
 
-		void Make(FStandIn& StandIn, int32 Place, const FSpriteFile& File);
+		void Make(FStandIn& StandIn, int32 Place, const FSpriteFile& File, const FVramImage* Picture, FVram& Vram);
 		void Step(FStandIn& StandIn, const FSprite& Followed, int32 Animation, uint32 Tick, bool bMade, FVram& Vram);
 
 		int16 AreaX;

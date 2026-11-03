@@ -2,6 +2,7 @@
 
 #include "BattlingFightOps.h"
 #include "BattlingMath.h"
+#include "Text/MessageLog.h"
 
 #include <algorithm>
 
@@ -225,7 +226,7 @@ namespace Weltall
 			Separate(Fight);
 			Two.Skeleton.RootAngles[1] = static_cast<int16>(Two.Yaw);
 			One.Skeleton.RootAngles[1] = static_cast<int16>(One.Yaw);
-			TickEnding(Fight);
+			TickEnding(Fight, Input);
 			if (Fight.Tutorial.bLeft)
 			{
 				return;
@@ -638,7 +639,7 @@ namespace Weltall
 		if (Text != nullptr)
 		{
 			Tutorial.TextDrawnY = Tutorial.TextY;
-			Tutorial.Text.Update(*Text);
+			UpdateLoggedWindow(Tutorial.Text, *Text, {EMessageLogSource::Battling, 0});
 		}
 		if (LatchedState == StateBetweenRounds)
 		{

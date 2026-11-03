@@ -54,6 +54,13 @@ public:
 	/** How the player's buttons are shown, from the next frame the display shows; none keeps the game's pictures. It must outlive the view. */
 	void SetButtonGlyphs(const Weltall::IButtonGlyphs* InGlyphs) { Glyphs = InGlyphs; }
 
+	/** Whether the game has the Japanese commands (Weltall::FKernelPad::HasJapaneseCommands): its roles' buttons and its sheet's pictures. */
+	void SetJapaneseCommands(bool bInJapaneseCommands)
+	{
+		bJapaneseCommands = bInJapaneseCommands;
+		Icons.SetJapaneseCommands(bInJapaneseCommands);
+	}
+
 	/** What the display shows Alpha of the way from the menu's frame before its latest to the latest, over Background; nothing before its first. */
 	TSharedPtr<const IScreenFrame> Capture(TSharedPtr<const IScreenFrame> Background, float Alpha) const;
 
@@ -71,6 +78,7 @@ private:
 	mutable Weltall::FMenuDrawBuilder Builder;
 	/** The player's button icons: the glyphs, the menus' sheet they swap the game's own symbols from, the port's pictures and their VRAM on the GPU. */
 	const Weltall::IButtonGlyphs* Glyphs = nullptr;
+	bool bJapaneseCommands = false;
 	const Weltall::FMenuSpriteSheet* Sheet = nullptr;
 	mutable Weltall::FMenuButtonIcons Icons;
 	TSharedRef<FVramTexture> IconVram;

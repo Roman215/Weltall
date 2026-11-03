@@ -61,6 +61,8 @@ namespace Weltall
 		std::vector<uint8> Messages;
 		/** Which of Messages are the player's (Assets/text), which the windows a script sizes are checked against. */
 		FReplacedMessages ReplacedMessages;
+		/** The disc's own table where the player's messages replaced some of it; empty where none did (Messages is the disc's). */
+		std::vector<uint8> DiscMessages;
 	};
 
 	/**
@@ -73,11 +75,20 @@ namespace Weltall
 	 */
 	WELTALLCORE_API TResult<FFieldMap> ParseFieldMap(std::span<const uint8> ArchiveSectors, std::span<const uint8> TextureStreamSectors);
 
+	/**
+	 * Whether the disc holds map MapNumber: false past the maps' numbers and where the disc keeps a placeholder in its
+	 * files' place (the second disc for most of the first's maps); true where reading them fails otherwise.
+	 */
+	WELTALLCORE_API bool HoldsFieldMap(const FCdImage& Image, const FGameFileIndex& Index, int32 MapNumber);
+
 	/** Reads map MapNumber's archive alone from the disc: its header and sections, nothing built from them. */
 	WELTALLCORE_API TResult<FFieldArchive> LoadFieldArchive(const FCdImage& Image, const FGameFileIndex& Index, int32 MapNumber);
 
 	/** Reads map MapNumber (0 to 729) from the disc: files 0xB8 + 2 * MapNumber and the next one of directory 4. */
 	WELTALLCORE_API TResult<FFieldMap> LoadFieldMap(const FCdImage& Image, const FGameFileIndex& Index, int32 MapNumber);
+
+	/** Map MapNumber's message table as LoadFieldMap gives it, the player's messages (Assets/text) in it, read from its archive alone. */
+	WELTALLCORE_API TResult<std::vector<uint8>> LoadFieldMapMessages(const FCdImage& Image, const FGameFileIndex& Index, int32 MapNumber);
 
 	/**
 	 * Makes the map's uploads into VRAM, then, with bBrightenPalettes, raises every colour of the

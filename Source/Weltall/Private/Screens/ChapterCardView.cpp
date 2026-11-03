@@ -2,7 +2,6 @@
 
 #include "Game/ChapterCard.h"
 #include "Game/GameSession.h"
-#include "Presentation/ScreenLayout.h"
 #include "Rendering/DrawListRendering.h"
 #include "Rendering/SharedRenderResource.h"
 #include "Rendering/VramTexture.h"
@@ -13,19 +12,15 @@ class FChapterCardFrame final : public IScreenFrame
 public:
 	explicit FChapterCardFrame(TSharedRef<FVramTexture> InVram) : Vram(MoveTemp(InVram)) {}
 
-	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override
+	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override
 	{
 		if (Background.IsValid())
 		{
 			Background->AddPasses(GraphBuilder, Output, Area);
 		}
-		const Weltall::FScreenLayout Layout = Weltall::FScreenLayout::Fit(Area.Width(), Area.Height(), Weltall::ChapterCardScreen);
-		const Weltall::FDisplayRect Placed =
-			Layout.ToDisplay({0, 0, static_cast<int16>(Weltall::ChapterCardScreen.Width), static_cast<int16>(Weltall::ChapterCardScreen.Height)});
-		const FIntPoint Origin = Area.Min + FIntPoint(Placed.X, Placed.Y);
 		FDrawListFrame Frame;
 		Frame.Latest = &Card;
-		AddDrawListPasses(GraphBuilder, *Vram, Frame, Output, FIntRect(Origin, Origin + FIntPoint(Placed.Width, Placed.Height)), Weltall::ChapterCardScreen);
+		AddDrawListPasses(GraphBuilder, *Vram, Frame, Output, Area.ScreenRect(Weltall::ChapterCardScreen), Weltall::ChapterCardScreen);
 	}
 
 	TSharedPtr<const IScreenFrame> Background;

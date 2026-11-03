@@ -46,6 +46,8 @@ namespace Weltall
 		bool bSeparateTexture = false;
 		/** Set when the image is one picture (a TIM's): VRAM keeps it among its pictures until something is uploaded over it. */
 		std::optional<FVramPictureForm> Picture{};
+		/** What it holds; Other takes the kind the VRAM uploads under (FVram::FKindScope). */
+		EVramUploadKind Kind = EVramUploadKind::Other;
 	};
 
 	/** Which edges of a separate texture (FVramImage::bSeparateTexture) a unit of VRAM lies on. */
@@ -94,6 +96,23 @@ namespace Weltall
 		static constexpr int32 TilesDown = Height / TileHeight;
 
 		WELTALLCORE_API FVram();
+
+		/** The kind of the uploads that name none of their own, until a scope changes it for a while. */
+		void SetUploadKind(EVramUploadKind Kind) { UploadKind = Kind; }
+
+		/** While it lives, the VRAM's uploads that name no kind of their own are of Kind. */
+		class FKindScope
+		{
+		public:
+			FKindScope(FVram& InVram, EVramUploadKind Kind) : Vram(InVram), Was(InVram.UploadKind) { Vram.UploadKind = Kind; }
+			~FKindScope() { Vram.UploadKind = Was; }
+			FKindScope(const FKindScope&) = delete;
+			FKindScope& operator=(const FKindScope&) = delete;
+
+		private:
+			FVram& Vram;
+			EVramUploadKind Was;
+		};
 
 		/** Copies an image in; like the GPU's transfers, a rectangle that crosses an edge wraps around. */
 		WELTALLCORE_API void Upload(const FVramImage& Image);
@@ -190,6 +209,7 @@ namespace Weltall
 		std::vector<FVramRect> Writes;
 		std::vector<FVramPicture> PictureList;
 		FVramUploadTracker Tracker;
+		EVramUploadKind UploadKind = EVramUploadKind::Other;
 	};
 
 	static_assert(std::tuple_size_v<FVramTiles> == FVram::TilesDown && FVram::TilesAcross == 64, "a tile row's bits fill an entry");

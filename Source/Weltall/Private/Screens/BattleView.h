@@ -29,8 +29,8 @@ namespace Weltall
  * HUD's button pictures show the player's own buttons (Weltall::FMenuButtonIcons), as the glyph service shows them. A
  * battle first shows its transition: the picture of the screen before it broken into shards, or drawn as the mesh its
  * kind asks for. Between two of the show's frames the scene is drawn blended from the one before to the latest
- * (Weltall::BlendBattleFrames); the HUD as the latest frame has it. While a screen wave holds the battle, the display
- * shows the picture of the screen before it in the wave's mesh.
+ * (Weltall::BlendBattleFrames), and the HUD's moving parts likewise from their places in both (Weltall::BattleHudBlendKeys).
+ * While a screen wave holds the battle, the display shows the picture of the screen before it in the wave's mesh.
  */
 class FBattleView
 {
@@ -43,6 +43,13 @@ public:
 
 	/** How the player's buttons are shown, from the next frame the display shows; none keeps the game's pictures. It must outlive the view. */
 	void SetButtonGlyphs(const Weltall::IButtonGlyphs* InGlyphs) { Glyphs = InGlyphs; }
+
+	/** Whether the game has the Japanese commands (Weltall::FKernelPad::HasJapaneseCommands): its roles' buttons and its sheet's pictures. */
+	void SetJapaneseCommands(bool bInJapaneseCommands)
+	{
+		bJapaneseCommands = bInJapaneseCommands;
+		Icons.SetJapaneseCommands(bInJapaneseCommands);
+	}
 
 	/**
 	 * After each of the program's frames: VRAM as the show's frame left it. bNewProgram: another battle, whose frames start
@@ -73,6 +80,7 @@ private:
 	mutable Weltall::FMenuDrawBuilder HudBuilder;
 	/** The player's button icons: the glyphs, the port's pictures and their VRAM on the GPU. */
 	const Weltall::IButtonGlyphs* Glyphs = nullptr;
+	bool bJapaneseCommands = false;
 	mutable Weltall::FMenuButtonIcons Icons;
 	TSharedRef<FVramTexture> IconVram;
 	/** Frames handed out; one the rendering thread no longer holds is filled again. */

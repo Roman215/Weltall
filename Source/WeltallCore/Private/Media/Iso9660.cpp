@@ -134,7 +134,12 @@ namespace Weltall
 
 	TResult<std::vector<uint8>> FIso9660::ReadFile(const FIsoEntry& Entry) const
 	{
-		return ReadFileRange(Entry, 0, Entry.Size);
+		const TResult<std::optional<FFileReplacement>> Mod = Entry.bDirectory ? TResult<std::optional<FFileReplacement>>(std::nullopt) : CdImage.ReadModFileAt(Entry.Lba);
+		if (!Mod)
+		{
+			return Mod.Error();
+		}
+		return ReadFileRange(Entry, 0, *Mod ? (*Mod)->Size : Entry.Size);
 	}
 
 	TResult<std::vector<uint8>> FIso9660::ReadFile(std::string_view Path) const
@@ -152,6 +157,22 @@ namespace Weltall
 		if (Entry.bDirectory || !Entry.IsForm1Data())
 		{
 			return MakeError(Entry.Path + " is not a Form 1 data file");
+		}
+		// A mod's file standing for the disc's (the Italian translation's executable) is read in its place.
+		TResult<std::optional<FFileReplacement>> Mod = CdImage.ReadModFileAt(Entry.Lba);
+		if (!Mod)
+		{
+			return Mod.Error();
+		}
+		if (*Mod)
+		{
+			const uint64 ModSize = (*Mod)->Size;
+			if (Offset > ModSize || Size > ModSize - Offset)
+			{
+				return MakeError("range outside " + Entry.Path);
+			}
+			std::vector<uint8>& Bytes = (*Mod)->Bytes;
+			return std::vector<uint8>(Bytes.begin() + static_cast<std::ptrdiff_t>(Offset), Bytes.begin() + static_cast<std::ptrdiff_t>(Offset + Size));
 		}
 		if (Offset > Entry.Size || Size > Entry.Size - Offset)
 		{

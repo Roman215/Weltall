@@ -109,7 +109,7 @@ namespace
 				FAIL(Error->Message);
 			}
 			Messages.Tick();
-			UpdateFieldMessages(Context, Pads.Pressed, Pads.Repeat);
+			UpdateFieldMessages(Context, Pads.Pressed, Pads.Repeat, 2);
 			if (Tick == Scenario.CloseAllTick)
 			{
 				Messages.CloseAll();

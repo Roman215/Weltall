@@ -35,6 +35,15 @@ namespace
 		std::filesystem::path Path;
 	};
 
+	FModFile ModFile(int32 Record, const std::filesystem::path& Path, const std::filesystem::path& Section5 = {})
+	{
+		FModFile File;
+		File.Record = Record;
+		File.Path = Path;
+		File.Section5 = Section5;
+		return File;
+	}
+
 	/** Records 3 (sectors 3 and 4, 2049 bytes) and 8 (sector 5, 100 bytes) are files; the rest are empty or a group. */
 	FGameFileIndex ModIndex()
 	{
@@ -91,7 +100,7 @@ TEST_CASE("A mod's file stands for the disc's with its own size, padded to whole
 	const FCdImage Image = ModImage();
 	const FGameFileIndex Index = ModIndex();
 	const std::vector<uint8> Longer = Counting(3000);
-	const FModFile Files[] = {{3, Folder.Write("0003", Longer), {}}, {6, Folder.Write("0006", Counting(10)), {}}, {40, Folder.Write("0040", Counting(10)), {}}};
+	const FModFile Files[] = {ModFile(3, Folder.Write("0003", Longer)), ModFile(6, Folder.Write("0006", Counting(10))), ModFile(40, Folder.Write("0040", Counting(10)))};
 	const std::shared_ptr<const FDiscModFiles> Mods = FDiscModFiles::Make(Index, 1, Files);
 	// Record 6 holds no file and 40 is past the index: only record 3's is kept.
 	CHECK(Mods->Count() == 1);
@@ -127,7 +136,7 @@ TEST_CASE("The second disc's records are the first's five lower", "[Media][Mods]
 	const FModFolder Folder("WeltallModFilesSecondDisc");
 	const FCdImage Image = ModImage();
 	const FGameFileIndex Index = ModIndex();
-	const FModFile Files[] = {{8, Folder.Write("0008", Counting(64)), {}}, {3, Folder.Write("0003", Counting(64)), {}}};
+	const FModFile Files[] = {ModFile(8, Folder.Write("0008", Counting(64))), ModFile(3, Folder.Write("0003", Counting(64)))};
 	Image.SetModFiles(FDiscModFiles::Make(Index, 2, Files));
 	// The first disc's record 8 is the second's record 3; the first's record 3 has none there.
 	CHECK(*ReadFileBytes(Image, Index.Records()[3]) == Counting(64));
@@ -146,7 +155,7 @@ TEST_CASE("A map's scripts are spliced in at their own place, cut or ended with 
 	const std::filesystem::path MapPath = Folder.Write("0003", Map);
 
 	const std::vector<uint8> Short(8, 0xAB);
-	Image.SetModFiles(FDiscModFiles::Make(Index, 1, std::vector<FModFile>{{3, MapPath, Folder.Write("0003_5", Short)}}));
+	Image.SetModFiles(FDiscModFiles::Make(Index, 1, std::vector<FModFile>{ModFile(3, MapPath, Folder.Write("0003_5", Short))}));
 	const auto Spliced = ReadFileBytes(Image, Index.Records()[3]);
 	REQUIRE(Spliced);
 	REQUIRE(Spliced->size() == Map.size());
@@ -156,13 +165,13 @@ TEST_CASE("A map's scripts are spliced in at their own place, cut or ended with 
 	CHECK(std::equal(Map.begin() + 0x170, Map.end(), Spliced->begin() + 0x170));
 
 	const std::vector<uint8> Long(0x30, 0xCD);
-	Image.SetModFiles(FDiscModFiles::Make(Index, 1, std::vector<FModFile>{{3, MapPath, Folder.Write("0003_5", Long)}}));
+	Image.SetModFiles(FDiscModFiles::Make(Index, 1, std::vector<FModFile>{ModFile(3, MapPath, Folder.Write("0003_5", Long))}));
 	const auto Cut = ReadFileBytes(Image, Index.Records()[3]);
 	REQUIRE(Cut);
 	CHECK(std::all_of(Cut->begin() + 0x160, Cut->begin() + 0x170, [](uint8 Byte) { return Byte == 0xCD; }));
 	CHECK(std::equal(Map.begin() + 0x170, Map.end(), Cut->begin() + 0x170));
 
 	// A missing file is an error, not the disc's file in silence.
-	Image.SetModFiles(FDiscModFiles::Make(Index, 1, std::vector<FModFile>{{3, Folder.Path / "missing", {}}}));
+	Image.SetModFiles(FDiscModFiles::Make(Index, 1, std::vector<FModFile>{ModFile(3, Folder.Path / "missing")}));
 	CHECK_FALSE(ReadFileBytes(Image, Index.Records()[3]));
 }

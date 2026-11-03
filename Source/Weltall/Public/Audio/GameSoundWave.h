@@ -22,6 +22,9 @@ class WELTALL_API UGameSoundWave final : public USoundWaveProcedural
 	GENERATED_BODY()
 
 public:
+	/** The frames the game's sound makes at a time: a few milliseconds, so that what it makes is soon heard. */
+	static constexpr int32 ChunkFrames = 512;
+
 	UGameSoundWave(const FObjectInitializer& ObjectInitializer);
 
 	/** The sound the wave plays; set before it starts. */

@@ -175,7 +175,9 @@ namespace Weltall
 				}
 				if (const std::optional<int32> Record = RecordOf(Entry.path()); Record && !Skip(*Record))
 				{
-					Files[*Record] = FModFile{*Record, Entry.path(), {}};
+					FModFile& File = Files[*Record];
+					File.Record = *Record;
+					File.Path = Entry.path();
 				}
 			}
 		}

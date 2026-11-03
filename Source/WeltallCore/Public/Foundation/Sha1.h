@@ -3,8 +3,10 @@
 #include "Foundation/Types.h"
 
 #include <array>
+#include <optional>
 #include <span>
 #include <string>
+#include <string_view>
 
 namespace Weltall
 {
@@ -21,6 +23,8 @@ namespace Weltall
 
 		WELTALLCORE_API static FDigest Hash(std::span<const uint8> Bytes);
 		WELTALLCORE_API static std::string ToHex(const FDigest& Digest);
+		/** The digest Hex spells in 40 hexadecimal digits, of either case; none for anything else. */
+		WELTALLCORE_API static std::optional<FDigest> FromHex(std::string_view Hex);
 
 	private:
 		WELTALLCORE_API void ProcessBlock(const uint8* Block);

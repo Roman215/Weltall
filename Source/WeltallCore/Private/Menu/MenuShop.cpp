@@ -130,10 +130,7 @@ namespace Weltall
 			const bool bKept = Character != FGameState::EmptySlot && Character < CharacterCount && Available[Character];
 			Flags[static_cast<std::size_t>(MenuFlag::Party + Slot)] = bKept ? Character : FGameState::EmptySlot;
 		}
-		for (const FVramImage& Image : Resources.ArchiveUploads())
-		{
-			Upload(Image);
-		}
+		UploadArchive();
 		for (int32 Slot = 0; Slot < 3; ++Slot)
 		{
 			if (Member(Slot) != FGameState::EmptySlot)

@@ -739,11 +739,13 @@ namespace Weltall
 			Archive->MessageLayout = EBattleMessageLayout::French;
 		}
 		Archive->ReplacedMessages.resize(Archive->MessageTables.size());
+		Archive->DiscMessageTables.resize(Archive->MessageTables.size());
 		for (std::size_t Event = 0; Event < Archive->MessageTables.size(); ++Event)
 		{
 			const std::string Table = MessageTables::BattleEvent(static_cast<int32>(Event));
 			if (std::optional<FAppliedMessages> Applied = ApplyMessageOverrides(Image, Table, Archive->MessageTables[Event], EMessageWindows::Script))
 			{
+				Archive->DiscMessageTables[Event] = std::move(Archive->MessageTables[Event]);
 				Archive->MessageTables[Event] = std::move(Applied->Table);
 				Archive->ReplacedMessages[Event] = std::move(Applied->Replaced);
 			}
@@ -823,7 +825,10 @@ namespace Weltall
 		{
 			Context.Party.Event = NoEvent;
 		}
-		if (bConfirm)
+		// The message input runs once a logic step, a vertical blank's time; the event's message reads the confirm
+		// later in the step, as it reads a press.
+		const bool bWaits = Event.bKeyWait && Event.bMessageShown && Event.Text && Event.Text->IsStopped();
+		if (Event.Reading.Tick(Context.AutoAdvance, bWaits, bWaits ? MesShownGlyphs(*Event.Text) : 0, 1) || bConfirm)
 		{
 			Context.Party.Event = ConfirmEvent;
 		}

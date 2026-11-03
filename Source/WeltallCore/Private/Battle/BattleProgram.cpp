@@ -6,6 +6,7 @@
 #include "Media/GameFileIndex.h"
 
 #include <algorithm>
+#include <array>
 #include <optional>
 #include <string_view>
 #include <vector>
@@ -28,8 +29,12 @@ namespace Weltall
 		constexpr uint32 EffectCastLimitsAddress = 0x800C3648;
 		constexpr uint32 VoiceSetsAddress = 0x800C35DC;
 		constexpr uint32 TrailCurveAddress = 0x800C37E8;
-		/** The French translation's program (unpacked), by its SHA-1. */
-		constexpr std::string_view FrenchProgram = "ff6e9fc59534f6867e183db0faf3981cb28695e7";
+		/**
+		 * The programs (unpacked) that keep the camera after a queue write, by their SHA-1s: the French translation's, and
+		 * the Italian's for the US commands and for the Japanese.
+		 */
+		constexpr std::array<std::string_view, 3> CameraKeepingPrograms = {"ff6e9fc59534f6867e183db0faf3981cb28695e7",
+			"5d13d42417c3bd4c1848c7cbf5bd8fec44c75203", "48b6f69f06041fc1761ef4e51ce768954a41f190"};
 
 		/** The program's bytes at a memory address, or none past the program. */
 		std::optional<std::span<const uint8>> At(std::span<const uint8> Program, uint32 Address, std::size_t Count)
@@ -119,7 +124,7 @@ namespace Weltall
 		{
 			Tables.CommandBits[Command] = LittleEndian::ReadU16(*Bits, 2 * Command);
 		}
-		Tables.bQueueKeepsCamera = FSha1::ToHex(FSha1::Hash(Program)) == FrenchProgram;
+		Tables.bQueueKeepsCamera = std::ranges::find(CameraKeepingPrograms, FSha1::ToHex(FSha1::Hash(Program))) != CameraKeepingPrograms.end();
 		return Tables;
 	}
 

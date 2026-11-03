@@ -9,6 +9,8 @@
 #include "Formats/VramImageList.h"
 #include "Foundation/LittleEndian.h"
 #include "Foundation/Sha1.h"
+#include "Game/EllysHair.h"
+#include "Game/IdsPictures.h"
 #include "Graphics/TextureRegion.h"
 #include "Media/GameFileIndex.h"
 #include "Media/PsxExecutable.h"
@@ -457,6 +459,10 @@ namespace Weltall
 		{
 			return *Error;
 		}
+		if (TResult<std::vector<uint8>> IdFace = IdsPictures::ReadFace(Image, Index); IdFace && IdsPictures::SmallFace(*IdFace))
+		{
+			Resources->IdFace = std::move(*IdFace);
+		}
 		if (const FIndexRecord* ProgramRecord = Index.Find(ResultProgramDirectory, ResultProgramFile))
 		{
 			const TResult<std::vector<uint8>> ResultProgram = ReadFileSectors(Image, *ProgramRecord);
@@ -610,13 +616,24 @@ namespace Weltall
 		}
 	}
 
-	void FBattleHud::Upload(const FVramImage& Image)
+	void FBattleHud::Upload(const FVramImage& Image, EVramUploadKind Kind)
 	{
-		Vram.Upload(Image);
-		if (Observer != nullptr)
+		const auto Send = [this](const FVramImage& Tagged)
 		{
-			Observer->Upload(Image);
+			Vram.Upload(Tagged);
+			if (Observer != nullptr)
+			{
+				Observer->Upload(Tagged);
+			}
+		};
+		if (Image.Kind != EVramUploadKind::Other)
+		{
+			Send(Image);
+			return;
 		}
+		FVramImage Tagged = Image;
+		Tagged.Kind = Kind;
+		Send(Tagged);
 	}
 
 	FBattleHudTexture FBattleHud::TextureOf(int32 Frame) const
@@ -641,7 +658,7 @@ namespace Weltall
 		Layout = static_cast<uint8>(Members - 1);
 		for (const FVramImage& Image : Resources.Images)
 		{
-			Upload(Image);
+			Upload(Image, EVramUploadKind::MenusAndHud);
 		}
 		Upload({{TextClutX, TextClutY, static_cast<int16>(Resources.TextClut.size()), 1}, {Resources.TextClut.begin(), Resources.TextClut.end()}});
 		EvenTextClut = MenuGpu::Clut(TextClutX, TextClutY);
@@ -681,18 +698,29 @@ namespace Weltall
 				FaultState = EBattleHudFault::IndexOutsideHud;
 				return;
 			}
+			if (Context.PartyLooks().HasPurpleHair(Character))
+			{
+				EllysHair::RecolourTim(*Tim);
+			}
+			if (Context.PartyLooks().IsId(Character))
+			{
+				if (TResult<FTim> IdsFace = IdsPictures::SmallFace(Resources.IdFace))
+				{
+					Tim = std::move(IdsFace);
+				}
+			}
 			const FBattleHudTexture Texture = TextureOf(FirstFrame + Slot);
 			if (Tim->Clut)
 			{
 				FVramImage Clut = *Tim->Clut;
 				Clut.Rect.X = static_cast<int16>(Texture.ClutX);
 				Clut.Rect.Y = static_cast<int16>(Texture.ClutY);
-				Upload(Clut);
+				Upload(Clut, EVramUploadKind::Portraits);
 			}
 			FVramImage Pixels = Tim->Image;
 			Pixels.Rect.X = static_cast<int16>(Texture.VramX + 6 * Slot);
 			Pixels.Rect.Y = static_cast<int16>(Texture.VramY);
-			Upload(Pixels);
+			Upload(Pixels, EVramUploadKind::Portraits);
 		}
 	}
 
@@ -841,7 +869,7 @@ namespace Weltall
 				Image.Rect = TextureRows[Row];
 				Image.Units.assign(StoredRows[Row].begin() + static_cast<std::ptrdiff_t>(From),
 					StoredRows[Row].begin() + static_cast<std::ptrdiff_t>(From + TextureRowUnits));
-				Upload(Image);
+				Upload(Image, EVramUploadKind::MenusAndHud);
 			}
 			TextureRowOffset += 4;
 			if (TextureRowOffset > TextureRowWrap)
@@ -851,16 +879,16 @@ namespace Weltall
 		}
 	}
 
-	void FBattleHud::Link(const FMenuPrimitive& Primitive)
+	void FBattleHud::Link(const FMenuPrimitive& Primitive, uint32 Key)
 	{
 		// A primitive never built is an empty packet the GPU passes over.
 		if (Primitive.Code != 0)
 		{
-			Drawing->Primitives.push_back(Primitive);
+			Drawing->Primitives.emplace_back(Primitive).BlendKey = Key;
 		}
 	}
 
-	void FBattleHud::LinkPairs(std::span<const FBattleHudPair> Pairs, int32 Count, uint8 From)
+	void FBattleHud::LinkPairs(std::span<const FBattleHudPair> Pairs, int32 Count, uint8 From, uint32 Key)
 	{
 		for (int32 Pair = 0; Pair < Count; ++Pair)
 		{
@@ -869,7 +897,7 @@ namespace Weltall
 				FaultState = EBattleHudFault::PartsOutsidePrimitives;
 				return;
 			}
-			Link(Pairs[static_cast<std::size_t>(Pair)][From & 1]);
+			Link(Pairs[static_cast<std::size_t>(Pair)][From & 1], Key != 0 ? Key + static_cast<uint32>(Pair) : 0);
 		}
 	}
 
@@ -885,7 +913,7 @@ namespace Weltall
 			return static_cast<int16>(Product >> 12);
 		};
 		// The buttons' pictures are the HUD's own sheet's.
-		const FHudButton Button = Sheet == &Resources.Sheet ? HudButton(Frame) : FHudButton{};
+		const FHudButton Button = Sheet == &Resources.Sheet ? HudButton(Frame, Settings.bJapaneseCommands) : FHudButton{};
 		int32 Index = First;
 		for (const FMenuSpritePart& Part : Parts)
 		{

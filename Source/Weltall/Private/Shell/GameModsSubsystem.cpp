@@ -5,12 +5,13 @@
 #include "Mods/DeviceMods.h"
 #include "Shell/DeviceFilesSubsystem.h"
 #include "Shell/GameDiscsSubsystem.h"
+#include "Shell/PlayerFolders.h"
 #include "Shell/PlayerSettingsSubsystem.h"
 #include "WeltallLog.h"
 
 FString UGameModsSubsystem::ModsFolder()
 {
-	return FPaths::ConvertRelativePathToFull(FPaths::Combine(FPaths::GetPath(UGameDiscsSubsystem::GamesFolder()), TEXT("Mods")));
+	return PlayerMadeFolder(FPaths::GetPath(UGameDiscsSubsystem::GamesFolder()), TEXT("Mods"));
 }
 
 void UGameModsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
@@ -24,7 +25,27 @@ void UGameModsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 		Weltall::FinishModChanges(UDeviceFilesSubsystem::PlayerFoldersRoot());
 	}
 	Found = Weltall::FindMods(std::filesystem::path(*ModsFolder()));
-	InUse = GetGameInstance()->GetSubsystem<UPlayerSettingsSubsystem>()->Settings().PerfectWorks;
+	const Weltall::FPlayerSettings& Settings = GetGameInstance()->GetSubsystem<UPlayerSettingsSubsystem>()->Settings();
+	InUse = Settings.PerfectWorks;
+	ItalianInUse = Found.Italian ? Settings.Italian : Weltall::FItalianOptions{};
+	if (Found.Italian)
+	{
+		const auto Movies = [this](bool bJapanese)
+		{
+			return Found.Italian->MoviePatch(1, bJapanese) || Found.Italian->MoviePatch(2, bJapanese);
+		};
+		UE_LOG(LogWeltall, Log, TEXT("The Italian translation's patch found: %hs (movie patches: English sound %s, Japanese sound %s): %s"),
+			Found.Italian->Path().filename().string().c_str(), Movies(false) ? TEXT("yes") : TEXT("no"), Movies(true) ? TEXT("yes") : TEXT("no"),
+			ItalianInUse.bEnabled ? TEXT("in use") : TEXT("not in use"));
+		if (ItalianInUse.bEnabled && InUse.bEnabled)
+		{
+			UE_LOG(LogWeltall, Log, TEXT("Perfect Works Build is not used with the Italian translation"));
+		}
+	}
+	if (ItalianInUse.bEnabled)
+	{
+		InUse.bEnabled = false;
+	}
 	if (Found.PerfectWorks)
 	{
 		UE_LOG(LogWeltall, Log, TEXT("Perfect Works Build %hs found in %s: %s"), Found.PerfectWorks->Version().c_str(), *ModsFolder(),
@@ -73,7 +94,7 @@ void UGameModsSubsystem::Initialize(FSubsystemCollectionBase& Collection)
 void UGameModsSubsystem::Refresh()
 {
 	const Weltall::FGameLibrary& Library = GetGameInstance()->GetSubsystem<UGameDiscsSubsystem>()->Library();
-	if (const std::optional<Weltall::FError> Error = Weltall::ApplyMods(Library, Found, InUse))
+	if (const std::optional<Weltall::FError> Error = Weltall::ApplyMods(Library, Found, InUse, ItalianInUse))
 	{
 		UE_LOG(LogWeltall, Warning, TEXT("The mods' files are not used: %hs"), Error->Message.c_str());
 	}
@@ -81,14 +102,16 @@ void UGameModsSubsystem::Refresh()
 
 void UGameModsSubsystem::FindAgain()
 {
-	if (Found.PerfectWorks)
+	const Weltall::FFoundMods Again = Weltall::FindMods(std::filesystem::path(*ModsFolder()));
+	if (!Found.PerfectWorks && Again.PerfectWorks)
 	{
-		return;
-	}
-	Found = Weltall::FindMods(std::filesystem::path(*ModsFolder()));
-	if (Found.PerfectWorks)
-	{
+		Found.PerfectWorks = Again.PerfectWorks;
 		UE_LOG(LogWeltall, Log, TEXT("Perfect Works Build %hs added in %s: offered now, in use from the next start"), Found.PerfectWorks->Version().c_str(), *ModsFolder());
+	}
+	if (!Found.Italian && Again.Italian)
+	{
+		Found.Italian = Again.Italian;
+		UE_LOG(LogWeltall, Log, TEXT("The Italian translation's patch added in %s: offered now, in use from the next start"), *ModsFolder());
 	}
 }
 
@@ -103,5 +126,5 @@ std::array<const Weltall::FPerfectWorksSubtitles*, 2> UGameModsSubsystem::Perfec
 
 Weltall::FMenuMods UGameModsSubsystem::MenuMods() const
 {
-	return {Found.PerfectWorks.has_value(), Found.PerfectWorks ? Found.PerfectWorks->Version() : std::string(), InUse};
+	return {Found.PerfectWorks.has_value(), Found.PerfectWorks ? Found.PerfectWorks->Version() : std::string(), InUse, Found.Italian.has_value(), ItalianInUse};
 }

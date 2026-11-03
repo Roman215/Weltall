@@ -49,6 +49,8 @@ namespace Weltall
 		bool bPerfectWorksRebalance = false;
 		/** The player's changes to the balance: how much experience and gold the battle gives. */
 		FGameBalance Balance;
+		/** The player's auto-advancing text, which the battle events' messages follow. */
+		EMesAutoAdvance AutoAdvance = EMesAutoAdvance::Off;
 	};
 
 	/** What a battle reads and changes but does not own; everything must outlive the battle. */

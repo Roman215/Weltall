@@ -35,6 +35,7 @@ namespace Weltall
 {
 	class FBattleHudSheet;
 	class FBattleSceneGraphics;
+	class FIdsBattleSprite;
 	class FBattleShowLoad;
 	struct FBattleContext;
 	struct FBattleStageFiles;
@@ -100,6 +101,8 @@ namespace Weltall
 		const FBattleSpriteFiles* SpriteFiles = nullptr;
 		const FBattleStageFiles* Stage = nullptr;
 		const FBattleSceneGraphics* SceneGraphics = nullptr;
+		/** Id's battle sprite, where the party has Fei drawn as Id; null otherwise. */
+		const FIdsBattleSprite* IdsSprite = nullptr;
 		const FBattleHudSheet* Sheet = nullptr;
 		/** The kernel's pyramid the target markers draw. */
 		const FBattleMarkerModel* MarkerModel = nullptr;
@@ -305,11 +308,13 @@ namespace Weltall
 		void SetSoundVolume(uint32 Sound, int32 Volume) override;
 		void FadeSound(uint32 Sound, int32 Volume, int32 Steps) override;
 		void UploadImage(const FGearTextureBlock& Block, int16 X, int16 Y) override;
+		void UploadToPortRows(const FGearTextureBlock& Block, int16 X, int16 Y) override;
 		void StoreImage(const FVramRect& Rect, std::span<uint16> Into) override;
 		void LoadImage(const FVramRect& Rect, std::span<const uint16> From) override;
 		TResult<FBattleModelFiles> ReadGear(int32 Gear, int32 Variant) override;
 		TResult<FBattleModelFiles> ReadSpecialModel(int32 Model) override;
 		TResult<FBattleSequenceExtension> ReadExtension(int32 File) override;
+		TResult<FBattleModelFiles> ReadSceneModel(int32 Scene, int32 Entry) override;
 		/** The port's reads end as they are made: none is ever under way to abandon. */
 		void AbortReads() override {}
 		void CreateProxy(int32 Slot) override;

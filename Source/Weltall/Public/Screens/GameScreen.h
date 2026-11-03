@@ -3,10 +3,12 @@
 #include "CoreMinimal.h"
 #include "Field/FieldPlayerCamera.h"
 #include "Foundation/Result.h"
+#include "Input/ControlBindings.h"
 #include "Input/PadState.h"
 #include "Presentation/DisplayOptions.h"
 #include "Presentation/GameScreen.h"
 #include "RenderGraphFwd.h"
+#include "Rendering/ScreenArea.h"
 
 #include <array>
 
@@ -20,12 +22,12 @@ public:
 	virtual ~IScreenFrame() = default;
 
 	/**
-	 * Adds the passes that draw the frame's game screen into Area of Output, fitted as
-	 * Weltall::FScreenLayout places it. Area is already black.
+	 * Adds the passes that draw the frame's game screen into Area of Output, laid out as Area lays out
+	 * screens; a 3D scene takes the screen's rows across the area's width. Area is already black.
 	 */
-	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const = 0;
+	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const = 0;
 
-	/** The game screen whose rows the frame shows, fitted as Weltall::FScreenLayout places it: a CRT's lines follow them. */
+	/** The game screen whose rows the frame shows: a CRT's lines follow them, and the picture's area holds them. */
 	virtual Weltall::FScreenSize ScreenSize() const { return {320, 224}; }
 };
 
@@ -61,8 +63,17 @@ public:
 	/** What the player did to the field's view in the display frame, before its Update; a screen without the field has none. */
 	virtual void AddViewInput(const Weltall::FFieldViewInput& Input) {}
 
+	/**
+	 * One of the port's own keys pressed (Weltall::IsPortAction: the save states', the message log's), before the display frame's
+	 * Update; a screen without the game ignores it.
+	 */
+	virtual void PressPortKey(Weltall::EControlAction Action) {}
+
 	/** The controllers, before each Update. */
 	virtual void SetPads(const FGamePads& Pads) {}
+
+	/** Whether the screen holds its game still (the message log open over it): no time passes for the game, and it makes no sound. */
+	virtual bool HoldsGame() const { return false; }
 
 	/** Whether the game reads its second controller now: only then does a second player's gamepad fill the second port. */
 	virtual bool ReadsSecondPad() const { return false; }

@@ -62,7 +62,8 @@ namespace Weltall
 	/**
 	 * A bone's part as a frame drew it (the stage's among them): model to view space as the GTE drew it, its
 	 * model's part and the packets its object built, and the ambient colour it was lit with (none for the stage's);
-	 * the slot and the bone name the same part from frame to frame.
+	 * the slot and the bone name the same part from frame to frame. A dress's kept performer pieces number after the
+	 * wearer's bones, and their packets' pages and CLUTs lie in the port's rows (FTexturePage::FromPortAttribute).
 	 */
 	struct FBattleDrawnPart
 	{
@@ -72,6 +73,7 @@ namespace Weltall
 		uint8 Slot = 0;
 		uint16 Bone = 0;
 		std::array<uint8, 3> Ambient{};
+		bool bPortRows = false;
 	};
 
 	/**

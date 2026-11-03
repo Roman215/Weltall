@@ -113,6 +113,8 @@ namespace Weltall
 		uint16 StickHeld = 0;
 		uint8 StickX = 0x80;
 		uint8 StickY = 0x80;
+		/** L1 and R1 among Held that the player holds to zoom the view: the camera does not turn by them. */
+		uint16 ZoomHeld = 0;
 	};
 
 	/** A shadow a task asked for this tick: where (whole units) and its shape (0 a member's, 1 a gear's half as big again, 2 the Yggdrasil's, turned with its heading). */
@@ -202,6 +204,8 @@ namespace Weltall
 		/** The kernel's sprites: one per party member and gear, made from the group's sprite files. */
 		FSpriteSystem Sprites;
 		std::vector<std::unique_ptr<FSprite>> SpriteSlots;
+		/** Where each slot's task asked its sprite's CLUT and frames to go (a member drawn as Id draws from his own picture instead). */
+		std::array<FWorldMapSpritePlace, TaskCount> SpritePlaces{};
 		std::array<std::optional<FSpriteFile>, 3> MemberFiles;
 		std::array<std::optional<FSpriteFile>, 3> GearFiles;
 		/** The gear each slot's gear file is of; FFh with none. */

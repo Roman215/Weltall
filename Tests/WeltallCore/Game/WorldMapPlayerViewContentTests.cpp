@@ -314,3 +314,17 @@ TEST_CASE("As the game's camera settles the trees move on between ticks, where i
 	REQUIRE(Feet[0].size() > 100);
 	CHECK(TurnsBack[1] * 2 < TurnsBack[0]);
 }
+
+TEST_CASE("On the world map camera buttons held to zoom the view leave the game's camera unturned", "[Game][WorldMap][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	FPadState Zooming = R1Held;
+	Zooming.ZoomButtons = R1Held.Buttons;
+	FPlayedMap Zoomed = EnterMap(*Disc);
+	FPlayedMap Turned = EnterMap(*Disc);
+	const int16 Yaw = Zoomed.Context().CameraYaw;
+	Zoomed.Run(Zooming, 20);
+	Turned.Run(R1Held, 20);
+	CHECK(Zoomed.Context().CameraYaw == Yaw);
+	CHECK(Turned.Context().CameraYaw != Yaw);
+}

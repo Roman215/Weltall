@@ -107,6 +107,7 @@ namespace Weltall
 		Request.RuleOptions = Session.Settings().Fixes.BattleRules;
 		Request.bPerfectWorksRebalance = Session.Image().ModChanges().bPerfectWorksRebalance;
 		Request.Balance = Session.Settings().Balance;
+		Request.AutoAdvance = Session.Settings().AutoAdvance;
 
 		std::unique_ptr<FBattleGameProgram> Program(new FBattleGameProgram(Session));
 		FGameSoundSession& Sound = Session.Sound();
@@ -122,9 +123,11 @@ namespace Weltall
 		Program->Text.State = &Session.Names();
 		Program->Text.ButtonMap = MesKernelButtonMap;
 		Program->Text.Speed = Session.Settings().TextSpeed;
+		Program->Text.Log = Session.MessageLog();
 		const FBattleGameFiles& Files = Session.BattleFiles();
-		Program->Hud = std::make_unique<FBattleGameHud>(Files.HudResources, Program->Text,
-			FBattleHudSettings{Kernel.WindowColour, Kernel.BattleWindowBlend}, &Files.EventFiles);
+		FBattleHudSettings HudSettings{Kernel.WindowColour, Kernel.BattleWindowBlend};
+		HudSettings.bJapaneseCommands = Session.Pad().HasJapaneseCommands();
+		Program->Hud = std::make_unique<FBattleGameHud>(Files.HudResources, Program->Text, HudSettings, &Files.EventFiles, &Session.Unreached());
 		Program->Show = std::make_unique<FBattlePresentation>(
 			Files.PresentationFiles(Session.Image(), Session.Index(), Session.Arctangents()), Program->Sound.get(), Program->Hud.get());
 		Program->Show->Show.Objects.Culling = Session.Settings().Field.Culling;

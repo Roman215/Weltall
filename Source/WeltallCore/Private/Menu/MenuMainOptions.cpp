@@ -1,6 +1,7 @@
 #include "Game/GameState.h"
 #include "Game/PlayerSettings.h"
 #include "Game/WayBackPoint.h"
+#include "Input/KernelPad.h"
 #include "Menu/MenuMain.h"
 #include "Menu/MenuPortFrames.h"
 #include "Menu/MenuResources.h"
@@ -251,6 +252,7 @@ namespace Weltall
 		FGameState& Game = *Services.Game;
 		const FWayBackPoint* Point = Services.WayBack != nullptr ? Services.WayBack->For(Game) : nullptr;
 		Game.SetStoryMode(EStoryMode::Original);
+		Game.SetExpansion({});
 		State.bSecondDiscAsked = false;
 		State.bSecondDiscSwitched = true;
 		if (Point != nullptr)
@@ -272,7 +274,7 @@ namespace Weltall
 		OptionsState.Row = std::min(OptionsState.Row, std::max(static_cast<int32>(OptionsState.Rows.size()) - 1, 0));
 	}
 
-	TMenuTask<bool> FMenuMain::OptionsScreen()
+	TMenuTask<bool> FMenuMain::OptionsScreen(bool bOnExpansion)
 	{
 		OptionsState = {};
 		OptionsState.Settings = Services.Settings->Settings();
@@ -283,14 +285,24 @@ namespace Weltall
 		}
 		if (Services.Keys != nullptr)
 		{
-			OptionsState.ControlsPage = std::make_unique<FMenuControlsPage>(*Services.Keys);
+			OptionsState.ControlsPage = std::make_unique<FMenuControlsPage>(*Services.Keys, Services.Pad != nullptr && Services.Pad->HasJapaneseCommands());
 		}
 		if (IMenuDeviceFiles* DeviceFiles = Services.Settings->DeviceFiles())
 		{
 			OptionsState.ModFiles = std::make_unique<FMenuModFiles>(*DeviceFiles);
 		}
 		FMenuOptionsState& State = OptionsState;
+		if (bOnExpansion)
+		{
+			State.Turned = TurnedPages() - 1;
+		}
 		ShowOptionsPage(true);
+		if (bOnExpansion)
+		{
+			State.Row = ExpansionRow();
+			const int32 LastTop = std::max(static_cast<int32>(State.Rows.size()) - FMenuOptionsScreen::Rows, 0);
+			State.Top = std::clamp(State.Row - FMenuOptionsScreen::Rows + 1, 0, LastTop);
+		}
 		bool bChanged = true;
 		bool bFirst = true;
 		AllocCursor(0);
@@ -312,7 +324,7 @@ namespace Weltall
 					bChanged = true;
 				}
 			}
-			if (RefreshModFiles())
+			if (RefreshModFiles() || RefreshDisc2Export())
 			{
 				bChanged = true;
 			}
@@ -448,6 +460,12 @@ namespace Weltall
 					State.bSecondDiscAsked = false;
 					FillOptionsRows();
 				}
+				if (State.ExampleScenesTold || State.bShareableThere)
+				{
+					State.ExampleScenesTold.reset();
+					State.bShareableThere = false;
+					FillOptionsRows();
+				}
 				bChanged = true;
 			}
 			// The rows in view follow the cursor, with a heading right over it.
@@ -487,7 +505,7 @@ namespace Weltall
 		}
 		if (SettingsPage() == ESettingsPage::Modding && State.Row >= FSettingsPages::RowCount(ESettingsPage::Modding))
 		{
-			return StepModdingRow();
+			return StepModdingRow(Direction);
 		}
 		if (OnSecondDiscRow() || !FSettingsPages::Step(SettingsPage(), State.Row, Direction, State.Settings, State.bCustomPicked, State.Context))
 		{
@@ -517,6 +535,8 @@ namespace Weltall
 			State.ModFiles->CursorMoved();
 		}
 		State.bSecondDiscAsked = false;
+		State.ExampleScenesTold.reset();
+		State.bShareableThere = false;
 		ShowOptionsPage(true);
 	}
 
@@ -698,8 +718,11 @@ namespace Weltall
 
 		// L1 and R1 turn the pages, or a list opened from one by a page of rows.
 		Options.Hints.clear();
-		Resources.Sheet().Draw(PreviousHint, TitleX - HintGap - PreviousBoxEnd, HintY, FullScale, Options.Hints);
-		Resources.Sheet().Draw(NextHint, TitleX + Options.Title.Width + HintGap - NextBoxStart, HintY, FullScale, Options.Hints);
+		if (!State.bSinglePage)
+		{
+			Resources.Sheet().Draw(PreviousHint, TitleX - HintGap - PreviousBoxEnd, HintY, FullScale, Options.Hints);
+			Resources.Sheet().Draw(NextHint, TitleX + Options.Title.Width + HintGap - NextBoxStart, HintY, FullScale, Options.Hints);
+		}
 		SetLayerSprites(Options.Hints);
 
 		Options.Cells.clear();

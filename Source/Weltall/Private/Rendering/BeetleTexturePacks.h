@@ -46,6 +46,9 @@ public:
 	bool Add(const Weltall::FBeetleTextureName& Name, const FString& File, int32 Depth);
 	int32 Num() const { return Files.Num(); }
 
+	/** The kinds of upload whose pictures show (bit k for Weltall::EVramUploadKind k); a part of another kind keeps its own texels. */
+	void Show(uint8 Kinds) { ShownKinds = Kinds; }
+
 	/** The region's parts that have pictures, unset when none has; RegionKey is the region's own (Weltall::TextureRegionKey). */
 	TOptional<FCover> Cover(const Weltall::FVram& Vram, const Weltall::FTextureRegion& Region, uint64 RegionKey) const;
 
@@ -73,6 +76,7 @@ private:
 	const FFile* FileOf(const Weltall::FBeetleTexturePart& Part, Weltall::FBeetleTextureName& Name) const;
 
 	TMap<uint64, FFile> Files;
+	uint8 ShownKinds = 0xFF;
 	TSharedRef<FBeetlePictureCache> Pictures;
 	/** The files a cover has used, each logged the first time. */
 	mutable TSet<uint64> Used;

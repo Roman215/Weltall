@@ -4,7 +4,8 @@
 // changes, the movies, the world map's cutscenes, the battles (fought with a random pad).
 //
 //   WeltallStorySweep [FIRST [LAST]] [-cards=FOLDER] [-before] [-triggers | -walked] [-choice=N] [-at=STORY] [-set=CHANGES]
-//       [-frames=N] [-battle=N] [-shard=I/N] [-expanded] [-list] [-trace=N] [-watch=A] [-reversed] [-holds=N] [-strong]
+//       [-frames=N] [-battle=N] [-shard=I/N] [-expanded] [-list] [-trace=N] [-watch=A] [-reversed] [-holds=N] [-strong] [-clear]
+//       [-keepelly] [-id]
 //   WeltallStorySweep -explore=N [FIRST [LAST]] [-cards=FOLDER] [-choice=N] [-frames=N] [-battle=N] [-shard=I/N] [-expanded] [-trace=N]
 //       [-watch=A] [-reversed] [-holds=N] [-strong]
 //
@@ -55,7 +56,11 @@
 // frames to the error stream (first whether the drawing takes the tick for a cutscene and the member each party slot
 // is drawn as, -1 its own), with -watch=A also where actor A stands and how it moves (-watch=leader: whoever the pad
 // walks). -strong makes every character and gear far stronger than the story asks as each map is entered, so that the
-// battles the random pad fights are won and the play goes on past them.
+// battles the random pad fights are won and the play goes on past them. -clear plays each state as a clear file's
+// (ClearFile.h): Elly back in the party in Regurus, in the second slot where she is not in it. -keepelly plays each
+// state as a Keep Elly game's (KeepElly.h), the game's own rule bringing her back where it does, in the second slot
+// where the rule has her back and she is not in the party. -id draws Fei as Id (CharacterLooks.h) in a New Game+, his
+// battles on foot played with Id's sprite and presses, staged ones too.
 //
 // -reversed keeps the party in the order of its people from the last to the first, so that a party of two or more is
 // drawn in another order than the story's wherever the drawing shows the player's; -holds=N writes each hold of N
@@ -83,6 +88,7 @@
 // run plays the same frames every time. The discs are the checkout's, in its Games folder.
 
 #include "Media/GameLibrary.h"
+#include "Mods/ExpansionMods.h"
 #include "Story/StoryPacks.h"
 #include "Support/PlayedGame.h"
 #include "Support/StorySweepExplore.h"
@@ -305,6 +311,18 @@ int main(int ArgumentCount, char** Arguments)
 		{
 			Options.bStrongParty = true;
 		}
+		else if (Text == "-clear")
+		{
+			Options.bClearGame = true;
+		}
+		else if (Text == "-keepelly")
+		{
+			Options.bKeepElly = true;
+		}
+		else if (Text == "-id")
+		{
+			Options.bFeiAsId = true;
+		}
 		else if (Text.rfind("-holds=", 0) == 0)
 		{
 			Options.HoldFramesTold = std::atoi(Text.c_str() + 7);
@@ -320,7 +338,7 @@ int main(int ArgumentCount, char** Arguments)
 		else
 		{
 			return Fail("usage: WeltallStorySweep [FIRST [LAST]] [-cards=FOLDER] [-before] [-triggers] [-choice=N] [-at=STORY] [-set=CHANGES] [-frames=N] "
-						"[-shard=I/N] [-expanded] [-list] [-trace=N], or WeltallStorySweep -explore=N [-cards=FOLDER] ...");
+						"[-shard=I/N] [-expanded] [-list] [-trace=N] [-strong] [-clear] [-keepelly] [-id], or WeltallStorySweep -explore=N [-cards=FOLDER] ...");
 		}
 	}
 	const int32 First = Range[0] < 0 ? 0 : Range[0];
@@ -333,10 +351,15 @@ int main(int ArgumentCount, char** Arguments)
 		return Fail(Opened.Error().Message);
 	}
 	const FPlayedGame& Game = *Opened;
-	const auto Story = FStoryPacks::Read(std::filesystem::path(WELTALL_STORY_DIR));
+	auto Story = FStoryPacks::Read(std::filesystem::path(WELTALL_STORY_DIR));
 	if (!Story)
 	{
 		return Fail("the port's story cannot be read: " + Story.Error().Message);
+	}
+	// The example scenes as the expansion, as a player who extracted them plays them.
+	if (std::optional<FError> Error = Story->ReadExpansion(std::filesystem::path(WELTALL_EXAMPLES_DIR) / "disc2", ExamplesFolder))
+	{
+		return Fail("the example scenes cannot be read: " + Error->Message);
 	}
 	std::vector<FOriginalSave> Saves;
 	if (!Cards.empty())

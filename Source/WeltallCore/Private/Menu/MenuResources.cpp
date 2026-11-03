@@ -3,6 +3,7 @@
 #include "Formats/SectionContainer.h"
 #include "Formats/Tim.h"
 #include "Game/ChapterTitles.h"
+#include "Game/IdsPictures.h"
 #include "Foundation/LittleEndian.h"
 #include "Foundation/Sha1.h"
 #include "Media/GameFileIndex.h"
@@ -175,14 +176,15 @@ namespace Weltall
 			return ReadFileSectors(Image, *Record);
 		}
 
-		/** The French translation's Menu program (directory 16, file 5), by its SHA-1. */
+		/** The French and the Italian translations' Menu programs (directory 16, file 5), by their SHA-1s. */
 		constexpr std::string_view FrenchMainModule = "78f877c0e250269d98d302b3e3e9e22dc616d8f3";
+		constexpr std::string_view ItalianMainModule = "3b0bd1278512839b04c7a72cd61859581e3097f5";
 
-		bool IsFrenchMainModule(const FGameFileIndex& Index, std::span<const uint8> Module)
+		bool IsMainModule(const FGameFileIndex& Index, std::span<const uint8> Module, std::string_view Sha1)
 		{
 			const FIndexRecord* Record = Index.Find(MenuDirectory, MainModuleFile);
 			return Record != nullptr && static_cast<std::size_t>(Record->Size) <= Module.size()
-				&& FSha1::ToHex(FSha1::Hash(Module.first(static_cast<std::size_t>(Record->Size)))) == FrenchMainModule;
+				&& FSha1::ToHex(FSha1::Hash(Module.first(static_cast<std::size_t>(Record->Size)))) == Sha1;
 		}
 
 		/**
@@ -561,7 +563,9 @@ namespace Weltall
 		{
 			return Resources;
 		}
-		Resources->bFrench = IsFrenchMainModule(Index, *Module);
+		Resources->GearPartTables.SetPerfectWorksRules(Image.ModChanges().bPerfectWorksRebalance);
+		Resources->bFrench = IsMainModule(Index, *Module, FrenchMainModule);
+		Resources->bKilograms = Resources->bFrench || IsMainModule(Index, *Module, ItalianMainModule);
 		if (Resources->bFrench)
 		{
 			Resources->FrenchChapters = ReadFrenchChapters(*Module);
@@ -646,6 +650,10 @@ namespace Weltall
 			return Arctangents.Error();
 		}
 		Resources->ArctangentTable = *Arctangents;
+		if (TResult<std::vector<uint8>> IdFace = IdsPictures::ReadFace(Image, Index); IdFace && IdsPictures::SmallFace(*IdFace))
+		{
+			Resources->IdFaceBytes = std::move(*IdFace);
+		}
 		return Resources;
 	}
 

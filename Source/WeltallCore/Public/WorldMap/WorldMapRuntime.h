@@ -2,6 +2,8 @@
 
 #include "Foundation/Result.h"
 #include "Foundation/Types.h"
+#include "Field/IdsFieldSprite.h"
+#include "Game/CharacterLooks.h"
 #include "Input/PadState.h"
 #include "Text/MesWindow.h"
 #include "WorldMap/WorldMapContext.h"
@@ -165,6 +167,17 @@ namespace Weltall
 		/** The world map goes on after the menu it stopped at: the pad's queue emptied, the mounts the menu changed applied. */
 		[[nodiscard]] WELTALLCORE_API std::optional<FError> ResumeAfterMenu();
 
+		/**
+		 * Whether the menu's button would open the menu with the party where it stands: between passes of the loop, the
+		 * scene the player's (no cutscene, fade, place's name or notice, nothing asked), the party on foot or in gears.
+		 */
+		WELTALLCORE_API bool CouldOpenMenu() const;
+		/**
+		 * What the menu's opening writes into the game state for a save made in it, written into Game: the party's
+		 * place kept for the next start (where the party stands and faces, the camera's yaw marked so) and who rides.
+		 */
+		WELTALLCORE_API void KeepPlaceAsMenuDoes(FGameState& Game) const;
+
 		EWorldMapFrame LastFrame() const { return LastFrameKind; }
 		/** Whether the last frame finished a pass of the loop: a tick that did not pause, or the pause's last frame. */
 		bool PassEnded() const { return bPassEnded; }
@@ -175,6 +188,10 @@ namespace Weltall
 		int32 EntryFadeBlend() const { return EntryBlend; }
 		/** Whether the scene entered is a cutscene (8-18). */
 		bool IsCutscene() const { return Cutscene != nullptr; }
+		/** Id's field sprite while a member is drawn as Id: its picture belongs in the port's rows of the drawing's VRAM. */
+		const FIdsFieldSprite* IdShown() const { return bIdShown ? &*Id : nullptr; }
+		/** Counts the times the party's sprite files were made: the drawing places Id's picture again when it changes. */
+		uint32 PartyLoads() const { return PartyLoadCount; }
 
 	private:
 		enum class EPhase : uint8
@@ -195,7 +212,10 @@ namespace Weltall
 		 * a slot that rides or walks as its own does.
 		 */
 		std::array<uint8, 3> ShownMembers() const;
-		/** Where the slots' members are no longer those shown (the menu arranged the party, or who rides changed): the party's sprites made again as they stood. */
+		/**
+		 * Where the slots' members are no longer those shown, or no longer drawn so (the menu arranged the party or
+		 * switched a look, or who rides changed): the party's sprites made again as they stood.
+		 */
 		std::optional<FError> ShowArrangedParty();
 		/** The scene's sound as it starts: the scene's bank, effects and song, or after a battle the song kept from before it. */
 		void StartSceneSound(int32 GroupHeader, bool bFromBattle);
@@ -224,8 +244,13 @@ namespace Weltall
 		EWorldMapFrame LastFrameKind = EWorldMapFrame::Tick;
 		bool bPassEnded = false;
 		FWorldMapRequest PendingRequest;
-		/** The members the party's sprites were last made of, by slot. */
+		/** The members the party's sprites were last made of, by slot, and how they were drawn (FCharacterLooks). */
 		std::array<uint8, 3> MembersShown{};
+		FCharacterLooks LooksShown;
+		/** Id's field sprite, read once a member is drawn as Id, and whether one is. */
+		std::optional<FIdsFieldSprite> Id;
+		bool bIdShown = false;
+		uint32 PartyLoadCount = 0;
 		/** The play time the pause sets back: its vertical blanks do not count. */
 		uint32 PauseStartPlayTime = 0;
 		/** The pause's frames wait for a controller rather than for Start. */

@@ -105,14 +105,23 @@ namespace Weltall::SaveLayout
 		inline constexpr std::size_t StoryMode = 0x1B60;
 		/**
 		 * A save of the expanded second disc made where the original stands elsewhere is the original's save at its
-		 * point there (FWayBackPoint); the bytes of the game's own that differ from it are kept here, to be put back
-		 * when the port loads it as a game of the expanded second disc: how many runs, then each run's offset in the
-		 * data (two bytes), its length (one) and its bytes.
+		 * point there (FWayBackPoint), and a game with Elly back is the original's with her away (ClearFile.h,
+		 * KeepElly.h); the bytes of the game's own that differ from it are kept here, to be put back when the port loads
+		 * it as such a game: how many runs, then each run's offset in the data (two bytes), its length (one) and its bytes.
 		 */
 		inline constexpr std::size_t KeptRuns = 0x1B61;
-		/** The order the player keeps the party in (FPartyOrder::ToSaved), the kept runs ending before it. */
+		/**
+		 * The expansion a game of the expanded second disc plays, by its mod's folder (ExpansionMods.h): the name's bytes,
+		 * zeros after them, the kept runs ending before it. A save made before it was kept has zeros: the examples'.
+		 */
+		inline constexpr std::size_t Expansion = 0x1EB5;
+		inline constexpr std::size_t RunsEnd = Expansion;
+		/** The order the player keeps the party in (FPartyOrder::ToSaved). */
 		inline constexpr std::size_t PartyOrder = 0x1EF5;
-		inline constexpr std::size_t RunsEnd = PartyOrder;
+		/** How the player has the second Citan and the grown Emeralda drawn (FCharacterLooks::ToSaved). */
+		inline constexpr std::size_t CharacterLooks = 0x1EF9;
+		/** What the game is after the ending (EClearGame); the own party of the kinds that keep Elly apart the kept runs hold. */
+		inline constexpr std::size_t ClearGame = 0x1EFA;
 		/** The port's part ends before the checksum. */
 		inline constexpr std::size_t End = 0x1EFF;
 	}

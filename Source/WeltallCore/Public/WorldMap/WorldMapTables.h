@@ -50,7 +50,7 @@ namespace Weltall
 		int32 PointZ = 0;
 	};
 
-	/** Where a gear's world-map sprite keeps its palette and texture in VRAM. */
+	/** Where a world-map sprite (a member's, a gear's) keeps its palette and texture in VRAM. */
 	struct FWorldMapSpritePlace
 	{
 		int16 ClutX = 0;

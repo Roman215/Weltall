@@ -217,16 +217,32 @@ namespace Weltall
 		/** A 3D quad's corners projected through this frame's layer or flat view, then linked. */
 		void AddProjected(FMenuPrimitive& Quad, bool bOnLayer, int32 Entry);
 		void PlaySound(uint8 Effect);
-		/** An image into the menu's VRAM, seen by the observer when there is one. */
-		void Upload(const FVramImage& Image);
+		/**
+		 * An image into the menu's VRAM, seen by the observer when there is one, as Kind unless it names its own: most of
+		 * what the menus upload is text they typed.
+		 */
+		void Upload(const FVramImage& Image, EVramUploadKind Kind = EVramUploadKind::Text);
 		/** A number's nine digits (hundreds of millions first) into NumberDigits, its leading zeros blank. */
 		void SplitNumber(uint32 Value);
 		uint8 Member(int32 Slot) const { return Flags[static_cast<std::size_t>(MenuFlag::Party + Slot)]; }
 		/** The grey the menus lay over the picture they were opened on, and its subtractive drawing mode. */
 		void InitBackdrop();
 		void AddBackdrop();
-		/** A character's large portrait into the place of a party slot's (its CLUT, then its pixels). */
+		/** A character's large portrait, as the player has it drawn, into the place of a party slot's (its CLUT, then its pixels). */
 		void UploadPortrait(int32 Slot, uint8 Character);
+		/** The sheet's TIM archive into VRAM, then the small faces the player has drawn otherwise: Elly's with purple hair, Id's (UploadFace). */
+		void UploadArchive();
+		/**
+		 * Character's small face (sheet frame 14Eh + id) from the archive's own pixels, recoloured with Elly's purple hair while the
+		 * player has it; Id's in Fei's place.
+		 */
+		void UploadFace(uint8 Character);
+		/** The record whose pictures and Deathblow names stand for Character, as the player has it drawn (FCharacterLooks). */
+		uint8 DrawnCharacter(uint8 Character) const;
+		/** Whether Character's portrait and small face are Id's, made from his dialogue face (IdsPictures). */
+		bool DrawnAsId(uint8 Character) const;
+		/** The game's name Number as the menus type it, from its first byte: "Id" for Fei while the player has him drawn as Id. */
+		std::span<const uint8> ShownName(int32 Number) const;
 
 		// Labels (MenuLabels.cpp).
 		void RenderLabels(std::span<FMenuLabel> Labels, std::span<const uint8> Messages, int32 Base);

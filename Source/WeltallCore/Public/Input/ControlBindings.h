@@ -11,7 +11,7 @@
 
 namespace Weltall
 {
-	/** What the player's keys and buttons do: press one of the PlayStation controller's buttons, or move the field's view. */
+	/** What the player's keys and buttons do: press one of the PlayStation controller's buttons, move the field's view, or save and load states. */
 	enum class EControlAction : uint8
 	{
 		Up,
@@ -34,9 +34,24 @@ namespace Weltall
 		ViewZoom,
 		/** The view back as the game frames it. */
 		ViewReset,
+		/** The game saved to the state slot chosen, loaded from it, and the next or the previous slot chosen (SaveStateSlots.h). */
+		SaveState,
+		LoadState,
+		NextStateSlot,
+		PreviousStateSlot,
+		/** The message log opened over the game, or closed (MessageLogScreen.h). */
+		MessageLog,
 	};
 
-	inline constexpr int32 ControlActionCount = 18;
+	inline constexpr int32 ControlActionCount = 23;
+	/** The port's own keys, which the game's controller has no button for, from SaveState on: the save states' and the message log's. */
+	inline constexpr int32 PortActionCount = 5;
+
+	/** Whether an action is one of the port's own keys (PortActionCount), acted on once as it is pressed. */
+	inline constexpr bool IsPortAction(EControlAction Action)
+	{
+		return Action >= EControlAction::SaveState && Action <= EControlAction::MessageLog;
+	}
 
 	/**
 	 * Where a controller's face buttons put the USA release's buttons: as the USA release has them; with confirm and cancel
@@ -48,6 +63,13 @@ namespace Weltall
 		Usa,
 		CircleConfirms,
 		Japan,
+	};
+
+	/** What Camera left and right (L1, R1) do where they turn the camera: turn it, or zoom the player's view (R1 nearer). */
+	enum class ECameraButtons : uint8
+	{
+		Rotate,
+		Zoom,
 	};
 
 	/** What moves the party on the touch screen's pad: its cross, or a stick that walks any way at its push (as a gamepad's left stick). */
@@ -75,6 +97,11 @@ namespace Weltall
 	inline constexpr int32 LowestSensitivity = 1;
 	inline constexpr int32 HighestSensitivity = 10;
 	inline constexpr int32 DefaultSensitivity = 5;
+
+	/** How long the field ignores the directions after a map change, in tenths of a second: none (the original's) to a second. */
+	inline constexpr int32 NoDoorPause = 0;
+	inline constexpr int32 LongestDoorPause = 10;
+	inline constexpr int32 DefaultDoorPause = 5;
 
 	/** How many degrees the mouse turns or tilts the view for each count it moves, at a sensitivity level. */
 	WELTALLCORE_API float MouseDegreesPerCount(int32 Level);
@@ -181,6 +208,13 @@ namespace Weltall
 		bool bAnalogMovement = true;
 		/** A door opens when the party walks into it, as it does for the confirm button pressed at it. Off: the button alone, as the original. */
 		bool bWalkIntoDoors = true;
+		/**
+		 * After a map change the directions move nothing for this many tenths of a second, held or pressed; held on past it,
+		 * they walk. NoDoorPause: they walk on at once, as the original's.
+		 */
+		int32 DoorPause = DefaultDoorPause;
+		/** What the camera's buttons do on the field and the world map; the touch screen's always rotate. */
+		ECameraButtons CameraButtons = ECameraButtons::Rotate;
 		/** Keep the original PlayStation button pictures instead of showing the bound keys or controller buttons. */
 		bool bOriginalButtonIcons = false;
 		/** The face buttons' layout, whose places the original pictures show (ChangeButtonLayout moves the keys). */

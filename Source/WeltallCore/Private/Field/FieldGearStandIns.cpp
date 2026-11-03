@@ -6,6 +6,7 @@
 #include "Field/FieldCamera.h"
 #include "Field/FieldPartySprites.h"
 #include "Field/FieldRuntime.h"
+#include "Game/GameState.h"
 #include "Graphics/Sprite.h"
 #include "Graphics/SpriteFile.h"
 #include "Graphics/Vram.h"
@@ -229,6 +230,39 @@ namespace Weltall
 			return Reach;
 		}
 
+		/** How tall a model stands in Pose at Scale (its root at rest): its shown parts' highest point to their lowest. */
+		int32 HeightStanding(const FGearModelPack& Pack, const FGearPose& Pose, std::span<const uint8> Shown, int16 Scale)
+		{
+			std::vector<FGearBone> Bones;
+			MakeGearSkeleton(Pack.Skeleton, Bones);
+			for (std::size_t Bone = 0; Bone < Bones.size() && Bone < Shown.size(); ++Bone)
+			{
+				Bones[Bone].bShown = Shown[Bone];
+			}
+			ApplyGearPose(Pose, Bones);
+			ComputeGearBones(Bones, Scale);
+			int32 Top = 0;
+			int32 Bottom = 0;
+			bool bAny = false;
+			for (std::size_t Bone = 1; Bone < Bones.size(); ++Bone)
+			{
+				const FGearBone& Placed = Bones[Bone];
+				if (Placed.Part == FGearBone::NoPart || Placed.Part >= Pack.Model.Parts.size() || Placed.bShown == 0)
+				{
+					continue;
+				}
+				const FGteMatrix World = CompMatrix(Bones[0].Local, Placed.World);
+				for (const FGteVector& Vertex : Pack.Model.Parts[Placed.Part].Vertices)
+				{
+					const int32 Down = RotTrans(World, Vertex)[1];
+					Top = bAny ? std::min(Top, Down) : Down;
+					Bottom = bAny ? std::max(Bottom, Down) : Down;
+					bAny = true;
+				}
+			}
+			return Bottom - Top;
+		}
+
 		/** From an angle the shorter way round to another, by at most Step. */
 		int32 TurnToward(int32 From, int32 To, int32 Step)
 		{
@@ -402,6 +436,16 @@ namespace Weltall
 		return StandIn != nullptr && StandIn->Module >= 0 ? std::optional<int32>(LayoutSlot(StandIn->Module, StandIn->Slot)) : std::nullopt;
 	}
 
+	int32 FFieldGearStandIns::ParkedGearOf(const FFieldGearSprite& Parked, const FGameState* Game)
+	{
+		// The hangar parks Regurus in Vierge's place (the field reads it as Vierge, whose pictures it has).
+		constexpr uint8 Elly = 1;
+		constexpr int16 Vierge = 2;
+		constexpr int16 Regurus = 10;
+		const std::optional<uint8> EllysGear = Game != nullptr ? Game->CharacterGear(Elly) : std::nullopt;
+		return Parked.Number == Vierge && EllysGear == Regurus ? Regurus : Parked.Number;
+	}
+
 	const FFieldGearSprite* FFieldGearStandIns::KnownSprite(const FFieldRuntime& Runtime, const FSprite& Sprite)
 	{
 		if (MapSpritesRead != Runtime.MapLoads())
@@ -520,9 +564,11 @@ namespace Weltall
 		return &Source;
 	}
 
-	FFieldGearStandIns::FShape* FFieldGearStandIns::ShapeOf(FSource& Source, const FFieldGearSprite* Known, int32 PartyGear)
+	FFieldGearStandIns::FShape* FFieldGearStandIns::ShapeOf(FSource& Source, const FFieldGearSprite* Known, int32 PartyGear, FSource* Performer)
 	{
-		FStanding Standing = StandingOf(Known != nullptr ? Known->Number : PartyGear);
+		// A gear worn over another's skeleton stands and moves as that one does.
+		const int32 Moves = Performer != nullptr ? Performer->Number : PartyGear;
+		FStanding Standing = StandingOf(Known != nullptr && !Known->bParked ? Known->Number : Moves);
 		std::array<int16, 2> Arms{FFieldGearSprite::NoArm, FFieldGearSprite::NoArm};
 		int16 ArmTurn = 0;
 		int8 Gesture = 0;
@@ -538,32 +584,81 @@ namespace Weltall
 		}
 		for (const std::unique_ptr<FShape>& Shape : Shapes)
 		{
-			if (Shape->Source == &Source && Shape->StanceRecord == Standing.Record && Shape->StanceWeight == Standing.Weight && Shape->RaisedArms == Arms
-				&& Shape->ArmTurn == ArmTurn && Shape->GestureRecord == Gesture)
+			if (Shape->Source == &Source && Shape->Performer == Performer && Shape->StanceRecord == Standing.Record && Shape->StanceWeight == Standing.Weight
+				&& Shape->RaisedArms == Arms && Shape->ArmTurn == ArmTurn && Shape->GestureRecord == Gesture)
 			{
 				return Shape.get();
 			}
 		}
 		FShape& Shape = *Shapes.emplace_back(std::make_unique<FShape>());
 		Shape.Source = &Source;
+		Shape.Performer = Performer;
 		Shape.StanceRecord = static_cast<int8>(Standing.Record);
 		Shape.StanceWeight = Standing.Weight;
 		Shape.RaisedArms = Arms;
 		Shape.ArmTurn = ArmTurn;
 		Shape.GestureRecord = Gesture;
 		// Only a party gear's sprite runs: the others' that dash glide into their battles.
-		if (Source.Kind == EFieldGearModelKind::BattleGear)
+		if (Source.Kind == EFieldGearModelKind::BattleGear || Performer != nullptr)
 		{
-			Shape.Run = StandingOf(Source.Number).Run;
-			Shape.LungeLimbs = StandingOf(Source.Number).LungeLimbs;
+			const int32 Runner = Performer != nullptr ? Performer->Number : Source.Number;
+			Shape.Run = StandingOf(Runner).Run;
+			Shape.LungeLimbs = StandingOf(Runner).LungeLimbs;
 		}
 		return &Shape;
 	}
 
+	bool FFieldGearStandIns::Dress(FShape& Shape, int16 Scale)
+	{
+		FSource& Performer = *Shape.Performer;
+		const FSource& Own = *Shape.Source;
+		// A gear's own model worn over another's (Fenrir's), or Id's red gear, a battle scene's model, over Fei's own gear.
+		const bool bIds = Own.Kind == EFieldGearModelKind::SceneEnemy;
+		const FBattleGearDress::FPairing* Pairing = bIds ? FBattleGearDress::IdsPairing(static_cast<uint8>(Performer.Number))
+														: FBattleGearDress::FindPairing(static_cast<uint8>(Performer.Number), static_cast<uint8>(Own.Number));
+		if (Pairing == nullptr || (bIds && (Pairing->WearerScene != Own.Number || Pairing->WearerEntry != Own.Entry)))
+		{
+			return false;
+		}
+		FGearModelPack Wearer = Shape.Source->Model;
+		FGearMotionPack WearerMotion = Shape.Source->Motion;
+		TResult<FBattleGearDress> Made = FBattleGearDress::Make(*Pairing, Performer.Model, Performer.Motion, std::move(Wearer), WearerMotion, nullptr);
+		if (!Made)
+		{
+			return false;
+		}
+		Shape.Dress = std::move(*Made);
+		std::vector<FGearBone> Opened;
+		MakeGearSkeleton(Performer.Model.Skeleton, Opened);
+		Performer.Opening.Apply(Opened);
+		std::vector<uint8> Shown(Opened.size());
+		for (std::size_t Bone = 0; Bone < Opened.size(); ++Bone)
+		{
+			Shown[Bone] = Opened[Bone].bShown;
+		}
+		if (bIds)
+		{
+			Shape.PerformerHeight = HeightStanding(Performer.Model, Shape.Stand, Shown, Scale);
+		}
+		const FBattleGearDress& Worn = *Shape.Dress;
+		Shape.Stand = Worn.PoseOver(Shape.Stand, Shown, &Shape.DressShown);
+		Shape.Dash = Worn.PoseOver(Shape.Dash, Shown);
+		Shape.Leap = Worn.PoseOver(Shape.Leap, Shown);
+		for (FGearPoseTrack* Track : {&Shape.Move, &Shape.Idle, &Shape.Gesture})
+		{
+			for (FGearPose& Tick : Track->Ticks)
+			{
+				Tick = Worn.PoseOver(Tick, Shown);
+			}
+		}
+		return true;
+	}
+
 	bool FFieldGearStandIns::Measure(FShape& Shape, FGearModel& Model)
 	{
-		const std::vector<FGearSkeletonEntry>& Skeleton = Shape.Source->Model.Skeleton;
-		FGearMotionPack& Motion = *Model.Motion;
+		// A worn model takes its performer's records, played on the performer's skeleton, then worn.
+		const std::vector<FGearSkeletonEntry>& Skeleton = (Shape.Performer != nullptr ? Shape.Performer : Shape.Source)->Model.Skeleton;
+		FGearMotionPack& Motion = Shape.Performer != nullptr ? Shape.Performer->Motion : *Model.Motion;
 		const TResult<FGearPose> Rest = ReadGearPose(Skeleton, Motion, RestRecord);
 		const TResult<FGearPoseTrack> Stance = BakeGearRecord(Skeleton, Motion, Shape.StanceRecord, RestRecord);
 		TResult<FGearPoseTrack> Move = BakeGearRecord(Skeleton, Motion, MoveRecord, RestRecord);
@@ -590,6 +685,10 @@ namespace Weltall
 		Shape.Leap = Leap->Ticks.back();
 		Shape.Gesture = std::move(*Gesture);
 		Shape.Stride = static_cast<float>(Shape.Move.Stride) * static_cast<float>(Model.Scale) / static_cast<float>(FGteMatrix::One);
+		if (Shape.Performer != nullptr && !Dress(Shape, Model.Scale))
+		{
+			return false;
+		}
 
 		// The model's size standing: at the origin of its own space, from its soles, which a stance leaves a little off
 		// the space's floor, to its top.
@@ -598,7 +697,7 @@ namespace Weltall
 		ApplyGearPose(Shape.Stand, Model.Bones);
 		ComputeGearBones(Model.Bones, Model.Scale);
 		const FReach Reach = ReachOf(Model);
-		Shape.ModelHeight = Reach.Above + Reach.Below;
+		Shape.ModelHeight = Shape.PerformerHeight > 0 ? Shape.PerformerHeight : Reach.Above + Reach.Below;
 		Shape.Sole = Reach.Below;
 		if (Shape.RaisedArms[0] != FFieldGearSprite::NoArm)
 		{
@@ -634,13 +733,23 @@ namespace Weltall
 		StandIn.bPlaced = false;
 		StandIn.bUnusable = true;
 		const FFieldGearSprite* Known = StandIn.Known;
-		FSource* Source = Known != nullptr ? SourceOf(Known->Kind, Known->Number, Known->Entry)
-										   : SourceOf(EFieldGearModelKind::BattleGear, static_cast<int16>(StandIn.PartyGear), 0);
-		if (Source == nullptr || Source->bUnreadable || Sprite.Resource == nullptr || Sprite.Resource->File == nullptr)
+		// A party gear, ridden or parked, as the player has its pilot drawn: another gear's model, its own over another's
+		// moves, or Id's red gear over Fei's own.
+		const bool bLooked = Known == nullptr || Known->bParked;
+		const uint8 PartyGear = static_cast<uint8>(Known != nullptr ? StandIn.ParkedGear : StandIn.PartyGear);
+		const FBattleGearDress::FPairing* Ids = bLooked && StandIn.Looks.WearsIdsGear(PartyGear) ? FBattleGearDress::IdsPairing(PartyGear) : nullptr;
+		const bool bWorn = bLooked && (Ids != nullptr || StandIn.Looks.WearsOwnModel(PartyGear));
+		const int16 Shown = static_cast<int16>(!bLooked ? StandIn.PartyGear : bWorn ? PartyGear : StandIn.Looks.PerformingGear(PartyGear));
+		FSource* Source = !bLooked		   ? SourceOf(Known->Kind, Known->Number, Known->Entry)
+						: Ids != nullptr ? SourceOf(EFieldGearModelKind::SceneEnemy, Ids->WearerScene, Ids->WearerEntry)
+										 : SourceOf(EFieldGearModelKind::BattleGear, Shown, 0);
+		FSource* Performer = bWorn ? SourceOf(EFieldGearModelKind::BattleGear, static_cast<int16>(StandIn.Looks.PerformingGear(PartyGear)), 0) : nullptr;
+		if (Source == nullptr || Source->bUnreadable || (Performer != nullptr && Performer->bUnreadable) || Sprite.Resource == nullptr
+			|| Sprite.Resource->File == nullptr)
 		{
 			return;
 		}
-		FShape* Shape = ShapeOf(*Source, Known, StandIn.PartyGear);
+		FShape* Shape = ShapeOf(*Source, Known, Shown, Performer);
 		if (Shape->bUnusable)
 		{
 			return;
@@ -728,6 +837,10 @@ namespace Weltall
 			Models.Free(Slot);
 			return;
 		}
+		for (std::size_t Bone = 1; Bone < Shape->DressShown.size() && Bone < Model->Bones.size(); ++Bone)
+		{
+			Model->Bones[Bone].bShown = Shape->DressShown[Bone];
+		}
 		StandIn.SpriteHeight = StandingHeight(*Sprite.Resource->File, Sprite.Resource->Tables);
 		StandIn.SpriteLowest = LowestStandingHeight(*Sprite.Resource->File, Sprite.Resource->Tables);
 		if (StandIn.SpriteHeight <= 0)
@@ -788,10 +901,14 @@ namespace Weltall
 			StandIn->Actor = Actor;
 			StandIn->bUnusable = true;
 		}
-		if (StandIn->Known != Known || StandIn->PartyGear != PartyGear)
+		const FCharacterLooks Looks = (Known == nullptr || Known->bParked) && Context.GameState != nullptr ? Context.GameState->CharacterLooks() : FCharacterLooks{};
+		const int32 ParkedGear = Known != nullptr && Known->bParked ? ParkedGearOf(*Known, Context.GameState) : -1;
+		if (StandIn->Known != Known || StandIn->PartyGear != PartyGear || StandIn->ParkedGear != ParkedGear || StandIn->Looks != Looks)
 		{
 			StandIn->Known = Known;
 			StandIn->PartyGear = PartyGear;
+			StandIn->ParkedGear = ParkedGear;
+			StandIn->Looks = Looks;
 			Make(*StandIn, Sprite, Vram);
 		}
 		if (StandIn->bUnusable)
@@ -846,10 +963,11 @@ namespace Weltall
 			StandIn->Actor = Key;
 			StandIn->bUnusable = true;
 		}
-		if (StandIn->Known != nullptr || StandIn->PartyGear != Sight.Gear)
+		if (StandIn->Known != nullptr || StandIn->PartyGear != Sight.Gear || StandIn->Looks != Sight.Looks)
 		{
 			StandIn->Known = nullptr;
 			StandIn->PartyGear = Sight.Gear;
+			StandIn->Looks = Sight.Looks;
 			Make(*StandIn, Sprite, Vram);
 		}
 		if (StandIn->bUnusable)

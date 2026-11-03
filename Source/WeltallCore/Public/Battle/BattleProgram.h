@@ -81,7 +81,7 @@ namespace Weltall
 		std::array<FVoiceSet, VoiceSetCount> VoiceSets{};
 		/**
 		 * The program keeps the battle camera after an enemy's queue write whose third byte is set, as Perfect Works Build
-		 * does (FBattleContext::KeepCamera): the French translation's.
+		 * does (FBattleContext::KeepCamera): the French and the Italian translations'.
 		 */
 		bool bQueueKeepsCamera = false;
 	};

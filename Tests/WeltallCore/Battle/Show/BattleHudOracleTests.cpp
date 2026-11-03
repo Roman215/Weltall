@@ -290,6 +290,8 @@ namespace
 			Channel = static_cast<uint8>(G.Next() & 0xFF);
 		}
 		Settings.WindowBlend = static_cast<uint8>(G.Next() % 4);
+		// Regurus' names as the disc has them, as the original draws them.
+		Settings.bRegurusNamedAsVierge = false;
 		const uint32 Frames = 16 + G.Next() % 65;
 		std::array<uint16, 3> Disabled{};
 		std::array<uint16, 3> Learned{};
@@ -1401,6 +1403,8 @@ namespace
 			Channel = static_cast<uint8>(G.Next() & 0xFF);
 		}
 		Settings.WindowBlend = static_cast<uint8>(G.Next() % 4);
+		// Regurus' names as the disc has them, as the original draws them.
+		Settings.bRegurusNamedAsVierge = false;
 		G.Next();
 		const bool bEtherRows = G.Next() % 4 == 0;
 		std::array<FSlotResult, 3> Results{};

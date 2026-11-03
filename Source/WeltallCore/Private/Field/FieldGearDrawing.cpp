@@ -282,9 +282,12 @@ namespace Weltall
 			const bool bPortRows = Model->TextureY >= FVram::Height;
 			Items.push_back({FirstSlot + Slot, nullptr, nullptr, Model->ShadowHalfWidth, Model->ShadowHalfDepth, Polygon, 1, bPortRows});
 			++Polygon;
-			for (const FGearBonePackets& Built : Model->BonePackets)
+			// A worn model's parts in the model's stead (FGearModels::Wear).
+			const std::vector<FGearBonePackets>& Packets = Model->Dress != nullptr ? Model->Dress->Packets() : Model->BonePackets;
+			const FMdlModel& Parts = Model->Dress != nullptr ? Model->Dress->Model().Model : *Model->Parts;
+			for (const FGearBonePackets& Built : Packets)
 			{
-				const FMdlPart& Part = Model->Parts->Parts[Built.Part];
+				const FMdlPart& Part = Parts.Parts[Built.Part];
 				const uint32 Count = static_cast<uint32>(Part.Primitives.size());
 				Items.push_back({FirstSlot + Slot, &Built, &Part, 0, 0, Polygon, Count, bPortRows});
 				Polygon += Count;

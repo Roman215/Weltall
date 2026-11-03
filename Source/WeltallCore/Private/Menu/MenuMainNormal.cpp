@@ -19,7 +19,6 @@ namespace Weltall
 		constexpr int16 NameStripX = 0x180;
 		constexpr int16 NameStripWidth = 0x28;
 		constexpr int16 NameStripRows = 13;
-		constexpr int32 NameBytes = 0x14;
 		/** The gold's window and digits, the time's. */
 		constexpr int32 GoldWindow = 0;
 		constexpr int32 TimeWindow = 1;
@@ -47,13 +46,7 @@ namespace Weltall
 	{
 		OpenNormalMenuWindows();
 		PlaySound(Effect::NormalMenuOpens);
-		for (int32 Slot = 0; Slot < 3; ++Slot)
-		{
-			if (Member(Slot) != FGameState::EmptySlot)
-			{
-				RenderMemberNames(Slot);
-			}
-		}
+		RenderPartyNames();
 		co_await RevealCommands(NormalArc);
 		co_await SlideParty(true, false);
 		ShowPlayTime();
@@ -91,7 +84,7 @@ namespace Weltall
 				break;
 			case EMenuCode::Right:
 				// The port's: the party arranged on its panels, the arc as it stands afterwards.
-				if (Services.bArrangesParty && Members > 1)
+				if (Services.bArrangesParty && CanArrangeParty())
 				{
 					co_await ArrangeParty();
 					DrawnCommand = 0xFF;
@@ -150,6 +143,17 @@ namespace Weltall
 		}
 	}
 
+	void FMenuMain::RenderPartyNames()
+	{
+		for (int32 Slot = 0; Slot < 3; ++Slot)
+		{
+			if (Member(Slot) != FGameState::EmptySlot)
+			{
+				RenderMemberNames(Slot);
+			}
+		}
+	}
+
 	void FMenuMain::RenderMemberNames(int32 Slot)
 	{
 		const uint8 Character = Member(Slot);
@@ -164,10 +168,9 @@ namespace Weltall
 		std::fill(NameImage.Units.begin(), NameImage.Units.end(), uint16{0});
 		if (Name != NoName)
 		{
-			const std::span<const uint8> Block = Services.Game->Block();
-			const std::size_t First = static_cast<std::size_t>(Name >> 1) * 2 * NameBytes;
-			RenderString(NameTyping, NameImage, Block.subspan(First), 0);
-			RenderString(NameTyping, NameImage, Block.subspan(First + NameBytes), 1);
+			const int32 First = Name >> 1 << 1;
+			RenderString(NameTyping, NameImage, ShownName(First), 0);
+			RenderString(NameTyping, NameImage, ShownName(First + 1), 1);
 		}
 		const FMenuMainTables& Tables = Resources.Main();
 		const std::size_t Pair = static_cast<std::size_t>(Strip / 2);

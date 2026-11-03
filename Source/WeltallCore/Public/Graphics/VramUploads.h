@@ -9,6 +9,21 @@
 
 namespace Weltall
 {
+	/** What an upload holds, as a player tells pictures apart: a texture pack's pictures of a kind may be left out. */
+	enum class EVramUploadKind : uint8
+	{
+		/** Told apart from none: a pack's picture of it always shows. */
+		Other,
+		Text,
+		Portraits,
+		MenusAndHud,
+		Characters,
+		Scenery,
+		ModelsAndEffects,
+	};
+
+	inline constexpr int32 VramUploadKindCount = 7;
+
 	/** One image the console uploaded into VRAM (LoadImage), as Beetle PSX HW's texture tracker knows it. */
 	struct FVramUpload
 	{
@@ -21,6 +36,7 @@ namespace Weltall
 		uint8 Greatest4 = 0;
 		uint8 Least8 = 0;
 		uint8 Greatest8 = 0;
+		EVramUploadKind Kind = EVramUploadKind::Other;
 	};
 
 	/** Part of an upload VRAM still holds: where it lies, and where it begins in its upload. */
@@ -45,7 +61,7 @@ namespace Weltall
 	class FVramUploadTracker
 	{
 	public:
-		WELTALLCORE_API void Upload(const FVramRect& Rect, std::span<const uint16> Units);
+		WELTALLCORE_API void Upload(const FVramRect& Rect, std::span<const uint16> Units, EVramUploadKind Kind = EVramUploadKind::Other);
 		WELTALLCORE_API void Copy(const FVramRect& From, int32 X, int32 Y);
 		WELTALLCORE_API void Fill(const FVramRect& Rect);
 		/** A readback of Rect, whose units' CRC-32 is Crc. */

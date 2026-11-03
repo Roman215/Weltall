@@ -20,6 +20,8 @@ namespace Weltall
 		constexpr std::size_t Bart = 3;
 		/** Gear command 37, Repair, whose fuel cost follows the gear's Repair parts. */
 		constexpr int32 RepairCommand = 37;
+		/** The Special after Repair that Fei as Id keeps in Xenogears as True Id. */
+		constexpr int32 TrueIdSpecial = 1;
 		constexpr uint16 SharperEyes = 0x0100;
 
 		uint8 AddByte(uint8 Value, uint8 Bonus)
@@ -187,6 +189,10 @@ namespace Weltall
 			{
 				const std::size_t Special = BattleGameState::SkillsOffset(Member.Character, Skills::Special);
 				BattleGameState::SetWord(State, Special, static_cast<uint16>(BattleGameState::Word(State, Special) & 0x8FFF));
+				if (Context.IsTrueId(Slot, TrueIdSpecial))
+				{
+					Context.Commands[FBattleContext::GearCommandIndex(Slot, RepairCommand + TrueIdSpecial)].FuelCost = 0;
+				}
 			}
 			if (Member.Gear == Yggdra)
 			{

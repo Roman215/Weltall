@@ -4,6 +4,7 @@
 #include "Foundation/Result.h"
 #include "Foundation/Types.h"
 #include "Media/DiscModFiles.h"
+#include "Media/DiscRawPatch.h"
 
 #include <array>
 #include <filesystem>
@@ -69,17 +70,29 @@ namespace Weltall
 		void SetModFiles(std::shared_ptr<const FDiscModFiles> Files) const { Mods = std::move(Files); }
 		/** The changes to the game's code that the mod's files in use need; none without a mod. */
 		FModProgramChanges ModChanges() const { return Mods ? Mods->Changes() : FModProgramChanges{}; }
-		/** No asset store and no mod: the disc's files as they are, which the exports read. */
+		/**
+		 * A patch of the image's raw sectors (a translation's movie patch) applied as sectors FirstLba to EndLba (not
+		 * included) are read, the ones it is made for, so a read elsewhere never waits for its index; none: the disc's own.
+		 */
+		void SetRawPatch(std::shared_ptr<const FDiscRawPatch> Patch, uint32 FirstLba = 0, uint32 EndLba = 0) const
+		{
+			RawPatch = std::move(Patch);
+			RawPatchSectors = {FirstLba, EndLba};
+		}
+		/** No asset store, no mod and no raw patch: the disc's files as they are, which the exports read. */
 		void UseDiscAlone() const
 		{
 			Assets.reset();
 			Mods.reset();
+			RawPatch.reset();
 		}
 		/**
 		 * A native file read in place of the disc's: the asset store's replacement (its own size taken as the record's),
 		 * else a mod's; none where neither has one.
 		 */
 		WELTALLCORE_API TResult<std::optional<FFileReplacement>> ReadReplacement(const FIndexRecord& Record) const;
+		/** The mod's file whose record starts at sector Lba, which the disc's file system reads in its file's place; none without one. */
+		WELTALLCORE_API TResult<std::optional<FFileReplacement>> ReadModFileAt(uint32 Lba) const;
 		/** The asset store's recording of a music sequence by its key (Weltall::MusicSequenceKey), none without one. */
 		WELTALLCORE_API TResult<std::optional<std::vector<uint8>>> ReadMusicReplacement(uint64 Key) const;
 		/** The player's messages the asset store gives, which the readers of the game's text put in place; none without them. */
@@ -104,5 +117,7 @@ namespace Weltall
 		uint32 Sectors;
 		mutable std::shared_ptr<FDiscAssetStore> Assets;
 		mutable std::shared_ptr<const FDiscModFiles> Mods;
+		mutable std::shared_ptr<const FDiscRawPatch> RawPatch;
+		mutable std::array<uint32, 2> RawPatchSectors{};
 	};
 }

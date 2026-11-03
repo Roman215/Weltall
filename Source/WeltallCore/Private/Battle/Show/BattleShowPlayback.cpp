@@ -5,6 +5,7 @@
 #include "Battle/BattleProgram.h"
 #include "Battle/Show/BattleShow.h"
 #include "Battle/Show/BattleShowVram.h"
+#include "Battle/Show/IdsBattleSprite.h"
 #include "Graphics/GteMath.h"
 #include "Graphics/GteVectors.h"
 #include "Graphics/SpriteFile.h"
@@ -33,6 +34,7 @@ namespace Weltall
 		constexpr uint8 HoldCode = 0xFF;
 		/** A party member's codes below 10h are its attack file's animations; from 10h they cast an effect. */
 		constexpr uint8 FirstEffectCode = 0x10;
+		constexpr uint8 NoIdsAnimation = 0xFF;
 		/** The result a countered target's record gives it (the reaction pose follows). */
 		constexpr uint8 Countered = 7;
 		/** A 3D performer's sequences: its approach, its walk, its walk home, its collapse, its return when the playback is dropped. */
@@ -523,7 +525,8 @@ namespace Weltall
 				--WaitRecords;
 				return EShowFlow::Done;
 			}
-			const uint8 Code = Record().Code;
+			// The member's command played as the record its player has it drawn as plays it.
+			const uint8 Code = Show.Context->DrawnCode(FBattleSprites::SlotOf(Sprite), Record().Code);
 			switch (Code)
 			{
 			case CastCode:
@@ -599,13 +602,19 @@ namespace Weltall
 			FSpriteExtra& Extra = Sprite.ExtraOf != nullptr ? const_cast<FSprite*>(Sprite.ExtraOf)->Extra : Sprite.Extra;
 			Extra.Signal = Result;
 			Extra.Owner = 0;
-			if (!IsResident(Sprite))
+			const uint8 IdsAnimation = Record().IdsAnimation;
+			if (IsDrawnAsId(Sprite) && (Code < FirstEffectCode || IdsAnimation != NoIdsAnimation))
+			{
+				// Fei drawn as Id: his one-press combos, and what would be an attack file's animation, from his own file.
+				Show.Sprites.SetAnimation(Sprite, IdsAnimation != NoIdsAnimation ? IdsAnimation : FIdsBattleSprite::AttackAnimation(static_cast<uint8>(Code)));
+			}
+			else if (!IsResident(Sprite) || IsDrawnAsId(Sprite))
 			{
 				if (Code >= FirstEffectCode)
 				{
 					// The character's effect: cast from its own pose below its limit, else from the plain one; the cast named
-					// the caster once it is done.
-					const uint8 Character = Show.Context->Slots[static_cast<std::size_t>(FBattleSprites::SlotOf(Sprite))].Occupant;
+					// the caster once it is done. Its codes count from the effects of the character whose attack file is drawn.
+					const uint8 Character = Show.Context->DrawnOccupant(FBattleSprites::SlotOf(Sprite));
 					const FBattleProgramTables& Program = *Show.Context->Program;
 					if (Character >= FBattleProgramTables::EffectCharacterCount)
 					{
@@ -1237,12 +1246,16 @@ namespace Weltall
 			return Call(Routine, 1, EPlayRoutine::WaitLoads);
 		case 1:
 		{
-			const uint8 Character = Show.Context->Slots[static_cast<std::size_t>(Slot)].Occupant;
+			const uint8 Character = Show.Context->DrawnOccupant(Slot);
 			TResult<FBattleSpriteFile> File = Show.ReadAttacks(Character);
 			if (!File)
 			{
 				Fail(static_cast<uint8>(EBattleShowFault::File));
 				return EShowFlow::Done;
+			}
+			if (Show.Context->PartyLooks().HasPurpleHair(Character))
+			{
+				File->RecolourPurpleHair();
 			}
 			ReleaseActionFile();
 			ActionFileData = std::make_unique<FBattleSpriteFile>(std::move(*File));
@@ -1580,6 +1593,13 @@ namespace Weltall
 	bool FBattlePlayback::IsResident(const FSprite& Sprite)
 	{
 		return Sprite.Resource != nullptr && Sprite.Resource->File != nullptr && Sprite.Resource->File->IsResident(Sprite.Resource->Tables);
+	}
+
+	bool FBattlePlayback::IsDrawnAsId(const FSprite& Sprite) const
+	{
+		const int32 Slot = FBattleSprites::SlotOf(Sprite);
+		return Slot >= 0 && Slot < FBattleContext::PartySlotCount && IsResident(Sprite)
+			&& Show.Context->PartyLooks().IsId(Show.Context->PartyCharacters[static_cast<std::size_t>(Slot)]);
 	}
 
 	int32 FBattlePlayback::HeadingTo(const FSprite& Sprite, const FSprite& Other) const

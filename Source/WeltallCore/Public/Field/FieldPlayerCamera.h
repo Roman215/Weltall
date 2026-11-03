@@ -28,6 +28,8 @@ namespace Weltall
 		float Tilt = 0.0f;
 		float Zoom = 0.0f;
 		bool bReset = false;
+		/** The mouse's notches of the zoom's binding, turned forward (the zoom has them too): what scrolls the port's lists. */
+		float Wheel = 0.0f;
 
 		void Add(const FFieldViewInput& More)
 		{
@@ -35,6 +37,7 @@ namespace Weltall
 			Tilt += More.Tilt;
 			Zoom += More.Zoom;
 			bReset = bReset || More.bReset;
+			Wheel += More.Wheel;
 		}
 	};
 

@@ -39,6 +39,8 @@ namespace Weltall
 		uint16 StickHeld = 0;
 		uint8 StickX = StickCentre;
 		uint8 StickY = StickCentre;
+		/** L1 and R1 among Held that zoom the view (FPadState::ZoomButtons). */
+		uint16 ZoomHeld = 0;
 	};
 
 	/** One step of the leader, kept for the party's other members to replay. */

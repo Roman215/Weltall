@@ -30,8 +30,11 @@ namespace Weltall
 	/** The shape of a role's picture in the menus: the hints' box for L1 and R1, a face button for the rest. */
 	WELTALLCORE_API EMenuIconSlot MenuIconSlotOf(uint16 Role);
 
-	/** The controller's button behind a role: the one the kernel's button map turns into that logical button. */
-	WELTALLCORE_API EPadButton MenuRoleButton(uint16 Role);
+	/**
+	 * The controller's button behind a role: the one the kernel's button map turns into that logical button, with or
+	 * without the Japanese commands' swap before it (FKernelPad::FirstPortButtons).
+	 */
+	WELTALLCORE_API EPadButton MenuRoleButton(uint16 Role, bool bJapaneseCommands);
 
 	/** One of a sprite sheet's own pictures of a PlayStation button: its shape, the symbol and the sheet's frame. */
 	struct FSheetButtonPicture
@@ -52,10 +55,23 @@ namespace Weltall
 	}};
 
 	/**
-	 * The battle HUD sheet's own pictures: the command ring's four face buttons, and the three attack buttons
-	 * as a bare symbol and as the cluster with that button lit (no Circle among either).
+	 * The menu sheet's own pictures with the Japanese commands: the Italian translation redraws the four face buttons'
+	 * frames as the buttons its swapped pad needs for them (the confirm's, the attacks' and cancel's).
 	 */
-	inline constexpr std::array<FSheetButtonPicture, 10> BattleHudButtonPictures{{
+	inline constexpr std::array<FSheetButtonPicture, 6> MenuSheetJapaneseCommandsPictures{{
+		{EMenuIconSlot::FaceButton, "Circle", 0xF9},
+		{EMenuIconSlot::FaceButton, "Square", 0xFA},
+		{EMenuIconSlot::FaceButton, "Triangle", 0xFB},
+		{EMenuIconSlot::FaceButton, "Cross", 0xFC},
+		{EMenuIconSlot::Hint, "L1", 0x164},
+		{EMenuIconSlot::Hint, "R1", 0x165},
+	}};
+
+	/**
+	 * The battle HUD sheet's own pictures: the command ring's four face buttons, the four as a bare symbol (Circle's
+	 * drawn by no attack) and the three attack buttons as the cluster with that button lit (no Circle among them).
+	 */
+	inline constexpr std::array<FSheetButtonPicture, 11> BattleHudButtonPictures{{
 		{EMenuIconSlot::FaceButton, "Circle", 0x0B},
 		{EMenuIconSlot::FaceButton, "Cross", 0x0C},
 		{EMenuIconSlot::FaceButton, "Square", 0x0D},
@@ -63,10 +79,41 @@ namespace Weltall
 		{EMenuIconSlot::Symbol, "Cross", 0x5D},
 		{EMenuIconSlot::Symbol, "Triangle", 0x5E},
 		{EMenuIconSlot::Symbol, "Square", 0x5F},
+		{EMenuIconSlot::Symbol, "Circle", 0x60},
 		{EMenuIconSlot::Cluster, "Cross", 0x07},
 		{EMenuIconSlot::Cluster, "Triangle", 0x08},
 		{EMenuIconSlot::Cluster, "Square", 0x09},
 	}};
+
+	/**
+	 * The battle HUD sheet's own pictures with the Japanese commands: the ring's as the game's, the symbols and the
+	 * clusters redrawn by the Italian translation for its swapped pad (no Cross lit in a cluster).
+	 */
+	inline constexpr std::array<FSheetButtonPicture, 11> BattleHudJapaneseCommandsPictures{{
+		{EMenuIconSlot::FaceButton, "Circle", 0x0B},
+		{EMenuIconSlot::FaceButton, "Cross", 0x0C},
+		{EMenuIconSlot::FaceButton, "Square", 0x0D},
+		{EMenuIconSlot::FaceButton, "Triangle", 0x0E},
+		{EMenuIconSlot::Symbol, "Circle", 0x5D},
+		{EMenuIconSlot::Symbol, "Square", 0x5E},
+		{EMenuIconSlot::Symbol, "Triangle", 0x5F},
+		{EMenuIconSlot::Symbol, "Cross", 0x60},
+		{EMenuIconSlot::Cluster, "Circle", 0x07},
+		{EMenuIconSlot::Cluster, "Square", 0x08},
+		{EMenuIconSlot::Cluster, "Triangle", 0x09},
+	}};
+
+	/** The menu sheet's own pictures in a game with or without the Japanese commands. */
+	inline std::span<const FSheetButtonPicture> MenuSheetButtonPicturesOf(bool bJapaneseCommands)
+	{
+		return bJapaneseCommands ? std::span<const FSheetButtonPicture>(MenuSheetJapaneseCommandsPictures) : std::span<const FSheetButtonPicture>(MenuSheetButtonPictures);
+	}
+
+	/** The battle HUD sheet's own pictures in a game with or without the Japanese commands. */
+	inline std::span<const FSheetButtonPicture> BattleHudButtonPicturesOf(bool bJapaneseCommands)
+	{
+		return bJapaneseCommands ? std::span<const FSheetButtonPicture>(BattleHudJapaneseCommandsPictures) : std::span<const FSheetButtonPicture>(BattleHudButtonPictures);
+	}
 
 	/** Between the keys of an icon that shows several keyboard keys as one key cap (the directional buttons'). */
 	inline constexpr char MenuKeysSeparator = '|';
@@ -137,6 +184,9 @@ namespace Weltall
 		 */
 		WELTALLCORE_API void PlacePrompt(std::span<FMenuPrimitive> Primitives, const IButtonGlyphs& Glyphs);
 
+		/** Whether the game has the Japanese commands (FKernelPad::HasJapaneseCommands), which turn each role into another button. */
+		WELTALLCORE_API void SetJapaneseCommands(bool bInJapaneseCommands);
+
 		const FVram& Pictures() const { return PictureVram; }
 
 	private:
@@ -190,6 +240,7 @@ namespace Weltall
 		/** The sprites a text's cells cut so far: each one's place as the cells name it, and the pieces it grew by. */
 		std::vector<std::pair<uint32, uint32>> TextCuts;
 		int32 RolesKnown = 0;
+		bool bJapaneseCommands = false;
 		const IButtonGlyphs* RolesOf = nullptr;
 		uint32 RolesRevision = 0;
 		/** The shelf the next picture goes on: its page, its top, how far along it is filled and its height. */

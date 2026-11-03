@@ -54,6 +54,8 @@ namespace Weltall
 		uint32 FirstShadow = 0;
 		std::vector<FBattleKeptCloth> Cloths;
 		FBattleBackdropFrame Backdrop;
+		/** The HUD's parts that move between frames (those with a blend key), as the menus' builder takes a frame before. */
+		FMenuFrame Hud;
 	};
 
 	/**

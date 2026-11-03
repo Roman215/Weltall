@@ -86,7 +86,7 @@ namespace Weltall
 			}
 		}
 		Panel.Portrait.clear();
-		Sheet.Draw(FirstFacesFrame + Character, Places.X[FMenuPanelPlaces::Portrait], Places.Y[FMenuPanelPlaces::Portrait] + Down, FullScale, Panel.Portrait);
+		Sheet.Draw(FirstFacesFrame + DrawnCharacter(Character), Places.X[FMenuPanelPlaces::Portrait], Places.Y[FMenuPanelPlaces::Portrait] + Down, FullScale, Panel.Portrait);
 
 		// The name from its pair's strip, in its plane.
 		FMenuPrimitive& Name = Panel.Name;

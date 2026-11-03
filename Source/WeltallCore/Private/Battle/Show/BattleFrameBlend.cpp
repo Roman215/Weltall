@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdlib>
+#include <iterator>
 
 namespace Weltall
 {
@@ -188,6 +189,9 @@ namespace Weltall
 		Kept.bFade = std::any_of(Frame.Order.begin(), Frame.Order.end(), [](const FBattleShowLink& Link) { return Link.Kind == EBattleShowLink::Fade; });
 		Kept.Fade = Frame.Fade;
 		Kept.Backdrop = Frame.Backdrop;
+		Kept.Hud.Primitives.clear();
+		std::copy_if(Frame.Hud.Primitives.begin(), Frame.Hud.Primitives.end(), std::back_inserter(Kept.Hud.Primitives),
+			[](const FMenuPrimitive& Primitive) { return Primitive.BlendKey != 0; });
 
 		Kept.Anchors.clear();
 		for (const FBattleShowDrawer& Drawer : Frame.Drawers)

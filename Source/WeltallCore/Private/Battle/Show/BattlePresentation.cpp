@@ -292,12 +292,27 @@ namespace Weltall
 		}
 		Stage.emplace(std::move(*StageFiles));
 		SceneGraphics.emplace(std::move(*Graphics));
+		IdsSprite.reset();
+		for (int32 Slot = 0; Slot < FBattleContext::PartySlotCount; ++Slot)
+		{
+			if (Context->PartyLooks().IsId(Context->PartyCharacters[static_cast<std::size_t>(Slot)]) && !IdsSprite)
+			{
+				TResult<FIdsBattleSprite> Read = FIdsBattleSprite::Load(*Files.Image, *Files.Index);
+				if (!Read)
+				{
+					Show.Stop(EBattleShowFault::File);
+					return;
+				}
+				IdsSprite.emplace(std::move(*Read));
+			}
+		}
 		FBattleShowSetup Setup;
 		Setup.Context = Context;
 		Setup.Arctangents = Files.Arctangents;
 		Setup.SpriteFiles = Files.SpriteFiles;
 		Setup.Stage = &*Stage;
 		Setup.SceneGraphics = &*SceneGraphics;
+		Setup.IdsSprite = IdsSprite ? &*IdsSprite : nullptr;
 		Setup.Sheet = Files.Sheet;
 		Setup.MarkerModel = Files.MarkerModel;
 		Setup.ObjectFiles = Files.ObjectFiles;

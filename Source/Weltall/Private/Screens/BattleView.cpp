@@ -25,7 +25,7 @@ public:
 	{
 	}
 
-	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override
+	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override
 	{
 		AddBattleFramePasses(GraphBuilder, *Mesh, *Vram, *IconVram, Draw, Output, Area);
 	}
@@ -42,9 +42,10 @@ private:
 class FBattleTransitionFrame final : public IScreenFrame
 {
 public:
-	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override
+	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override
 	{
-		AddBattleTransitionPasses(GraphBuilder, Picture.IsValid() ? Picture->Texture(GraphBuilder, Area.Size()) : nullptr, Draw, Output, Area);
+		const FScreenArea Rows = Area.Rows(Weltall::PlayScreen);
+		AddBattleTransitionPasses(GraphBuilder, Picture.IsValid() ? Picture->Texture(GraphBuilder, Rows) : nullptr, Draw, Output, Rows);
 	}
 
 	FBattleTransitionDraw Draw;
@@ -55,9 +56,10 @@ public:
 class FBattleScreenWaveFrame final : public IScreenFrame
 {
 public:
-	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Area) const override
+	virtual void AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FScreenArea& Area) const override
 	{
-		Buffers->AddPasses(GraphBuilder, Picture->Texture(GraphBuilder, Area.Size()), Draw, Output, Area);
+		const FScreenArea Rows = Area.Rows(Weltall::PlayScreen);
+		Buffers->AddPasses(GraphBuilder, Picture->Texture(GraphBuilder, Rows), Draw, Output, Rows);
 	}
 
 	FBattleScreenWaveDraw Draw;
@@ -65,10 +67,20 @@ public:
 	TSharedPtr<FBattleScreenWaveBuffers> Buffers;
 };
 
+namespace
+{
+	/**
+	 * Further than any of the HUD's moving parts goes in one of the show's frames (the turn-start icon's flight, a window's
+	 * growth, a gauge filled or emptied at once): a part that moved further was laid out afresh, and is drawn where it is.
+	 */
+	constexpr float HudBlendReach = 64.0f;
+}
+
 FBattleView::FBattleView(const FFieldRenderOptions& InOptions)
 	: Options(InOptions), Vram(ShareRenderResource(new FVramTexture())), NoMesh(MakeShared<const FFieldSceneMesh>(Weltall::FFieldScene{})),
 	  IconVram(ShareRenderResource(new FVramTexture()))
 {
+	HudBuilder.BlendReach = HudBlendReach;
 }
 
 FBattleView::~FBattleView() = default;
@@ -182,11 +194,11 @@ TSharedPtr<const IScreenFrame> FBattleView::Capture(const Weltall::FBattleGamePr
 		Icons.PlacePrompt(HudFrame.Primitives, *Glyphs);
 	}
 	HudFrame.Number = Frame.Step + 1;
-	HudBuilder.Build(HudFrame, nullptr, 1.0f, Next->Draw.Hud);
+	HudBuilder.Build(HudFrame, bBlends && bPreviousFollows ? &PreviousKept.Hud : nullptr, Alpha, Next->Draw.Hud);
 	if (Glyphs != nullptr && (!HudBuilder.Icons.empty() || !HudBuilder.TextCells.empty()))
 	{
 		// The pictures by their places in the list first: a text's buttons add primitives to it.
-		Icons.Apply(Next->Draw.Hud, HudBuilder.Icons, *Glyphs, Program.HudSheet(), Weltall::BattleHudButtonPictures);
+		Icons.Apply(Next->Draw.Hud, HudBuilder.Icons, *Glyphs, Program.HudSheet(), Weltall::BattleHudButtonPicturesOf(bJapaneseCommands));
 		Icons.ApplyToText(Next->Draw.Hud, HudBuilder.TextCells, *Glyphs);
 		IconVram->Follow(Icons.Pictures());
 	}

@@ -96,6 +96,7 @@ namespace Weltall
 			Party.ShownState = 0xFF;
 			Party.bStoresAp = false;
 			Party.Deathblow = 0;
+			Party.IdsPress = BattleMenuEvents::Nothing;
 			Context.CurrentAttack = 0;
 			Party.ApAtStart = Context.ApRecords[Slot].ApPerTurn;
 			Party.ApLeft = Party.ApAtStart;
@@ -471,6 +472,7 @@ namespace Weltall
 			for (FBattlePerformance& Record : Context.Performances)
 			{
 				Record.Code = 0xFF;
+				Record.IdsAnimation = 0xFF;
 				Record.Actor = Actor;
 				Record.Targets = Bit(Context, Target);
 			}

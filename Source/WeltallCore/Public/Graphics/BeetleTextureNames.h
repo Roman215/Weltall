@@ -51,6 +51,8 @@ namespace Weltall
 		int32 V = 0;
 		int32 Width = 0;
 		int32 Height = 0;
+		/** What its upload holds. */
+		EVramUploadKind Kind = EVramUploadKind::Other;
 
 		bool operator==(const FBeetleTexturePart&) const = default;
 	};

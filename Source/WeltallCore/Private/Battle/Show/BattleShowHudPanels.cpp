@@ -673,7 +673,7 @@ namespace Weltall
 		{
 			LinkPairs(Panel.Icon, Panel.IconCount, Panel.IconBuffer);
 		}
-		LinkPairs(Flight.Icon, Flight.Count, Flight.Buffer);
+		LinkPairs(Flight.Icon, Flight.Count, Flight.Buffer, BattleHudBlendKeys::Flight(0));
 		for (const FBattleHudPanel& Panel : Panels)
 		{
 			if (!Panel.bIconShown)
@@ -709,7 +709,7 @@ namespace Weltall
 			if (Panel.bIconShown)
 			{
 				LinkPairs(Panel.RestingIcon, Panel.RestingIconCount, RestingIconBuffer);
-				Link(Panel.Bar[Buffer]);
+				Link(Panel.Bar[Buffer], BattleHudBlendKeys::StoredBar(static_cast<uint32>(Slot)));
 			}
 		}
 	}

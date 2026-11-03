@@ -64,8 +64,13 @@ namespace Weltall
 
 	TResult<std::unique_ptr<FGameLoop>> FGameLoop::EnterWorldMap(FGameSession& Session)
 	{
-		std::unique_ptr<FGameLoop> Loop(new FGameLoop(Session));
 		Session.Kernel().NextProgram = EGameProgram::WorldMap;
+		return GoOn(Session);
+	}
+
+	TResult<std::unique_ptr<FGameLoop>> FGameLoop::GoOn(FGameSession& Session)
+	{
+		std::unique_ptr<FGameLoop> Loop(new FGameLoop(Session));
 		if (auto Error = Loop->RunNextProgram())
 		{
 			return *Error;

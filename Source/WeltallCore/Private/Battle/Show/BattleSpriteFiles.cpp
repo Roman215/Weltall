@@ -1,6 +1,7 @@
 #include "Battle/Show/BattleSpriteFiles.h"
 
 #include "Foundation/LittleEndian.h"
+#include "Game/EllysHair.h"
 #include "Media/GameFileIndex.h"
 
 #include <algorithm>
@@ -136,6 +137,18 @@ namespace Weltall
 	{
 		return ParseFile(ReadWhole(*VoiceImage, *VoiceIndex, PartyDirectory, static_cast<int32>(Characters[static_cast<std::size_t>(Character)].Sprite)),
 			"character " + std::to_string(Character) + "'s battle sprite");
+	}
+
+	void FBattleSpriteFile::RecolourPurpleHair()
+	{
+		EllysHair::RecolourSpriteFile(Main);
+		for (std::optional<FSpriteFile>& Section : SectionSprites)
+		{
+			if (Section)
+			{
+				EllysHair::RecolourSpriteFile(*Section);
+			}
+		}
 	}
 
 	TResult<FBattleSpriteFile> FBattleSpriteFiles::ReadAttacks(int32 Character) const

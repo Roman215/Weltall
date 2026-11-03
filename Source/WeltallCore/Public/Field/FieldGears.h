@@ -22,6 +22,16 @@ namespace Weltall
 	public:
 		virtual ~IFieldGearFiles() = default;
 		virtual TResult<FGearFiles> Read(int32 GearModel) = 0;
+		/**
+		 * Id's red gear made to be worn over Fei's gear FeisGear's model (its battle model's, the same), its parts and
+		 * textures for Place; none for another gear or files that cannot be read.
+		 */
+		virtual std::shared_ptr<const IGearDress> IdsDress(uint8 FeisGear, const FGearTexturePlace& Place) = 0;
+		/**
+		 * Gear WearerGear's model made to be worn over gear PerformerGear's (its battle model's, as the battle pairs them:
+		 * Regurus over Vierge), its parts and textures for Place; none without a pairing or files that cannot be read.
+		 */
+		virtual std::shared_ptr<const IGearDress> GearDress(uint8 PerformerGear, uint8 WearerGear, const FGearTexturePlace& Place) = 0;
 	};
 
 	/** The gears' files on the disc, read at once. */
@@ -30,6 +40,8 @@ namespace Weltall
 	public:
 		FFieldDiscGearFiles(const FCdImage& InImage, const FGameFileIndex& InIndex) : Image(&InImage), Index(&InIndex) {}
 		WELTALLCORE_API TResult<FGearFiles> Read(int32 GearModel) override;
+		WELTALLCORE_API std::shared_ptr<const IGearDress> IdsDress(uint8 FeisGear, const FGearTexturePlace& Place) override;
+		WELTALLCORE_API std::shared_ptr<const IGearDress> GearDress(uint8 PerformerGear, uint8 WearerGear, const FGearTexturePlace& Place) override;
 
 	private:
 		const FCdImage* Image;

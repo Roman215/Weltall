@@ -4,9 +4,11 @@
 
 #include "Battle/BattleScene.h"
 #include "Field/FieldMap.h"
+#include "Game/ClearFile.h"
 #include "Game/FieldMovie.h"
 #include "Game/GameMenus.h"
 #include "Game/GameSession.h"
+#include "Game/KeepElly.h"
 #include "Sound/GameSoundSession.h"
 #include "Text/MesWindow.h"
 
@@ -28,6 +30,16 @@ namespace Weltall
 		/** The result the Menu leaves when it loaded a save, and the title's mode, whose map sends the loaded game on itself. */
 		constexpr uint8 SaveLoadedResult = 2;
 		constexpr uint8 LoadGameMenu = 2;
+		/** The clear file's save, the port's own menu mode (EMenuMode::ClearFile). */
+		constexpr uint8 ClearFileMenu = 0x10;
+		/** The ending's last picture shows alone this long before Confirm offers the clear file, so a press through the ending skips nothing. */
+		constexpr int32 OfferDelayVblanks = 180;
+		/** The door pause's unit, a tenth of a second, in the console's 60 vertical blanks a second. */
+		constexpr int32 VblanksPerTenth = 6;
+		/** Confirm fades the screen to black over this many of the field's ticks before the clear file's save opens. */
+		constexpr int32 SaveFadeTicks = 30;
+		/** The logical button that confirms, which takes the offer. */
+		constexpr uint16 ConfirmButton = 0x20;
 		/** The event variable that counts the story's progress, by its address. */
 		constexpr uint32 StoryProgressVariable = 0;
 		/** A formation record's flags. */
@@ -92,6 +104,7 @@ namespace Weltall
 		Services.Unreached = &Session.Unreached();
 		Services.TranslationCreditsCue = FBootNotice::TranslationCreditsCue(Session.Index());
 		Program->FieldRuntime = std::make_unique<FFieldRuntime>(Services);
+		Program->FieldRuntime->SetMessageLog(Session.MessageLog());
 		Program->FollowSettings();
 		if (auto Error = Program->EnterFirstMap())
 		{
@@ -107,7 +120,9 @@ namespace Weltall
 		FieldRuntime->SetAlwaysRun(Settings.Controls.bAlwaysRun);
 		FieldRuntime->SetAnalogMovement(Settings.Controls.bAnalogMovement);
 		FieldRuntime->SetWalkIntoDoors(Settings.Controls.bWalkIntoDoors);
+		FieldRuntime->SetDoorPause(Settings.Controls.DoorPause * VblanksPerTenth);
 		FieldRuntime->SetTextSpeed(Settings.TextSpeed);
+		FieldRuntime->SetAutoAdvance(Settings.AutoAdvance);
 		FieldRuntime->SetEncounterRate(Settings.Balance.Encounters);
 		Culling = Settings.Field.Culling;
 		Presenter->SetPilotStandIns(Settings.Field.bDetailedPilots);
@@ -199,6 +214,12 @@ namespace Weltall
 				return std::nullopt;
 			}
 			Menu.reset();
+			if (bClearFileMenu)
+			{
+				// The game is over: it starts again from the title, as the console is reset after the ending.
+				ProgramState = EGameProgramState::SoftReset;
+				return std::nullopt;
+			}
 			// The disc change leaves the other disc in the drive.
 			FieldRuntime->SetDisc(static_cast<uint8>(Session.DiscNumber() + 1));
 			// The menu's gears, when it drew any, left the GTE their light.
@@ -226,7 +247,55 @@ namespace Weltall
 		{
 			return StartCredits();
 		}
+		if (AdvanceClearFileOffer(HeldPerVblank))
+		{
+			return StartClearFileMenu();
+		}
 		return TakeRequest();
+	}
+
+	bool FFieldProgram::OffersClearFile() const
+	{
+		return SaveFadeLeft < 0 && EndingVblanks >= OfferDelayVblanks;
+	}
+
+	bool FFieldProgram::AdvanceClearFileOffer(std::span<const FPadState> HeldPerVblank)
+	{
+		if (SaveFadeLeft > 0)
+		{
+			return --SaveFadeLeft == 0;
+		}
+		if (!ClearFile::IsEndingWaiting(FieldRuntime->Context()))
+		{
+			EndingVblanks = 0;
+			bConfirmHeld = true;
+			return false;
+		}
+		bool bPressed = false;
+		for (const FPadState Held : HeldPerVblank)
+		{
+			const bool bConfirm = (Session.Pad().FirstPortButtons(Held) & ConfirmButton) != 0;
+			bPressed = bPressed || (bConfirm && !bConfirmHeld && OffersClearFile());
+			bConfirmHeld = bConfirm;
+			++EndingVblanks;
+		}
+		if (bPressed)
+		{
+			// Darkened as a script's fade-out (B4) darkens the field: the map's fade layer over the picture.
+			FieldRuntime->Context().Render.StartFadeOut(SaveFadeTicks);
+			SaveFadeLeft = SaveFadeTicks;
+		}
+		return false;
+	}
+
+	std::optional<FError> FFieldProgram::StartClearFileMenu()
+	{
+		ClearFile::Make(Session.Game());
+		bClearFileMenu = true;
+		FFieldRequest Request;
+		Request.Kind = EFieldRequest::Menu;
+		Request.MenuMode = ClearFileMenu;
+		return StartMenu(Request);
 	}
 
 	std::optional<FError> FFieldProgram::StartCredits()
@@ -271,6 +340,7 @@ namespace Weltall
 		{
 			return Error;
 		}
+		KeepElly::Hold(Session.Game());
 		FieldRuntime->SetViewTurn(PlayerCamera.ViewTurn());
 		FieldRuntime->SetShownView(PlayerCamera.ShownView().View.View);
 		// Nothing blends across a map change.

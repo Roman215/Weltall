@@ -1,5 +1,7 @@
+#include "Field/FieldRenderState.h"
 #include "Game/PsxRandom.h"
 #include "Gears/GearShopModel.h"
+#include "Menu/MenuGearView.h"
 #include "Support/GameDiscs.h"
 #include "Support/GearDigest.h"
 #include "Support/GearDisc.h"
@@ -145,4 +147,21 @@ TEST_CASE("Every gear the shop shows loads under the shop's own light, and one n
 	// Open makes the module afresh.
 	REQUIRE_FALSE(Model.Open());
 	CHECK_FALSE(Model.Show(Twelve, Shop->Gears.Files[static_cast<std::size_t>(Twelve.GearModel)]));
+}
+
+TEST_CASE("The gear shop lights its gear with one grey light, at the loads and at the drawing", "[Gears]")
+{
+	const FGte Build = FGearShopModel::ShopBuildLighting();
+	const FFieldGearLights& Drawn = GearShopLights();
+	for (int32 Channel = 0; Channel < 3; ++Channel)
+	{
+		INFO("channel " << Channel);
+		const std::size_t Row = static_cast<std::size_t>(Channel);
+		CHECK(Build.ColorMatrix.M[Row][0] == FGearShopModel::ColorScale);
+		CHECK(Build.ColorMatrix.M[Row][1] == 0);
+		CHECK(Build.ColorMatrix.M[Row][2] == 0);
+		CHECK(Drawn.Words[static_cast<std::size_t>(FFieldGearLights::ColorWord(0, Channel))] == FGearShopModel::ColorScale);
+		CHECK(Drawn.Words[static_cast<std::size_t>(FFieldGearLights::ColorWord(1, Channel))] == 0);
+		CHECK(Drawn.Words[static_cast<std::size_t>(FFieldGearLights::ColorWord(2, Channel))] == 0);
+	}
 }

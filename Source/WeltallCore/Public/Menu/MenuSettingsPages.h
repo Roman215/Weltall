@@ -27,6 +27,8 @@ namespace Weltall
 		Modding,
 		/** Perfect Works Build's parts, opened from Modding's row of the mod where the game found it. */
 		PerfectWorks,
+		/** The Italian translation's choices, opened from Modding's row of it where the game found its patch. */
+		Italian,
 	};
 
 	/** How many pages L1 and R1 turn through, from Display. */

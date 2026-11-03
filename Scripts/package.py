@@ -7,7 +7,6 @@
     python Scripts/package.py --revision my-branch    # another commit than HEAD
     python Scripts/package.py --check-only Shipping   # start an existing package and read its log
     python Scripts/package.py --archive Shipping      # also write the package as a zip archive for a release
-    python Scripts/package.py --expansion             # with the expanded second disc as far as it is written
 
 Each package is built from a committed revision, exported into out/package/Weltall: a project tree of
 its own, so its build, cook and staging never lock the files of the editor or of another checkout. The
@@ -16,9 +15,8 @@ Weltall.sh), and the discs of the checkout's Games folder are hard-linked into a
 The full log of each build is out/builds/<Configuration>.log (Windows) or <Configuration>-Linux.log.
 
 The port's own story documents (Content/Story) are exported with the sources and staged as loose text files
-beside the cooked content; the check counts them in the export and finds that count in the package's log.
-The expanded second disc (Content/Story/disc2) is not written to its end yet, so a package leaves it out and
-plays the original's second disc; --expansion keeps it, for trying what there is, and marks the archive's name.
+beside the cooked content; the check counts them in the export and finds that count in the package's log. Its
+example scenes (Content/Examples) are staged the same way, for the Modding page to copy into Mods as an expansion.
 
 A package holds no debug files: the executable names its symbols where the build left them, in
 out/package/Weltall/Binaries. With --archive, each package that built and ran is also written to
@@ -50,8 +48,8 @@ import android
 
 REPO = Path(__file__).resolve().parent.parent
 STORY = "Content/Story"
-EXPANSION = STORY + "/disc2"
-PROJECT_PATHS = ["Weltall.uproject", "Config", "Content/Story", "Shaders", "Source", "Docs", "Build/Windows/Application.ico", "Build/Android/res"]
+PROJECT_PATHS = ["Weltall.uproject", "Config", "Content/Story", "Content/Examples", "Shaders", "Source", "Docs", "Build/Windows/Application.ico",
+                 "Build/Android/res"]
 PROJECT = REPO / "out" / "package" / "Weltall"
 BUILDS = REPO / "out" / "builds"
 RELEASES = REPO / "out" / "releases"
@@ -112,9 +110,8 @@ def project_version():
     return found.group(1).strip()
 
 
-def export_revision(revision, expansion):
-    """Writes the project's files at revision into PROJECT, touching only those whose bytes changed; the expanded
-    second disc's documents only with expansion."""
+def export_revision(revision):
+    """Writes the project's files at revision into PROJECT, touching only those whose bytes changed."""
     # An older revision may lack a path (the icons came later): git archive refuses one it does not have.
     present = [path for path in PROJECT_PATHS
                if subprocess.run(["git", "-C", str(REPO), "cat-file", "-e", f"{revision}:{path}"], capture_output=True).returncode == 0]
@@ -123,7 +120,7 @@ def export_revision(revision, expansion):
     wanted = set()
     with tarfile.open(fileobj=io.BytesIO(archive)) as tar:
         for member in tar.getmembers():
-            if not member.isfile() or (not expansion and member.name.startswith(EXPANSION + "/")):
+            if not member.isfile():
                 continue
             target = PROJECT / member.name
             wanted.add(target)
@@ -374,8 +371,6 @@ def archive(configuration, platform):
         return False
     revision = revision_file.read_text(encoding="utf-8").strip()
     name = f"Weltall-{revision}-{platform.name}" + ("" if configuration == "Shipping" else f"-{configuration}")
-    if (package / "Weltall" / EXPANSION).is_dir():
-        name += "-Expansion"
     RELEASES.mkdir(parents=True, exist_ok=True)
     # Local disc images and exports never enter a release archive.
     kept = {"games"} | {folder.casefold() for folder in PLAYER_FOLDERS}
@@ -406,9 +401,6 @@ def archive_android(configuration, package):
         print(f"{configuration}: no Android package to archive")
         return False
     name = f"Weltall-{revision_file.read_text(encoding='utf-8').strip()}-Android" + ("" if configuration == "Shipping" else f"-{configuration}")
-    # The story documents are inside the APK: whether they hold the expanded second disc is the export's to say.
-    if (PROJECT / EXPANSION).is_dir():
-        name += "-Expansion"
     RELEASES.mkdir(parents=True, exist_ok=True)
     release = RELEASES / f"{name}.apk"
     shutil.copyfile(apk, release)
@@ -430,7 +422,6 @@ def main():
     parser.add_argument("--check-only", action="store_true", help="check existing packages without building")
     parser.add_argument("--check-seconds", type=int, default=60, help="how long the check runs each package")
     parser.add_argument("--archive", action="store_true", help="write each package that ran as a zip archive in out/releases")
-    parser.add_argument("--expansion", action="store_true", help="keep the expanded second disc's documents, unfinished as they are")
     args = parser.parse_args()
     for configuration in args.configurations:
         if configuration not in CONFIGURATIONS:
@@ -438,6 +429,8 @@ def main():
 
     platform = PLATFORMS[args.platform]
     ok = True
+    # A configuration whose build failed is not checked: its folder still holds the previous package.
+    checked_configurations = list(args.configurations)
     if not args.check_only:
         ue_root = setting("UE_ROOT")
         if platform.name == "Linux":
@@ -448,19 +441,21 @@ def main():
             keystore = setting("ANDROID_KEYSTORE", required="Shipping" in args.configurations)
         revision = subprocess.run(["git", "-C", str(REPO), "rev-parse", "--short", args.revision],
                                   capture_output=True, text=True, check=True).stdout.strip()
-        print(f"Exporting {revision} into {PROJECT.relative_to(REPO)}" + (" with the expanded second disc" if args.expansion else ""))
-        export_revision(args.revision, args.expansion)
+        print(f"Exporting {revision} into {PROJECT.relative_to(REPO)}")
+        export_revision(args.revision)
         if platform.name == "Android":
             android.prepare(PROJECT, project_version(), keystore, setting("ANDROID_KEYSTORE_PASSWORD") if keystore else None)
         BUILDS.mkdir(parents=True, exist_ok=True)
         for configuration in args.configurations:
             built = build(configuration, platform, ue_root)
             ok &= built
+            if not built:
+                checked_configurations.remove(configuration)
             if built:
                 (BUILDS / configuration / platform.name / "Revision.txt").write_text(revision + "\n", encoding="utf-8")
                 if platform.name != "Android":
                     link_games(configuration, platform)
-    for configuration in args.configurations:
+    for configuration in checked_configurations:
         checked = check(configuration, platform, args.check_seconds)
         ok &= checked
         if checked and args.archive:

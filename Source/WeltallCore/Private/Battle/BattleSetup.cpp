@@ -72,6 +72,31 @@ namespace Weltall
 			}
 		}
 
+		/** The code a command plays: its own animation where it names one, else its number. */
+		uint8 PlayedCode(const FBattleCommand& Command, int32 Number)
+		{
+			return static_cast<uint8>((Command.Flags & BattleCommandFlags::OwnAnimation) != 0 ? Command.Animation : Number);
+		}
+
+		/**
+		 * For each code Own's commands play, the code Drawn's same command plays. Where several of Own's play one code, the
+		 * lowest command's stands: the later ones (the counterattack, Deathblows the second Citan and the grown Emeralda never
+		 * learn) are never played as their member's own.
+		 */
+		std::array<uint8, 256> DrawnCodes(const FBattleTables::FCharacterCommands& Own, const FBattleTables::FCharacterCommands& Drawn)
+		{
+			std::array<uint8, 256> Codes{};
+			for (std::size_t Code = 0; Code < Codes.size(); ++Code)
+			{
+				Codes[Code] = static_cast<uint8>(Code);
+			}
+			for (int32 Command = FBattleTables::CharacterCommandCount - 1; Command >= 0; --Command)
+			{
+				Codes[PlayedCode(Own[static_cast<std::size_t>(Command)], Command)] = PlayedCode(Drawn[static_cast<std::size_t>(Command)], Command);
+			}
+			return Codes;
+		}
+
 		/** Each party member's combatant from its character and gear records, and the command tables. */
 		void LoadCombatants(FBattleContext& Context, const FBattleTables& Tables)
 		{
@@ -106,6 +131,9 @@ namespace Weltall
 				Context.Combatants[static_cast<std::size_t>(Slot)] = FBattleCombatant::FromRecord(Record);
 				const FBattleTables::FCharacterCommands& Own = Tables.CharacterCommands(Character);
 				std::copy(Own.begin(), Own.end(), Context.Commands.begin() + FBattleContext::PartyCommandIndex(Slot, 0));
+				const uint8 Drawn = Context.PartyLooks().Drawn(Character);
+				Context.DrawnCodes[static_cast<std::size_t>(Slot)] =
+					Drawn != Character ? std::optional(DrawnCodes(Own, Tables.CharacterCommands(Drawn))) : std::nullopt;
 				const FBattleTables::FGearCommands& GearOwn = Tables.GearCommands(Gear);
 				std::copy(GearOwn.begin(), GearOwn.end(), Context.Commands.begin() + FBattleContext::GearCommandIndex(Slot, 0));
 			}
@@ -429,6 +457,7 @@ namespace Weltall
 		const FBattleRuleOptions RuleOptions = Context.RuleOptions;
 		const bool bPerfectWorksRebalance = Context.bPerfectWorksRebalance;
 		const FGameBalance Balance = Context.Balance;
+		const EMesAutoAdvance AutoAdvance = Context.AutoAdvance;
 		Context = FBattleContext{};
 		Context.GameState = State;
 		Context.Random = Random;
@@ -441,6 +470,7 @@ namespace Weltall
 		Context.RuleOptions = RuleOptions;
 		Context.bPerfectWorksRebalance = bPerfectWorksRebalance;
 		Context.Balance = Balance;
+		Context.AutoAdvance = AutoAdvance;
 		Context.Formation = Formation;
 		Context.SceneFile = Scene.Bytes();
 		// The battle's memory starts cleared: zeros where the context names "none" until the setup and the

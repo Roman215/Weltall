@@ -1,6 +1,7 @@
 #include "RenderScreenCommandlet.h"
 
 #include "Audio.h"
+#include "Game/CharacterLooks.h"
 #include "Game/GameSession.h"
 #include "Game/PlayerSettings.h"
 #include "GlobalShader.h"
@@ -16,9 +17,11 @@
 #include "Rendering/TextureModLibrary.h"
 #include "Misc/Paths.h"
 #include "Modules/ModuleManager.h"
+#include "Mods/ExpansionMods.h"
 #include "Mods/GameMods.h"
 #include "OffscreenRender.h"
 #include "MenuIconSheet.h"
+#include "Menu/MenuButtonIcons.h"
 #include "RenderRoute.h"
 #include "RenderStaging.h"
 #include "RenderingThread.h"
@@ -337,8 +340,8 @@ namespace
 	 * -Map=N played as a new game enters it (the game in Game; -FieldStory=N the story's progress it is entered with, its
 	 * chapter's card taken as seen, and
 	 * -FieldEntrance=K the entrance, where a scene needs them; -FieldParty=a,b,c the party it is entered with (255 an
-	 * empty slot) and -FieldGears=g,h,... the gear of each character from Fei on (255: its own stays), for a map in
-	 * gears; -FieldCards=Folder a folder of memory card images or the port's own save files, the
+	 * empty slot), -FieldGears=g,h,... the gear of each character from Fei on (255: its own stays), for a map in
+	 * gears, and -FieldLooks=a,b the characters drawn in their other look, as the map loads them; -FieldCards=Folder a folder of memory card images or the port's own save files, the
 	 * last of whose saves from before that point of the story the game is loaded from first; -StoryFolder=Folder the
 	 * port's story read from that folder of packs in place of the project's, for a draft; -StoryMode=Original|Expanded
 	 * how the game tells the second disc), or with a viewpoint option its scenery alone; and the presentation's options.
@@ -366,6 +369,7 @@ namespace
 		FParse::Value(*Params, TEXT("FieldEntrance="), Entrance);
 		const TArray<int32> Party = ParseNumbers(Params, TEXT("FieldParty="));
 		const TArray<int32> Gears = ParseNumbers(Params, TEXT("FieldGears="));
+		const TArray<int32> Looks = ParseNumbers(Params, TEXT("FieldLooks="));
 		if (Party.Num() != 0 && Party.Num() != 3)
 		{
 			UE_LOG(LogRenderScreen, Error, TEXT("-FieldParty takes a,b,c"));
@@ -391,7 +395,7 @@ namespace
 			UE_LOG(LogRenderScreen, Display, TEXT("Story documents read from -StoryFolder: %d"), Read->DocumentCount());
 			Draft = MakeShared<Weltall::FStoryPacks>(MoveTemp(*Read));
 		}
-		auto Started = FGameLoopScreen::EnterField(Disc, [&Sound]() { return Sound.Start(); }, static_cast<uint16>(Map), Settings, [Story, Entrance, Cards, Draft, StoryMode, Party, Gears](Weltall::FGameSession& Session)
+		auto Started = FGameLoopScreen::EnterField(Disc, [&Sound]() { return Sound.Start(); }, static_cast<uint16>(Map), Settings, [Story, Entrance, Cards, Draft, StoryMode, Party, Gears, Looks](Weltall::FGameSession& Session)
 		{
 			if (Draft.IsValid())
 			{
@@ -405,6 +409,9 @@ namespace
 			if (StoryMode != Weltall::EStoryMode::Unchosen)
 			{
 				State.SetStoryMode(StoryMode);
+				// As a game answered Extended at the second disc's question: the expansion it offers.
+				const Weltall::FExpansionMod* Offered = StoryMode == Weltall::EStoryMode::Expanded ? Session.OfferedExpansion() : nullptr;
+				State.SetExpansion(Offered != nullptr ? Offered->Folder : std::string());
 			}
 			if (Story >= 0)
 			{
@@ -429,6 +436,15 @@ namespace
 					State.SetCharacterGear(Character, static_cast<uint8>(Gears[Character]));
 				}
 			}
+			if (!Looks.IsEmpty())
+			{
+				Weltall::FCharacterLooks Switched;
+				for (const int32 Character : Looks)
+				{
+					Switched.Switch(static_cast<uint8>(Character));
+				}
+				State.SetCharacterLooks(Switched);
+			}
 		});
 		return StartedGame(MoveTemp(Started), Game);
 	}
@@ -445,7 +461,8 @@ namespace
 
 	/**
 	 * The world map entered as the field leaves for it: -Story=N (event variable 0, which picks the era)
-	 * -Location=N -Entrance=N -Yaw=N -Scene=N -Party=a,b,c -Order=a,b,... (the order the player keeps it in) -Gears (the party in its gears) and the
+	 * -Location=N -Entrance=N -Yaw=N -Scene=N -Party=a,b,c -Order=a,b,... (the order the player keeps it in) -Looks=a,b,... (the characters
+	 * drawn in their other look) -Gears (the party in its gears) and the
 	 * Yggdrasil's -Vehicle=x,y,z,heading -VehicleFlags=N; -Fixes=Original for the world map without its
 	 * fixes; -ViewZoom=Z -ViewTilt=D -ViewTurn=D the player's framing it starts under; and the presentation's
 	 * options.
@@ -518,6 +535,10 @@ namespace
 			Shown.push_back(static_cast<uint8>(Character));
 		}
 		Start.Order.Arrange(Start.Party, Shown);
+		for (const int32 Character : ParseNumbers(Params, TEXT("Looks=")))
+		{
+			Start.Looks.Switch(static_cast<uint8>(Character));
+		}
 		if (!Vehicle.IsEmpty())
 		{
 			Start.Vehicle = std::array<int16, 4>{static_cast<int16>(Vehicle[0]), static_cast<int16>(Vehicle[1]), static_cast<int16>(Vehicle[2]),
@@ -714,8 +735,8 @@ int32 URenderScreenCommandlet::Main(const FString& Params)
 		UE_LOG(LogRenderScreen, Error, TEXT("Usage: -run=RenderScreen -Screen=Game|Movie|Field|WorldMap|MenuIcons [-Movie=N] [-EndFrame=N] [-Map=N [-Entrance=k|-Target=x,z|x,y,z -Layer=L -Yaw=0..7 ")
 			TEXT("-Eye=x,y,z -Pitch=D -Projection=H -Zoom=Z -Background=r,g,b -CullMargins=x,y] -Sort=Painter|Depth|Scenery -Filter=Nearest|Crisp|Bilinear|Upscaled -SpriteFilter=Nearest|Crisp|Bilinear|Upscaled -MovieFilter=Smooth|Upscaled ")
 			TEXT("-AA=None|MSAA|SSAA -Cull=Original|InRange -ViewZoom=Z -ViewTilt=D -ViewTurn=D] [-Story=N -Location=N -Entrance=N -Yaw=N -Scene=N -Party=a,b,c -Gears ")
-			TEXT("-Vehicle=x,y,z,h -VehicleFlags=N -Cull=Original|InRange|Extended] [-State=Full|Weak|Strong|Rising] [-Menu=Mode,Parameter -MenuAt=S] [-Battle=Formation,Kind -BattleAt=S -BattleEvery=S -Party=a,b,c -Ride=a,b,c -GearOf=c:g] [-Arena=From,Kind,Gear1,Gear2,Wins,Level -ArenaAt=S] ")
-			TEXT("[-FieldStory=N -FieldEntrance=K -FieldParty=a,b,c -FieldGears=g,h,... -FieldCards=Folder -StoryFolder=Folder -StoryMode=Original|Expanded] [-Disc=1|2 [-Undub]] [-Card=Chapter[,Subtitle] -CardAt=S] [-MenuArea=Screen|Wide] [-Icons=Set] [-Saves=Folder] [-Keys=a,b] [-MenuAssets] [-Setting=key=value;...] ")
+			TEXT("-Vehicle=x,y,z,h -VehicleFlags=N -Cull=Original|InRange|Extended] [-State=Full|Weak|Strong|Rising] [-PartyAp=N] [-Menu=Mode,Parameter -MenuAt=S] [-Battle=Formation,Kind -BattleAt=S -BattleEvery=S -Party=a,b,c -Ride=a,b,c -GearOf=c:g -Looks=a,b] [-Arena=From,Kind,Gear1,Gear2,Wins,Level -ArenaAt=S] ")
+			TEXT("[-FieldStory=N -FieldEntrance=K -FieldParty=a,b,c -FieldGears=g,h,... -FieldLooks=a,b -FieldCards=Folder -StoryFolder=Folder -StoryMode=Original|Expanded] [-Disc=1|2 [-Undub]] [-Card=Chapter[,Subtitle] -CardAt=S] [-MenuArea=Screen|Wide] [-Icons=Set] [-Saves=Folder] [-Keys=a,b] [-MenuAssets] [-Setting=key=value;...] ")
 			TEXT("[-Pad=a,b+c,... -PadStep=S] [-Route=x,z;!x,z;... [-RouteBattles]] [-Reader=Base,PerGlyph] [-SoundOut=path.wav] [-BattleSpeed=Normal|2x|4x] [-TextSpeed=Normal|2x|4x|Instant] [-Textures=Folder] [-Mods=Folder] [-Assets=Folder] [-Games=Folder] -Seconds=S [-Every=S] [-Profile=Hz [-ProfileGpuAt=S]] [-From=S] -Size=WxH [-Aspect=Window|16:9|4:3] [-Crt=Off|Monitor|TV|Custom] -Out=path.png"));
 		return 1;
 	}
@@ -762,16 +783,19 @@ int32 URenderScreenCommandlet::Main(const FString& Params)
 	if (FParse::Value(*Params, TEXT("Mods="), ModsFolder))
 	{
 		Found = Weltall::FindMods(std::filesystem::path(*FPaths::ConvertRelativePathToFull(ModsFolder)));
-		if (!Found.PerfectWorks)
+		if (!Found.PerfectWorks && !Found.Italian)
 		{
 			UE_LOG(LogRenderScreen, Warning, TEXT("No mod is in %s"), *ModsFolder);
 		}
-		if (const std::optional<Weltall::FError> Error = Weltall::ApplyMods(Library, Found, Presentation.PerfectWorks))
+		const Weltall::FItalianOptions Italian = Found.Italian ? Presentation.Italian : Weltall::FItalianOptions{};
+		Weltall::FPerfectWorksOptions PerfectWorks = Presentation.PerfectWorks;
+		PerfectWorks.bEnabled = PerfectWorks.bEnabled && !Italian.bEnabled;
+		if (const std::optional<Weltall::FError> Error = Weltall::ApplyMods(Library, Found, PerfectWorks, Italian))
 		{
 			UE_LOG(LogRenderScreen, Error, TEXT("The mods' files cannot be used: %hs"), Error->Message.c_str());
 			return 1;
 		}
-		Mods = {Found.PerfectWorks.has_value(), Found.PerfectWorks ? Found.PerfectWorks->Version() : std::string(), Presentation.PerfectWorks};
+		Mods = {Found.PerfectWorks.has_value(), Found.PerfectWorks ? Found.PerfectWorks->Version() : std::string(), PerfectWorks, Found.Italian.has_value(), Italian};
 	}
 	// -Assets=Folder: the player's messages and font sheet in a folder laid out as the game's Assets (its text and font),
 	// given to every disc as External assets gives them.
@@ -880,7 +904,7 @@ int32 URenderScreenCommandlet::Main(const FString& Params)
 			Step.Held.Buttons |= Route.Step(*Game).Buttons;
 			if (Reader.bReads && Reader.Holds(*Game, DisplaySeconds))
 			{
-				Step.Held.Buttons |= Weltall::FPadState::Bit(Weltall::EPadButton::Cross);
+				Step.Held.Buttons |= Weltall::FPadState::Bit(Weltall::MenuRoleButton(0x20, Game->HasJapaneseCommands()));
 				if (Reader.Held == 0.0)
 				{
 					// Where each page stood whole: the moment before is the shot of it.
