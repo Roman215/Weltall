@@ -349,6 +349,7 @@ namespace Weltall
 			Visitor.Choice("balance.experience", Balance.Experience, {"original", "1.5x", "2x", "3x", "4x"});
 			Visitor.Choice("balance.gold", Balance.Gold, {"original", "1.5x", "2x", "3x", "4x"});
 			Visitor.Choice("balance.encounters", Balance.Encounters, {"none", "quarter", "half", "original", "double"});
+			Visitor.Flag("game.party_change_anywhere", Settings.bPartyChangeAnywhere);
 
 			auto& PerfectWorks = Settings.PerfectWorks;
 			Visitor.Flag("mods.perfect_works", PerfectWorks.bEnabled);
@@ -388,6 +389,7 @@ namespace Weltall
 			Visitor.Level("controls.door_pause", Settings.Controls.DoorPause, NoDoorPause, LongestDoorPause);
 			Visitor.Choice("controls.camera_buttons", Settings.Controls.CameraButtons, {"rotate", "zoom"});
 			Visitor.Flag("controls.original_button_icons", Settings.Controls.bOriginalButtonIcons);
+			Visitor.Choice("controls.controller_icons", Settings.Controls.ControllerIcons, {"automatic", "xbox", "playstation", "nintendo", "steam_deck"});
 			Visitor.Choice("controls.button_layout", Settings.Controls.ButtonLayout, {"usa", "circle_confirms", "japan"});
 			Visitor.Level("controls.mouse_sensitivity", Settings.Controls.MouseSensitivity, LowestSensitivity, HighestSensitivity);
 			Visitor.Level("controls.stick_sensitivity", Settings.Controls.StickSensitivity, LowestSensitivity, HighestSensitivity);

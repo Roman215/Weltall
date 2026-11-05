@@ -152,6 +152,7 @@ namespace Weltall::OptionsText
 	/** The Modding page: the game's balance as the player changes it, then the Assets page and the mods found. */
 	namespace Modding
 	{
+		inline constexpr FRow PartyChanges{"Party changes", {"Hold Gear L and press Menu", "to change party in free play.", "Story locks still apply."}};
 		inline constexpr std::string_view Balance = "Balance";
 		inline constexpr FRow Experience{"Experience", {"Multiplies the experience you", "get from battles. Normal is", "the original amount."}};
 		inline constexpr FRow Gold{"Gold", {"Multiplies the gold you get", "from battles. Normal is the", "original amount."}};
@@ -459,6 +460,9 @@ namespace Weltall::OptionsText
 		/** The pause's value: "{}" its seconds, to a tenth. */
 		inline constexpr std::string_view DoorPauseSeconds = "{} s";
 		inline constexpr FRow OriginalButtonIcons{"Original PSX icons", {"Shows PlayStation button", "icons. Your bindings still", "apply."}};
+		inline constexpr FRow ControllerIcons{"Controller icons", {"Symbols on your controller.", "Your bindings stay the same.", "Turn Original PSX icons off."}};
+		/** In EControllerIcons's order. */
+		inline constexpr std::array<std::string_view, 5> ControllerIconsValues{"Automatic", "Xbox", "PlayStation", "Nintendo", "Steam Deck"};
 		inline constexpr FRow ButtonLayout{"Button layout", {"Swaps confirm and cancel.", "Japan swaps jump and menu too.", ""}};
 		/** In EButtonLayout's order. */
 		inline constexpr std::array<std::string_view, 3> ButtonLayoutValues{"USA", "Circle confirms", "Japan"};

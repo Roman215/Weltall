@@ -277,7 +277,7 @@ namespace Weltall
 
 		bool MenuStaysShut(const FEventContext& Context)
 		{
-			return Context.MenuRequest == PlayerMenu && Context.bMenuLocked;
+			return Context.MenuRequest != FEventContext::NoMenu && (Context.MenuRequest & PlayerMenu) != 0 && Context.bMenuLocked;
 		}
 
 		void TakeLoadGameResult(FEventContext& Context, uint8 MenuMode, uint8 ModeResult)

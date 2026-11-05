@@ -154,7 +154,7 @@ TEST_CASE("The Modding page's balance rows show the original first and step thro
 {
 	FPlayerSettings Settings;
 	bool bCustomPicked = false;
-	REQUIRE(FSettingsPages::RowCount(ESettingsPage::Modding) == 4);
+	REQUIRE(FSettingsPages::RowCount(ESettingsPage::Modding) == 5);
 	const FSettingsRow Heading = FSettingsPages::Row(ESettingsPage::Modding, 0, Settings);
 	CHECK(Heading.bHeading);
 	CHECK(Heading.Label == Text::Modding::Balance);

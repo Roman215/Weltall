@@ -98,6 +98,7 @@ namespace Weltall
 	{
 		FBattleContext& Context = *Battle;
 		Context.GameState = Services.Game;
+		Context.Unreached = Services.Unreached;
 		Context.Random = Services.Random;
 		Context.Show = Services.Show;
 		Context.Program = Services.Program;

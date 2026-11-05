@@ -3,6 +3,7 @@
 #include "Field/FieldGears.h"
 #include "Field/FieldMainLoop.h"
 #include "Field/FieldPartySprites.h"
+#include "Field/FieldPartyChange.h"
 #include "Field/FieldRuntime.h"
 #include "Field/FieldTick.h"
 #include "Game/GameState.h"
@@ -160,6 +161,7 @@ namespace Weltall
 		{
 			RidingAtMenu[static_cast<std::size_t>(Slot)] = Services.Game->PartySlotInGear(Slot);
 		}
+		CharactersAtMenu = Services.Game->Party();
 		// The field's last picture darkens before the menu opens over it, a step a vertical blank.
 		MenuShadeStep = 0;
 		FramesLeft = MenuDarkeningFrames;
@@ -230,13 +232,23 @@ namespace Weltall
 		}
 		else
 		{
-			for (int32 Slot = 0; Slot < FPartySpriteFiles::Slots; ++Slot)
+			if ((Context.MenuRequest & PlayerMenu) != 0 && Services.Game->Party() != CharactersAtMenu)
 			{
-				if (Party.File(Slot) != FPartySpriteFiles::NoFile)
+				if (auto Error = RefreshFieldParty(Context, Party, *Services.Game))
 				{
-					if (auto Error = Party.Unpack(Slot, Party.File(Slot)))
+					return Error;
+				}
+			}
+			else
+			{
+				for (int32 Slot = 0; Slot < FPartySpriteFiles::Slots; ++Slot)
+				{
+					if (Party.File(Slot) != FPartySpriteFiles::NoFile)
 					{
-						return Error;
+						if (auto Error = Party.Unpack(Slot, Party.File(Slot)))
+						{
+							return Error;
+						}
 					}
 				}
 			}

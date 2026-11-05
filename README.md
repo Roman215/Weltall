@@ -5,7 +5,8 @@ make the game feel like a modern PC release while keeping the original gameplay 
 
 You'll need your own copy of the USA release or a supported English undub. Weltall doesn't include
 any game data. Put your disc images in the `Games` folder and the game will find them automatically.
-BIN/CUE and CHD preserve movie audio; ISO/IMG also work, but the movies will be silent. Convert PBP,
+Raw images (BIN/CUE, raw IMG and CHD made from them) preserve movie audio. Images containing only 2048-byte data
+sectors, such as ISO, also work, but their movies are silent. Convert PBP,
 ECM or other formats to BIN/CUE first. You can add Disc 2 while the game is running when it asks for
 it. You can also start with only Disc 2, as on the PlayStation, to load your Disc 2 saves.
 
@@ -44,6 +45,8 @@ in a bug report.
 - **Battle speeds of 2x and 4x**, and faster text up to instant. Timed dialogue still leaves you time to read it.
 - **Balance options** to earn up to four times the experience and gold, and to have fewer random battles, more of
   them, or none at all.
+- **Optional party changes during free play**: enable **Options → Modding → Party changes**, then hold L2 and
+  press Square (the bound Gear L and Menu controls). Story member locks still apply.
 - **Chapter titles** displayed when each chapter begins.
 - **Custom party order**, so any character can lead the party, and a choice of looks for Citan and Emeralda later
   in the story (see below).
@@ -91,9 +94,13 @@ dialogue by itself after a pause to read them; choices always wait for you. Duri
 L1 decreases it. Press **L** (or a controller's L3, pressing the left stick) to read the dialogue so far in the
 **message log**: Up and Down scroll it, L1 and R1 turn a page, and Cancel closes it. The game waits while it is open.
 
+If your controller's button labels differ from the prompts, choose **Options → Controls → Controller icons**.
+**Automatic** follows the detected controller; **Xbox**, **PlayStation**, **Nintendo** and **Steam Deck** use
+those symbols with your existing bindings. Nintendo uses B at the bottom, A at the right, Y at the left and X at the top.
+
 To keep the original PlayStation button symbols in prompts and menus, turn on **Original PSX icons**
 under **Options → Controls**. Your bindings still apply, and the rebinding rows show your actual keys.
-**Button layout**, just below it, moves the controller's buttons. With **Circle confirms**, ○ confirms and is the
+**Button layout** moves the controller's buttons. With **Circle confirms**, ○ confirms and is the
 3-point attack, and × cancels. **Japan** also swaps □ and △ as the Japanese release does: □ jumps and △ opens the
 menu. Buttons you rebound yourself stay where you put them, and with Original PSX icons on, prompts show the
 layout's symbols. In battle, the attack buttons are laid out as they sit on your controller.
@@ -287,7 +294,7 @@ other configurations use the SDK's debug key.
 `python Scripts/package.py --archive Shipping` also creates a release zip in `out/releases`, without
 disc images, and a separate debug symbols archive. For Android, the release file is the arm64 APK.
 
-`python Scripts/release.py 1.0.0` builds the Windows, Linux and Android Shipping packages from a
+`python Scripts/release.py 1.0.1` builds the Windows, Linux and Android Shipping packages from a
 pushed commit whose `ProjectVersion` matches that version. It creates the archives and a GitHub draft
 release with the player downloads and release notes, using the GitHub CLI. Publish the draft from
 the release page.

@@ -15,6 +15,26 @@ TEST_CASE("A device's icon set follows its name", "[Input]")
 	CHECK(IconSetOfDevice(true, "Hid") == EButtonIconSet::Xbox);
 }
 
+TEST_CASE("Controller symbols can override the driver's family while the bindings keep their places", "[Input]")
+{
+	FControlBindings Bindings = FControlBindings::Defaults();
+	const EButtonIconSet Detected = IconSetOfDevice(true, "XboxOne");
+	CHECK(ControllerIconSet(EControllerIcons::Automatic, Detected) == EButtonIconSet::Xbox);
+	CHECK(ControllerIconSet(EControllerIcons::Xbox, EButtonIconSet::Nintendo) == EButtonIconSet::Xbox);
+	CHECK(ControllerIconSet(EControllerIcons::PlayStation, Detected) == EButtonIconSet::PlayStation);
+	CHECK(ControllerIconSet(EControllerIcons::SteamDeck, Detected) == EButtonIconSet::SteamDeck);
+	const EButtonIconSet Nintendo = ControllerIconSet(EControllerIcons::Nintendo, Detected);
+	CHECK(ButtonGlyph(EPadButton::Cross, Bindings, Nintendo).Icon == "B");
+	CHECK(ButtonGlyph(EPadButton::Circle, Bindings, Nintendo).Icon == "A");
+	CHECK(ButtonGlyph(EPadButton::Square, Bindings, Nintendo).Icon == "Y");
+	CHECK(ButtonGlyph(EPadButton::Triangle, Bindings, Nintendo).Icon == "X");
+	CHECK(ButtonGlyph(EPadButton::L2, Bindings, Nintendo).Icon == "ZL");
+	Bindings.Rebind(EControlAction::Cross, 0, "Gamepad_FaceButton_Right");
+	CHECK(ButtonGlyph(EPadButton::Cross, Bindings, Nintendo).Icon == "A");
+	Bindings.bOriginalButtonIcons = true;
+	CHECK(ButtonGlyph(EPadButton::Cross, Bindings, Nintendo).Icon == "Cross");
+}
+
 TEST_CASE("A PlayStation button's glyph is its binding on the device the player uses", "[Input]")
 {
 	FControlBindings Bindings = FControlBindings::Defaults();

@@ -37,60 +37,21 @@ You'll need your own copy of the USA release or a supported English undub. No ga
 
 ## What's new
 
-### After the ending
-
-- Added a clear save. On the ending's last picture, wait a few seconds and press Confirm to save. Loading it puts
-  you back before the final dungeon with your endgame progress.
-- Added New Game+. With a clear save available, choose New Game on the title screen, then pick the clear save to
-  start from. Choose whether to keep money, equipment, items, Deathblows and levels, and whether to remove the
-  7-AP limiter. Story items stay behind.
-- Clearing the game also unlocks additional character looks and party options for repeat playthroughs.
-  Their details are shown in the game after you unlock them.
-
-### Playing
-
-- Added a message log: press L, or a controller's L3, to read the dialogue so far. The game waits while it is open.
-- Added auto-advancing dialogue under Options → Display → Auto-advance text. It's off by default, and choices
-  always wait for you.
-- Added save states on the field and world map. These are Weltall's own format; use Options → Saves → Export card
-  to move a game to a PlayStation emulator.
-- Added integer scaling under Options → Display, to keep the CRT filter's scanlines evenly spaced.
-- The battle HUD's moving parts now move smoothly on displays above 60 Hz, alongside the battle scene.
-- Options → Controls → Stop at doors pauses movement briefly after a map change, so a held or fidgeted stick
-  doesn't carry you straight into the next scene. It defaults to half a second; you can change it or turn it off.
-- Options → Controls → Camera buttons lets the shoulder buttons zoom instead of turning the camera.
-- On the Assets page, choose which parts of a texture pack to use: fonts, faces, menus and HUD, characters,
-  scenery, or models and effects.
-
-### Translations and modding
-
-- Added support for SadNES cITy's Italian translation (version 1.2.1), including its subtitled movies and Japanese
-  commands. Use patched USA images, or put the translation's `.xpt` and movie `.ppf` files in a folder under `Mods`.
-  Options → Modding → Italian lets you choose its voices, commands and movies.
-- Disc 2 expansions now load from the `Mods` folder, with a choice of expansion when Disc 2 begins. Two example
-  scenes are included to extract and edit. Export Disc 2 writes the disc's maps and battle text as editable
-  documents; Make shareable turns your edits into patches containing only your changes. See
-  [Writing an expansion](https://github.com/Roman215/Weltall/blob/main/Docs/Story/writing-an-expansion.md) to get started.
-
-### Fixes
-
-- Fixed texture packs not loading on Linux when their folder's capitalization differs, or when a parent folder
-  is reached through a link, such as on an SD card.
-- Fixed 3D Gears appearing dark red in maps such as the Yggdrasil's hangar and the Battling arena's entrance.
-- Fixed movies falling out of sync with their sound after a pause in rendering.
-- Fixed battles stopping on missing enemy or attack names in the Brazilian Portuguese translation.
-- Fixed the Gear menu leaving out defense from Perfect Works Build's rebalanced parts.
-- Fixed 3D scenes being too large for their HUD in 4:3 and narrower windows, and map textures missing after a
-  movie shown over the game screen.
-- Fixed message portraits sometimes using a previous face, and party followers landing late after a jump.
-- Fixed missing attack effects and gaps at the arm and leg joints of postgame Gear models.
-- Android now saves changed settings when the app goes into the background.
+- Fixed a stop at the start of the Brigandier battle near Dazil in the Brazilian Portuguese translation.
+  The battle now continues when a line of dialogue is missing from a patched disc.
+  [Issue #35](https://github.com/Roman215/Weltall/issues/35)
+- Choose the button symbols that match your controller under **Options → Controls → Controller icons**.
+  Automatic follows the detected controller. You can also choose Xbox, PlayStation, Nintendo or Steam Deck.
+  Your bindings stay the same. [Issue #31](https://github.com/Roman215/Weltall/issues/31)
+- To change your party during free play, turn on **Options → Modding → Party changes**, then hold **Gear L**
+  and press **Menu** on the field or world map (L2 + Square by default). Story restrictions and member
+  availability still apply. The option is off by default.
 
 ## Playing
 
 1. Download the Windows or Linux zip below and unzip it wherever you want.
-2. Put both disc images in the `Games` folder. BIN/CUE and CHD preserve movie audio; ISO/IMG also work,
-   but the movies will be silent.
+2. Put both disc images in the `Games` folder. BIN/CUE, raw IMG and CHD made from raw images preserve movie
+   audio. Movies are silent with 2048-byte data-only images.
 3. Run `Weltall.exe` on Windows 10 or 11 (64-bit, DirectX 12), or `Weltall.sh` on Linux (64-bit, Vulkan).
 
 On Android 10 or later (64-bit, Vulkan), install the APK instead. Copy the disc images from a computer

@@ -32,7 +32,7 @@ public:
 	virtual uint32 Revision() const override { return Changes; }
 
 	/** The icons the glyphs are drawn from now. */
-	Weltall::EButtonIconSet IconSet() const { return Set; }
+	Weltall::EButtonIconSet IconSet() const;
 
 	/** The icons of the gamepad the player uses or last used: Xbox's before any. */
 	Weltall::EButtonIconSet GamepadIconSet() const { return GamepadSet; }

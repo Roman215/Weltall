@@ -21,6 +21,8 @@ namespace Weltall
 		// What the main loop and the loops it runs hold in the register the sprites' stray steps wait by:
 		// the byte it compares requests with.
 		constexpr int32 MainLoopStrayWait = 0xFF;
+		constexpr uint32 MemberChangeMenu = 1;
+		constexpr uint16 L2Button = 0x0001;
 		/** The fade's frames, the pause's and Select's picture's wait two vertical blanks each. */
 		constexpr int32 FrameVblanks = 2;
 		/** A movie's first picture comes in a vertical blank, a pass over the field in one, full screen in two; a skip's fade lasts five. */
@@ -406,7 +408,10 @@ namespace Weltall
 			}
 			[[fallthrough]];
 		case EStep::AfterMenu:
-			FieldMainLoop::TakeMenuButton(FieldContext);
+			if (FieldMainLoop::TakeMenuButton(FieldContext) && bPartyChangeAnywhere && (FieldContext.PadHeld & L2Button) != 0)
+			{
+				FieldContext.MenuRequest |= MemberChangeMenu;
+			}
 			break;
 		default:
 			break;

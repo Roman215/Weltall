@@ -59,6 +59,7 @@ namespace Weltall
 		const FCdImage* Image = nullptr;
 		const FGameFileIndex* Index = nullptr;
 		FGameState* Game = nullptr;
+		FUnreachedCases* Unreached = nullptr;
 		FPsxRandom* Random = nullptr;
 		FKernelPad* Pad = nullptr;
 		IBattleProgramShow* Show = nullptr;

@@ -94,6 +94,8 @@ namespace Weltall
 		EBattleSpeed BattleSpeed = EBattleSpeed::Normal;
 		/** The player's changes to the game's balance: rewards and how often battles come. */
 		FGameBalance Balance;
+		/** Offers Member Change from the player's menu, retaining the story's availability and locks. */
+		bool bPartyChangeAnywhere = false;
 		/** What the game takes from Perfect Works Build where the player has it, from the game's next start. */
 		FPerfectWorksOptions PerfectWorks;
 		/** What the game takes from SadNES cITy's Italian translation where the player has its patch, from the next start. */

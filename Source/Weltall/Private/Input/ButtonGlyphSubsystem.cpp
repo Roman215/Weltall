@@ -129,7 +129,13 @@ void UButtonGlyphSubsystem::Deinitialize()
 
 Weltall::FButtonGlyph UButtonGlyphSubsystem::Glyph(Weltall::EPadButton Button) const
 {
-	return Weltall::ButtonGlyph(Button, GetGameInstance()->GetSubsystem<UPlayerSettingsSubsystem>()->Settings().Controls, Set);
+	return Weltall::ButtonGlyph(Button, GetGameInstance()->GetSubsystem<UPlayerSettingsSubsystem>()->Settings().Controls, IconSet());
+}
+
+Weltall::EButtonIconSet UButtonGlyphSubsystem::IconSet() const
+{
+	const Weltall::FControlBindings& Controls = GetGameInstance()->GetSubsystem<UPlayerSettingsSubsystem>()->Settings().Controls;
+	return bUsingGamepad ? Weltall::ControllerIconSet(Controls.ControllerIcons, Set) : Set;
 }
 
 bool UButtonGlyphSubsystem::IsPhoneButton(const FKey& Key)
@@ -139,18 +145,20 @@ bool UButtonGlyphSubsystem::IsPhoneButton(const FKey& Key)
 
 void UButtonGlyphSubsystem::UseTouch()
 {
+	const Weltall::EButtonIconSet Before = IconSet();
 	bHasController = true;
 	bUsingGamepad = false;
 	bUsingTouch = true;
-	if (Set != Weltall::EButtonIconSet::PlayStation)
+	Set = Weltall::EButtonIconSet::PlayStation;
+	if (Before != IconSet())
 	{
-		Set = Weltall::EButtonIconSet::PlayStation;
 		Changed();
 	}
 }
 
 void UButtonGlyphSubsystem::UseDevice(bool bGamepad, FName HardwareName, FInputDeviceId Device)
 {
+	const Weltall::EButtonIconSet Before = IconSet();
 	// Anything pressed, on whatever device, is the player's controller.
 	bHasController = true;
 	bUsingGamepad = bGamepad;
@@ -164,9 +172,9 @@ void UButtonGlyphSubsystem::UseDevice(bool bGamepad, FName HardwareName, FInputD
 	{
 		GamepadSet = Used;
 	}
-	if (Used != Set)
+	Set = Used;
+	if (Before != IconSet())
 	{
-		Set = Used;
 		Changed();
 	}
 }

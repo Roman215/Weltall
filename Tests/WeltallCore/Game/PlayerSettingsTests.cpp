@@ -54,6 +54,7 @@ namespace
 		Settings.Controls.MouseSensitivity = 8;
 		Settings.Controls.StickSensitivity = 2;
 		Settings.Controls.bOriginalButtonIcons = true;
+		Settings.Controls.ControllerIcons = EControllerIcons::Nintendo;
 		Settings.Controls.ChangeButtonLayout(EButtonLayout::Japan);
 		Settings.TextSpeed = EMesTextSpeed::Quadruple;
 		Settings.BattleSpeed = EBattleSpeed::Quadruple;
@@ -219,6 +220,9 @@ TEST_CASE("The settings' text lists every setting and reads back the same", "[Se
 	CHECK(ValueOf(Defaults, "controls.camera_buttons") == "rotate");
 	CHECK(ReadPlayerSettings("controls.camera_buttons = zoom\n").Controls.CameraButtons == ECameraButtons::Zoom);
 	CHECK(ValueOf(Defaults, "controls.original_button_icons") == "false");
+	CHECK(ValueOf(Defaults, "controls.controller_icons") == "automatic");
+	CHECK(ReadPlayerSettings("controls.controller_icons = nintendo\n").Controls.ControllerIcons == EControllerIcons::Nintendo);
+	CHECK(ReadPlayerSettings("controls.controller_icons = invalid\n").Controls.ControllerIcons == EControllerIcons::Automatic);
 	CHECK(ReadPlayerSettings("controls.original_button_icons = true\n").Controls.bOriginalButtonIcons);
 	CHECK_FALSE(ReadPlayerSettings("controls.original_button_icons = invalid\n").Controls.bOriginalButtonIcons);
 	CHECK(ValueOf(Defaults, "controls.button_layout") == "usa");
@@ -286,6 +290,7 @@ TEST_CASE("The settings' text lists every setting and reads back the same", "[Se
 	CHECK(ValueOf(Text, "controls.cross") == "SpaceBar Enter Gamepad_FaceButton_Right");
 	CHECK(ValueOf(Text, "controls.square") == "F Gamepad_FaceButton_Top");
 	CHECK(ValueOf(Text, "controls.button_layout") == "japan");
+	CHECK(ValueOf(Text, "controls.controller_icons") == "nintendo");
 	CHECK(ValueOf(Text, "controls.view_reset") == "Gamepad_RightThumbstick");
 	CHECK(ValueOf(Text, "game.battle_speed") == "4x");
 	CHECK(ValueOf(Text, "balance.experience") == "1.5x");

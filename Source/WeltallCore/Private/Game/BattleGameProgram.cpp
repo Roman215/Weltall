@@ -139,6 +139,7 @@ namespace Weltall
 		Services.Image = &Session.Image();
 		Services.Index = &Session.Index();
 		Services.Game = &Session.Game();
+		Services.Unreached = &Session.Unreached();
 		Services.Random = &Session.Random();
 		Services.Pad = &Session.Pad();
 		Services.Show = Program->Show.get();

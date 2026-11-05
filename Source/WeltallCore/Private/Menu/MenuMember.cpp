@@ -83,6 +83,15 @@ namespace Weltall
 			Available[static_cast<std::size_t>(Character)] = (Allowed >> Character & 1) != 0;
 		}
 		const std::array<uint8, 3> InParty = Game.Party();
+		if (Request.bKeepParty)
+		{
+			for (int32 Character = 0; Character <= LastReserved; ++Character)
+			{
+				const bool bInParty = std::find(InParty.begin(), InParty.end(), Character) != InParty.end();
+				const bool bHasGear = Game.CharacterGear(Character).value_or(0xFF) != 0xFF;
+				Available[static_cast<std::size_t>(Character)] = bInParty || (Available[static_cast<std::size_t>(Character)] && (!Request.bRequiresGears || bHasGear));
+			}
+		}
 		bArranged = Services.bArrangesParty && Game.PartyOrder().IsFor(InParty);
 		const FPartyOrder::FPlaces Places = bArranged ? Game.PartyOrder().PlacesOf(InParty) : FPartyOrder{}.PlacesOf(InParty);
 		for (int32 Row = 0; Row < 3; ++Row)
@@ -287,7 +296,11 @@ namespace Weltall
 		// One of the two is in the party's column, the other in the reserve's.
 		const int32 Slot = Column == 0 ? Row : PickedRow;
 		const std::size_t Reserved = static_cast<std::size_t>(Column == 0 ? PickedRow + PickedTop : Row + Top);
-		const uint16 Locked = Services.Game->LockedCharacters();
+		uint16 Locked = Services.Game->LockedCharacters();
+		if (Request.bKeepParty)
+		{
+			Locked |= static_cast<uint16>(~(Services.Game->JoinedCharacters() & Services.Game->MenuCharacters()));
+		}
 		uint8& InParty = Flags[static_cast<std::size_t>(MenuFlag::Party + Slot)];
 		uint8& Outside = Reserve[Reserved];
 		const auto Movable = [Locked](uint8 Character) { return Character != FGameState::EmptySlot && (Locked >> Character & 1) == 0; };

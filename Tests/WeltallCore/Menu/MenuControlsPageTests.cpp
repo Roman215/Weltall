@@ -55,13 +55,48 @@ namespace
 	}
 }
 
+TEST_CASE("The Controls page changes controller symbols without rebinding the buttons", "[Menu]")
+{
+	FPressedKeys Keys;
+	Keys.Family = EInputFamily::Gamepad;
+	Keys.Icons = EButtonIconSet::Xbox;
+	FMenuControlsPage Page(Keys);
+	FControlBindings Bindings = FControlBindings::Defaults();
+	const FControlBindings Before = Bindings;
+	const int32 Row = RowOf(Page, Text::ControllerIcons.Label);
+	CHECK(RowNamed(Page, Bindings, Text::ControllerIcons.Label).Value == "Automatic");
+	for (int32 Step = 0; Step < 3; ++Step)
+	{
+		REQUIRE(Page.Activate(Row, Bindings));
+	}
+	CHECK(Bindings.ControllerIcons == EControllerIcons::Nintendo);
+	CHECK(RowNamed(Page, Bindings, Text::ControllerIcons.Label).Value == "Nintendo");
+	CHECK(RowNamed(Page, Bindings, Text::Confirm.Label).Cells[0].Icon == "B");
+	CHECK(RowNamed(Page, Bindings, Text::Cancel.Label).Cells[0].Icon == "A");
+	CHECK(RowNamed(Page, Bindings, Text::Menu.Label).Cells[0].Icon == "Y");
+	CHECK(RowNamed(Page, Bindings, Text::Jump.Label).Cells[0].Icon == "X");
+	CHECK(RowNamed(Page, Bindings, Text::GearLeft.Label).Cells[0].Icon == "ZL");
+	CHECK(RowNamed(Page, Bindings, Text::Confirm.Label).Cells[0].Key == Before.FirstKey(EControlAction::Cross, EInputFamily::Gamepad));
+	Bindings.bOriginalButtonIcons = true;
+	CHECK(RowNamed(Page, Bindings, Text::Confirm.Label).Cells[0].Icon == "B");
+	Bindings.bOriginalButtonIcons = false;
+	REQUIRE(Page.Step(Row, -1, Bindings));
+	CHECK(Bindings.ControllerIcons == EControllerIcons::PlayStation);
+	CHECK(RowNamed(Page, Bindings, Text::Confirm.Label).Cells[0].Icon == "Cross");
+	Keys.Family = EInputFamily::KeyboardAndMouse;
+	REQUIRE(Page.Follow());
+	CHECK(RowNamed(Page, Bindings, Text::Confirm.Label).Cells[0].Icon == "E");
+	Bindings.ControllerIcons = EControllerIcons::Automatic;
+	CHECK(Bindings == Before);
+}
+
 TEST_CASE("The Controls page shows two keys of each button and camera action, of the device last touched", "[Menu]")
 {
 	FPressedKeys Keys;
 	FMenuControlsPage Page(Keys);
 	FControlBindings Bindings = FControlBindings::Defaults();
 	const std::vector<FSettingsRow> Rows = Page.Rows(Bindings);
-	REQUIRE(Rows.size() == 41);
+	REQUIRE(Rows.size() == 42);
 	CHECK(Rows[0].Label == Text::Device);
 	CHECK(Rows[0].Value == Text::Keyboard);
 	CHECK(Rows[0].bReadOnly);
@@ -73,25 +108,26 @@ TEST_CASE("The Controls page shows two keys of each button and camera action, of
 	CHECK(Rows[19].Label == Text::WalkIntoDoors.Label);
 	CHECK(Rows[20].Label == Text::StopAtDoors.Label);
 	CHECK(Rows[21].Label == Text::OriginalButtonIcons.Label);
-	CHECK(Rows[22].Label == Text::ButtonLayout.Label);
-	CHECK(Rows[23].Label == Text::CameraHeading);
-	CHECK(Rows[28].Label == Text::CameraButtons.Label);
-	CHECK(Rows[29].Label == Text::MouseSensitivity.Label);
-	CHECK(Rows[30].Label == Text::StickSensitivity.Label);
-	CHECK(Rows[31].Label == Text::StatesHeading);
-	CHECK(Rows[31].bHeading);
-	CHECK(Rows[32].Label == Text::SaveState.Label);
-	CHECK(Rows[33].Label == Text::LoadState.Label);
-	CHECK(Rows[34].Label == Text::NextSlot.Label);
-	CHECK(Rows[35].Label == Text::PreviousSlot.Label);
-	CHECK(Rows[36].Label == Text::TouchHeading);
-	CHECK(Rows[36].bHeading);
-	CHECK(Rows[37].Label == Text::TouchMovement.Label);
-	CHECK(Rows[37].Value == "D-pad");
-	CHECK(Rows[38].Label == Text::TouchOpacity.Label);
-	CHECK(Rows[38].Value == "100%");
-	CHECK(Rows[39].Label == Text::TouchVibration.Label);
-	CHECK(Rows[39].Value == OptionsText::On);
+	CHECK(Rows[22].Label == Text::ControllerIcons.Label);
+	CHECK(Rows[23].Label == Text::ButtonLayout.Label);
+	CHECK(Rows[24].Label == Text::CameraHeading);
+	CHECK(Rows[29].Label == Text::CameraButtons.Label);
+	CHECK(Rows[30].Label == Text::MouseSensitivity.Label);
+	CHECK(Rows[31].Label == Text::StickSensitivity.Label);
+	CHECK(Rows[32].Label == Text::StatesHeading);
+	CHECK(Rows[32].bHeading);
+	CHECK(Rows[33].Label == Text::SaveState.Label);
+	CHECK(Rows[34].Label == Text::LoadState.Label);
+	CHECK(Rows[35].Label == Text::NextSlot.Label);
+	CHECK(Rows[36].Label == Text::PreviousSlot.Label);
+	CHECK(Rows[37].Label == Text::TouchHeading);
+	CHECK(Rows[37].bHeading);
+	CHECK(Rows[38].Label == Text::TouchMovement.Label);
+	CHECK(Rows[38].Value == "D-pad");
+	CHECK(Rows[39].Label == Text::TouchOpacity.Label);
+	CHECK(Rows[39].Value == "100%");
+	CHECK(Rows[40].Label == Text::TouchVibration.Label);
+	CHECK(Rows[40].Value == OptionsText::On);
 	CHECK(Rows.back().Label == Text::ResetKeys);
 	for (const std::string_view Label : ActionLabels)
 	{

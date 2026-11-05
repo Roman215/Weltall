@@ -96,6 +96,19 @@ namespace Weltall
 		return EButtonIconSet::Xbox;
 	}
 
+	EButtonIconSet ControllerIconSet(EControllerIcons Choice, EButtonIconSet Detected)
+	{
+		switch (Choice)
+		{
+		case EControllerIcons::Xbox: return EButtonIconSet::Xbox;
+		case EControllerIcons::PlayStation: return EButtonIconSet::PlayStation;
+		case EControllerIcons::Nintendo: return EButtonIconSet::Nintendo;
+		case EControllerIcons::SteamDeck: return EButtonIconSet::SteamDeck;
+		case EControllerIcons::Automatic: return Detected;
+		}
+		return Detected;
+	}
+
 	std::string ButtonIcon(EButtonIconSet Set, std::string_view Key)
 	{
 		const std::string_view Name = BoundKeyName(Key);

@@ -65,6 +65,9 @@ namespace Weltall
 		uint8 Param = 0;
 		/** The gears can be neither boarded nor left where the menu was opened. */
 		bool bGearBoardingLocked = true;
+		/** Member Change opened from free play keeps the current party's size and required gear access. */
+		bool bKeepParty = false;
+		bool bRequiresGears = false;
 	};
 
 	/** The sound the menu makes: the system effects of the field's resident effect file, and the sound's output. */

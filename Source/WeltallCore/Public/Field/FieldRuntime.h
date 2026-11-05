@@ -201,6 +201,8 @@ namespace Weltall
 		}
 		/** How many vertical blanks the directions move nothing for once a new map has loaded, from the next map on. */
 		void SetDoorPause(int32 Vblanks) { DoorPauseVblanks = Vblanks; }
+		/** L2 with the menu button opens Member Change during free play. */
+		void SetPartyChangeAnywhere(bool bEnabled) { bPartyChangeAnywhere = bEnabled; }
 		/** How often random battles come, from the next step on (the maps entered later included). */
 		void SetEncounterRate(EEncounterRate Rate)
 		{
@@ -411,6 +413,7 @@ namespace Weltall
 		bool bAnalogMovement = false;
 		bool bWalkIntoDoors = false;
 		int32 DoorPauseVblanks = 0;
+		bool bPartyChangeAnywhere = false;
 		/** The vertical blanks left of the pause after the map's load, the directions kept from the field until it ends. */
 		int32 DoorPauseLeft = 0;
 		FFieldDiscFiles DiscFiles;
@@ -459,6 +462,7 @@ namespace Weltall
 		int32 CoverBrightness = 0;
 		/** Whether each party slot's member rode its gear as the menu opened. */
 		std::array<uint8, 3> RidingAtMenu{};
+		std::array<uint8, 3> CharactersAtMenu{};
 		/** The frame the movie the field plays shows after the next frame's vertical blanks. */
 		int32 NextMovieFrame = 0;
 		/** The menu the field stops at once its picture has darkened, and the shading's step from 0. */

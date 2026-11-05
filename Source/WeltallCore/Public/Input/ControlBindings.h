@@ -65,6 +65,16 @@ namespace Weltall
 		Japan,
 	};
 
+	/** The controller's printed symbols, or the family reported by its driver. */
+	enum class EControllerIcons : uint8
+	{
+		Automatic,
+		Xbox,
+		PlayStation,
+		Nintendo,
+		SteamDeck,
+	};
+
 	/** What Camera left and right (L1, R1) do where they turn the camera: turn it, or zoom the player's view (R1 nearer). */
 	enum class ECameraButtons : uint8
 	{
@@ -217,6 +227,8 @@ namespace Weltall
 		ECameraButtons CameraButtons = ECameraButtons::Rotate;
 		/** Keep the original PlayStation button pictures instead of showing the bound keys or controller buttons. */
 		bool bOriginalButtonIcons = false;
+		/** Override the gamepad driver's button symbols without moving any bindings. */
+		EControllerIcons ControllerIcons = EControllerIcons::Automatic;
 		/** The face buttons' layout, whose places the original pictures show (ChangeButtonLayout moves the keys). */
 		EButtonLayout ButtonLayout = EButtonLayout::Usa;
 		/** How fast the mouse and a stick move the view: levels from LowestSensitivity to HighestSensitivity. */

@@ -682,7 +682,93 @@ namespace
 	}
 }
 
+namespace
+{
+	void CheckBrazilianEnemies(std::span<const FStoryBattle> Battles, bool bEvent, std::size_t First, std::size_t Count)
+	{
+		REQUIRE_BRAZILIAN_DISC(Disc, EDiscRelease::UsaDisc1);
+		REQUIRE_BRAZILIAN_DISC(Other, EDiscRelease::UsaDisc2);
+		auto Opened = FPlayedGame::Open(Disc, Other);
+		REQUIRE(Opened);
+		for (std::size_t Index = First; Index < std::min(First + Count, Battles.size()); ++Index)
+		{
+			CheckEnemiesAct(*Opened, Battles[Index], bEvent);
+		}
+	}
+}
+
 // On foot: as many Deathblows and Ethers as each learns by the levels of its growth record.
+
+TEST_CASE("Brazilian story battles without events play without a stop, maps 22 to 58", "[Battle][Content]")
+{
+	CheckBrazilianEnemies(StoryBattles, false, 0, 10);
+}
+
+TEST_CASE("Brazilian story battles without events play without a stop, maps 82 to 180", "[Battle][Content]")
+{
+	CheckBrazilianEnemies(StoryBattles, false, 10, 10);
+}
+
+TEST_CASE("Brazilian story battles without events play without a stop, maps 181 to 252", "[Battle][Content]")
+{
+	CheckBrazilianEnemies(StoryBattles, false, 20, 10);
+}
+
+TEST_CASE("Brazilian story battles without events play without a stop, maps 260 to 348", "[Battle][Content]")
+{
+	CheckBrazilianEnemies(StoryBattles, false, 30, 10);
+}
+
+TEST_CASE("Brazilian story battles without events play without a stop, maps 348 to 418", "[Battle][Content]")
+{
+	CheckBrazilianEnemies(StoryBattles, false, 40, 10);
+}
+
+TEST_CASE("Brazilian story battles without events play without a stop, maps 418 to 483", "[Battle][Content]")
+{
+	CheckBrazilianEnemies(StoryBattles, false, 50, 10);
+}
+
+TEST_CASE("Brazilian story battles without events play without a stop, maps 491 to 607", "[Battle][Content]")
+{
+	CheckBrazilianEnemies(StoryBattles, false, 60, 10);
+}
+
+TEST_CASE("Brazilian story battles without events play without a stop, maps 622 to 717", "[Battle][Content]")
+{
+	CheckBrazilianEnemies(StoryBattles, false, 70, 10);
+}
+
+TEST_CASE("Brazilian story battles without events play without a stop, maps 717", "[Battle][Content]")
+{
+	CheckBrazilianEnemies(StoryBattles, false, 80, 3);
+}
+
+TEST_CASE("Brazilian story battles with events play without a stop, maps 2 to 130", "[Battle][Content]")
+{
+	CheckBrazilianEnemies(StoryEventBattles, true, 0, 9);
+}
+
+TEST_CASE("Brazilian story battles with events play without a stop, maps 130 to 174", "[Battle][Content]")
+{
+	CheckBrazilianEnemies(StoryEventBattles, true, 9, 9);
+}
+
+TEST_CASE("Brazilian story battles with events play without a stop, maps 174 to 223", "[Battle][Content]")
+{
+	CheckBrazilianEnemies(StoryEventBattles, true, 18, 9);
+}
+
+TEST_CASE("Brazilian story battles with events play without a stop, maps 245 to 442", "[Battle][Content]")
+{
+	CheckBrazilianEnemies(StoryEventBattles, true, 27, 9);
+}
+
+TEST_CASE("Brazilian story battles with events play without a stop, maps 456 to 719", "[Battle][Content]")
+{
+	CheckBrazilianEnemies(StoryEventBattles, true, 36, 8);
+}
+
 TEST_CASE("Every Deathblow Fei learns plays to its end", "[Battle][Content]")
 {
 	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);

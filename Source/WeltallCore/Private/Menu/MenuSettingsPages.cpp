@@ -127,7 +127,7 @@ namespace Weltall
 
 		namespace Modding
 		{
-			enum : int32 { Balance, Experience, Gold, Encounters, Count };
+			enum : int32 { Balance, Experience, Gold, Encounters, PartyChanges, Count };
 			constexpr int32 RewardRates = 5;
 			constexpr int32 EncounterRates = 5;
 		}
@@ -333,6 +333,8 @@ namespace Weltall
 				return Shown(Text::Modding::Gold, ChoiceName(Settings.Balance.Gold, Text::Modding::RewardValues));
 			case Modding::Encounters:
 				return Shown(Text::Modding::Encounters, ChoiceName(Settings.Balance.Encounters, Text::Modding::EncounterValues));
+			case Modding::PartyChanges:
+				return Shown(Text::Modding::PartyChanges, OnOff(Settings.bPartyChangeAnywhere));
 			default:
 				return Heading(Text::Modding::Balance);
 			}
@@ -543,6 +545,9 @@ namespace Weltall
 				return StepChoice(Settings.Balance.Gold, Direction, Modding::RewardRates);
 			case Modding::Encounters:
 				return StepChoice(Settings.Balance.Encounters, Direction, Modding::EncounterRates);
+			case Modding::PartyChanges:
+				Settings.bPartyChangeAnywhere = !Settings.bPartyChangeAnywhere;
+				return true;
 			default:
 				return false;
 			}

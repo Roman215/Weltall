@@ -47,6 +47,9 @@ namespace Weltall
 	 */
 	WELTALLCORE_API EButtonIconSet IconSetOfDevice(bool bGamepad, std::string_view HardwareName);
 
+	/** The controller's selected symbols, falling back to the detected family on Automatic. */
+	WELTALLCORE_API EButtonIconSet ControllerIconSet(EControllerIcons Choice, EButtonIconSet Detected);
+
 	/** The devices whose keys an icon set shows. */
 	inline EInputFamily FamilyOfIconSet(EButtonIconSet Set)
 	{

@@ -24,6 +24,7 @@ namespace Weltall
 	class FBattleProgramTables;
 	class FGameState;
 	class FPsxRandom;
+	class FUnreachedCases;
 	struct FGteArctangents;
 
 	/** Where a battle's slots stand and what fills them: slots 0-2 the party, 3-10 the enemies. */
@@ -369,6 +370,8 @@ namespace Weltall
 
 		FGameState* GameState = nullptr;
 		FPsxRandom* Random = nullptr;
+		/** Records recoveries from invalid game data; none keeps the rules strict. */
+		FUnreachedCases* Unreached = nullptr;
 		/** The show the rules hand their presentation to; none for the rules alone. */
 		IBattleShow* Show = nullptr;
 		/** The Battle program's tables and libgte's arctangents, which the party's commands read. */

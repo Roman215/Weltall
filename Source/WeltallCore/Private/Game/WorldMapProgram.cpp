@@ -17,6 +17,7 @@ namespace Weltall
 	{
 		/** The menu the world map opens: the normal menu, with saving allowed. */
 		constexpr uint8 MenuMode = 0;
+		constexpr uint16 L2Button = 0x0001;
 		constexpr uint8 MenuParam = 1;
 		/** The result the Menu leaves when it loaded a save. */
 		constexpr uint8 SaveLoadedResult = 2;
@@ -349,6 +350,11 @@ namespace Weltall
 		FFieldRequest Request;
 		Request.Kind = EFieldRequest::Menu;
 		Request.MenuMode = MenuMode;
+		if (Session.Settings().bPartyChangeAnywhere && (Session.Pad().Held() & L2Button) != 0)
+		{
+			Request.MenuMode = 1;
+			Kernel.MenuMode = Request.MenuMode;
+		}
 		Request.MenuParam = MenuParam;
 		Request.bMenuByButton = true;
 		Request.bGearBoardingLocked = MapRuntime->Context().GearLock != 0;

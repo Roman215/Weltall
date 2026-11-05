@@ -82,7 +82,7 @@ namespace Weltall
 
 	private:
 		/** The icons a key of a device is drawn with. */
-		EButtonIconSet IconSet(EInputFamily Family) const;
+		EButtonIconSet IconSet(EInputFamily Family, const FControlBindings& Bindings) const;
 		/** "key" or "button", as the device shown calls them. */
 		std::string_view KeyNoun() const;
 		std::array<std::string, 3> Help(int32 Row) const;

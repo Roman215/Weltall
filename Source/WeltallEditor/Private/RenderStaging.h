@@ -50,7 +50,11 @@ namespace Weltall
 class FRenderGlyphs final : public Weltall::IButtonGlyphs
 {
 public:
-	virtual Weltall::FButtonGlyph Glyph(Weltall::EPadButton Button) const override { return Weltall::ButtonGlyph(Button, Bindings, Set); }
+	virtual Weltall::FButtonGlyph Glyph(Weltall::EPadButton Button) const override
+	{
+		const Weltall::EButtonIconSet Shown = Set == Weltall::EButtonIconSet::Keyboard ? Set : Weltall::ControllerIconSet(Bindings.ControllerIcons, Set);
+		return Weltall::ButtonGlyph(Button, Bindings, Shown);
+	}
 	virtual uint32 Revision() const override { return Changes; }
 
 	void Follow(const Weltall::FControlBindings& InBindings)

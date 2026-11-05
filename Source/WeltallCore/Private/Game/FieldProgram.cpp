@@ -118,6 +118,7 @@ namespace Weltall
 		const FPlayerSettings& Settings = Session.Settings();
 		FieldRuntime->SetOptions(Settings.Fixes.Field);
 		FieldRuntime->SetAlwaysRun(Settings.Controls.bAlwaysRun);
+		FieldRuntime->SetPartyChangeAnywhere(Settings.bPartyChangeAnywhere);
 		FieldRuntime->SetAnalogMovement(Settings.Controls.bAnalogMovement);
 		FieldRuntime->SetWalkIntoDoors(Settings.Controls.bWalkIntoDoors);
 		FieldRuntime->SetDoorPause(Settings.Controls.DoorPause * VblanksPerTenth);

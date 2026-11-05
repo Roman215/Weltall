@@ -1,6 +1,7 @@
 #include "Game/PlayerSettings.h"
 #include "Media/PsxExecutable.h"
 #include "Menu/MenuPlay.h"
+#include "Menu/MenuSettingsPages.h"
 #include "Menu/MenuAssetPages.h"
 #include "Menu/MenuDeviceFiles.h"
 #include "Menu/OptionsText.h"
@@ -79,6 +80,14 @@ namespace
 		}
 	}
 
+	void PastBalance(FMenuPlay& Menu, int32 Further = 0)
+	{
+		for (int32 Row = 0; Row < FSettingsPages::RowCount(ESettingsPage::Modding) - 1 + Further; ++Row)
+		{
+			Press(Menu, EPadButton::Down);
+		}
+	}
+
 	void Wait(FMenuPlay& Menu, int32 Frames)
 	{
 		for (int32 Frame = 0; Frame < Frames; ++Frame)
@@ -121,10 +130,7 @@ TEST_CASE("The Assets page changes replacements and starts, refreshes and cancel
 	Press(Menu, EPadButton::Cross, 40);
 	// L1 from Display turns to the last page, Modding; past its balance rows and the mods' heading to Assets, opened.
 	Press(Menu, EPadButton::L1);
-	for (int32 Row = 0; Row < 3; ++Row)
-	{
-		Press(Menu, EPadButton::Down);
-	}
+	PastBalance(Menu);
 	Press(Menu, EPadButton::Cross);
 	Press(Menu, EPadButton::Right);
 	CHECK(Settings.Current.bExternalAssets);
@@ -160,7 +166,7 @@ TEST_CASE("The Assets page changes replacements and starts, refreshes and cancel
 	CHECK(Settings.Kept.front().bExternalAssets);
 }
 
-TEST_CASE("The Modding page sets the balance, and without the Assets page has no rows after it", "[Menu][Content][Balance]")
+TEST_CASE("The Modding page changes balance and party options without external assets", "[Menu][Content][Balance]")
 {
 	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
 	const auto Executable = ReadBootExecutable(*Disc);
@@ -184,8 +190,11 @@ TEST_CASE("The Modding page sets the balance, and without the Assets page has no
 	Press(Menu, EPadButton::Down);
 	Press(Menu, EPadButton::Left);
 	CHECK(Settings.Current.Balance.Encounters == EEncounterRate::Half);
-	// Nothing below it without the Assets page: Down stays, and Left steps Encounters again.
+	// Down opens the party-change switch; Up returns to Encounters, which Left steps again.
 	Press(Menu, EPadButton::Down);
+	Press(Menu, EPadButton::Left);
+	CHECK(Settings.Current.bPartyChangeAnywhere);
+	Press(Menu, EPadButton::Up);
 	Press(Menu, EPadButton::Left);
 	CHECK(Settings.Current.Balance.Encounters == EEncounterRate::Quarter);
 	// Confirm does nothing on a balance row; R1 turns on round to Display.
@@ -213,10 +222,7 @@ TEST_CASE("A mod found has a row on the Modding page that switches it and opens 
 	Press(Menu, EPadButton::Cross, 40);
 	// L1 to Modding; past the balance rows and the mods' heading to Perfect Works, which Right switches on.
 	Press(Menu, EPadButton::L1);
-	for (int32 Row = 0; Row < 3; ++Row)
-	{
-		Press(Menu, EPadButton::Down);
-	}
+	PastBalance(Menu);
 	Press(Menu, EPadButton::Right);
 	CHECK(Settings.Current.PerfectWorks.bEnabled);
 	CHECK(Settings.Current.Balance == FGameBalance{});
@@ -249,10 +255,7 @@ TEST_CASE("The Italian translation's patch found has a row on the Modding page t
 	Press(Menu, EPadButton::Cross, 40);
 	// L1 to Modding; past the balance rows and the mods' heading to the translation's row, which Right switches on.
 	Press(Menu, EPadButton::L1);
-	for (int32 Row = 0; Row < 3; ++Row)
-	{
-		Press(Menu, EPadButton::Down);
-	}
+	PastBalance(Menu);
 	Press(Menu, EPadButton::Right);
 	CHECK(Settings.Current.Italian.bEnabled);
 	CHECK_FALSE(Settings.Current.PerfectWorks.bEnabled);
@@ -286,10 +289,7 @@ TEST_CASE("The Modding page's Disc 2 rows switch the expansions, choose the one 
 	Press(Menu, EPadButton::Cross, 40);
 	// L1 to Modding; past the balance rows and the second disc's heading to its expansions, which Right switches off.
 	Press(Menu, EPadButton::L1);
-	for (int32 Row = 0; Row < 3; ++Row)
-	{
-		Press(Menu, EPadButton::Down);
-	}
+	PastBalance(Menu);
 	Press(Menu, EPadButton::Right);
 	CHECK_FALSE(Settings.Current.Expansions.bEnabled);
 	// Off, the rows of the expansions found are gone: Down is the example scenes' row, whose Confirm finds them there.
@@ -414,10 +414,7 @@ TEST_CASE("The Modding page's Export Disc 2 row starts the export and stops it, 
 	Press(Menu, EPadButton::Cross, 40);
 	// L1 to Modding; past the balance rows, Assets, the expansions' switch and the unchanged export's row to Export Disc 2.
 	Press(Menu, EPadButton::L1);
-	for (int32 Row = 0; Row < 6; ++Row)
-	{
-		Press(Menu, EPadButton::Down);
-	}
+	PastBalance(Menu, 3);
 	Press(Menu, EPadButton::Cross);
 	CHECK(Exporter.Started == std::vector<EAssetExportKind>{EAssetExportKind::Disc2});
 	// Its progress followed while the screen is open; Confirm again stops it after its step.
@@ -483,10 +480,7 @@ TEST_CASE("The Modding page's Make shareable row copies the offered expansion, a
 	Press(Menu, EPadButton::Cross, 40);
 	// L1 to Modding; past the balance rows, Assets, the expansions' switch, the expansion and Export Disc 2.
 	Press(Menu, EPadButton::L1);
-	for (int32 Row = 0; Row < 7; ++Row)
-	{
-		Press(Menu, EPadButton::Down);
-	}
+	PastBalance(Menu, 4);
 	// Its copy there already: nothing starts until a second Confirm, which replaces it.
 	Press(Menu, EPadButton::Cross);
 	Press(Menu, EPadButton::Cross);
@@ -567,10 +561,7 @@ TEST_CASE("On a device, the Modding page has External assets in the Assets row's
 	Press(Menu, EPadButton::Cross, 40);
 	// L1 to Modding; past the balance rows and the mods' heading to External assets, which Right and Confirm switch.
 	Press(Menu, EPadButton::L1);
-	for (int32 Row = 0; Row < 3; ++Row)
-	{
-		Press(Menu, EPadButton::Down);
-	}
+	PastBalance(Menu);
 	Press(Menu, EPadButton::Right);
 	CHECK(Settings.Current.bExternalAssets);
 	Press(Menu, EPadButton::Cross);

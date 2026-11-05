@@ -24,6 +24,7 @@ namespace Weltall
 			WalkIntoDoors,
 			StopAtDoors,
 			OriginalButtonIcons,
+			ControllerIcons,
 			ButtonLayout,
 			CameraButtons,
 			MouseSensitivity,
@@ -53,7 +54,7 @@ namespace Weltall
 			return {Kind, Words.Label, &Words};
 		}
 
-		constexpr std::array<FControlsRow, 41> PageRows{{
+		constexpr std::array<FControlsRow, 42> PageRows{{
 			{ERowKind::Device, Text::Device},
 			{ERowKind::Heading, Text::ButtonsHeading},
 			KeysOf(Text::Up, EControlAction::Up),
@@ -76,6 +77,7 @@ namespace Weltall
 			Setting(ERowKind::WalkIntoDoors, Text::WalkIntoDoors),
 			Setting(ERowKind::StopAtDoors, Text::StopAtDoors),
 			Setting(ERowKind::OriginalButtonIcons, Text::OriginalButtonIcons),
+			Setting(ERowKind::ControllerIcons, Text::ControllerIcons),
 			Setting(ERowKind::ButtonLayout, Text::ButtonLayout),
 			{ERowKind::Heading, Text::CameraHeading},
 			KeysOf(Text::Rotate, EControlAction::ViewTurn),
@@ -229,7 +231,7 @@ namespace Weltall
 				for (int32 Cell = 0; Cell < ControlSlots; ++Cell)
 				{
 					FButtonGlyph& Glyph = Made.Cells.emplace_back();
-					Glyph.Set = IconSet(Shown);
+					Glyph.Set = IconSet(Shown, Bindings);
 					Glyph.Key = std::string(Bindings.KeyAt(Kind.Action, Shown, Cell));
 					Glyph.Icon = Glyph.Key.empty() ? std::string() : ButtonIcon(Glyph.Set, Glyph.Key);
 				}
@@ -254,6 +256,9 @@ namespace Weltall
 				break;
 			case ERowKind::ButtonLayout:
 				Made.Value = SettingsRows::ChoiceName(Bindings.ButtonLayout, Text::ButtonLayoutValues);
+				break;
+			case ERowKind::ControllerIcons:
+				Made.Value = SettingsRows::ChoiceName(Bindings.ControllerIcons, Text::ControllerIconsValues);
 				break;
 			case ERowKind::MouseSensitivity:
 			case ERowKind::StickSensitivity:
@@ -319,6 +324,7 @@ namespace Weltall
 		case ERowKind::CameraButtons:
 		case ERowKind::OriginalButtonIcons:
 		case ERowKind::ButtonLayout:
+		case ERowKind::ControllerIcons:
 		case ERowKind::MouseSensitivity:
 		case ERowKind::StickSensitivity:
 		case ERowKind::TouchMovement:
@@ -386,6 +392,9 @@ namespace Weltall
 			return true;
 		case ERowKind::ButtonLayout:
 			StepLayout(Row, Direction, Bindings);
+			return true;
+		case ERowKind::ControllerIcons:
+			SettingsRows::StepChoice(Bindings.ControllerIcons, Direction, static_cast<int32>(Text::ControllerIconsValues.size()));
 			return true;
 		case ERowKind::MouseSensitivity:
 		case ERowKind::StickSensitivity:
@@ -484,6 +493,9 @@ namespace Weltall
 		case ERowKind::ButtonLayout:
 			StepLayout(Row, 1, Bindings);
 			return true;
+		case ERowKind::ControllerIcons:
+			SettingsRows::StepChoice(Bindings.ControllerIcons, 1, static_cast<int32>(Text::ControllerIconsValues.size()));
+			return true;
 		case ERowKind::Reset:
 			Bindings.ResetFamily(Shown);
 			Tell(Row, std::string(Shown == EInputFamily::KeyboardAndMouse ? Text::KeysReset : Text::ButtonsReset));
@@ -577,9 +589,9 @@ namespace Weltall
 		Told.clear();
 	}
 
-	EButtonIconSet FMenuControlsPage::IconSet(EInputFamily Family) const
+	EButtonIconSet FMenuControlsPage::IconSet(EInputFamily Family, const FControlBindings& Bindings) const
 	{
-		return Family == EInputFamily::KeyboardAndMouse ? EButtonIconSet::Keyboard : PadIcons;
+		return Family == EInputFamily::KeyboardAndMouse ? EButtonIconSet::Keyboard : ControllerIconSet(Bindings.ControllerIcons, PadIcons);
 	}
 
 	std::string_view FMenuControlsPage::KeyNoun() const

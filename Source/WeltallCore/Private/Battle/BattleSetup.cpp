@@ -447,6 +447,7 @@ namespace Weltall
 	void BeginBattleSetup(FBattleContext& Context, const FBattleFormation& Formation, const FBattleScene& Scene)
 	{
 		FGameState* const State = Context.GameState;
+		FUnreachedCases* const Unreached = Context.Unreached;
 		FPsxRandom* const Random = Context.Random;
 		IBattleShow* const Show = Context.Show;
 		const FBattleProgramTables* const Program = Context.Program;
@@ -460,6 +461,7 @@ namespace Weltall
 		const EMesAutoAdvance AutoAdvance = Context.AutoAdvance;
 		Context = FBattleContext{};
 		Context.GameState = State;
+		Context.Unreached = Unreached;
 		Context.Random = Random;
 		Context.Show = Show;
 		Context.Program = Program;

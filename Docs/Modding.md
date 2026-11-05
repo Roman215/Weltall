@@ -22,6 +22,13 @@ use the Windows or Linux version. Exports aren't available on Android.
 
 Restart Weltall after replacing or removing Perfect Works Build as well.
 
+## Party changes
+
+**Party changes** on the Modding page is off by default. With it on, hold **Gear L** and press **Menu**
+(L2 + Square with the default bindings) to open Member Change during free play on the field or world map.
+Story restrictions and member availability still apply, and the party keeps its current size. While riding Gears,
+you can only choose reserves with a Gear. Square on its own still opens the normal menu.
+
 ## Voices
 
 Put both discs of a supported English undub in `Games` to play with English text and Japanese voices. If
@@ -87,8 +94,9 @@ Keep it with that disc's files.
 | `records/NNNNNN.bin` | A file from the disc's index that isn't in a directory |
 | `movies/NN.str` | Movie NN, with its video, audio and sector headers |
 
-BIN/CUE images, and CHD images made from them, keep the movies' audio. An ISO doesn't contain it, so a dump
-from an ISO can't recover it. The dump doesn't convert movies to MP4 or models to Unreal assets.
+Raw images (BIN/CUE, raw IMG and CHD made from them) keep the movies' audio. An image containing only 2048-byte
+data sectors loses it, so a dump from that image can't recover it. The dump doesn't convert movies to MP4 or models
+to Unreal assets.
 
 ## Loading replacements
 

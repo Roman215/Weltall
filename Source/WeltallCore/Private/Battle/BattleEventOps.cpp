@@ -4,6 +4,7 @@
 #include "Battle/BattleRules.h"
 #include "Battle/BattleSteps.h"
 #include "Battle/BattleTurn.h"
+#include "Foundation/UnreachedCases.h"
 #include "Text/MessageOverrides.h"
 
 namespace Weltall::BattleEventSteps
@@ -172,6 +173,15 @@ namespace Weltall::BattleEventSteps
 		int32 ShowMessage(FBattleContext& Context, uint16 Number, uint8 Portrait, uint8 StyleByte)
 		{
 			FBattleEventWork& Event = Context.Event;
+			if (Number >= Event.Messages.Count() || Event.Messages.StartsPastBytes(Number))
+			{
+				if (RecoverUnreached(Context.Unreached, "a battle event's missing message, skipped"))
+				{
+					return 1;
+				}
+				Context.Fault = EBattleFault::EventMessageOutsideTable;
+				return 0;
+			}
 			FBattleEventRun& Run = Event.Run;
 			switch (Run.Step)
 			{
@@ -261,11 +271,6 @@ namespace Weltall::BattleEventSteps
 					{
 						Run.MessageX = static_cast<uint16>(Run.MessageX + 0x40);
 					}
-				}
-				if (Number >= Event.Messages.Count())
-				{
-					Context.Fault = EBattleFault::EventMessageOutsideTable;
-					return 0;
 				}
 				Event.TextY = static_cast<uint32>(Run.MessageY) + 8;
 				Event.TextX = static_cast<uint32>(Run.MessageX) + 12;

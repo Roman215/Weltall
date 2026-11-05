@@ -176,6 +176,14 @@ namespace Weltall
 		Menu.Mode = static_cast<EMenuMode>(Request.MenuMode);
 		Menu.Param = Request.MenuParam;
 		Menu.bGearBoardingLocked = Request.bGearBoardingLocked;
+		Menu.bKeepParty = Request.bMenuByButton && Menu.Mode == EMenuMode::MemberChange;
+		if (Menu.bKeepParty)
+		{
+			for (int32 Slot = 0; Slot < 3; ++Slot)
+			{
+				Menu.bRequiresGears = Menu.bRequiresGears || Session.Game().PartySlotInGear(Slot) != 0;
+			}
+		}
 		return std::unique_ptr<IGameProgram>(std::make_unique<FMenuGameProgram>(*this, Session, std::move(*Resources), Menu));
 	}
 }

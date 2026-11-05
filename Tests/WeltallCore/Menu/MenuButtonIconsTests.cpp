@@ -186,6 +186,11 @@ TEST_CASE("A prompt set out as the four face buttons puts each button and its wo
 	Testing::FBoundGlyphs Xbox(EButtonIconSet::Xbox);
 	Xbox.Bind({{EPadButton::Triangle, "X"}, {EPadButton::Square, "Y"}, {EPadButton::Cross, "B"}, {EPadButton::Circle, "A"}});
 	Check(Placed(Xbox), {1, 0, 3, 2});
+	Testing::FBoundGlyphs Nintendo(ControllerIconSet(EControllerIcons::Nintendo, EButtonIconSet::Xbox));
+	Nintendo.Bind({{EPadButton::Triangle, "X"}, {EPadButton::Square, "Y"}, {EPadButton::Cross, "B"}, {EPadButton::Circle, "A"}});
+	Check(Placed(Nintendo), AsDrawn);
+	Nintendo.Bind({{EPadButton::Triangle, "X"}, {EPadButton::Square, "Y"}, {EPadButton::Cross, "A"}, {EPadButton::Circle, "B"}});
+	Check(Placed(Nintendo), {0, 1, 3, 2});
 	// Two buttons on one place, or a key: the game's places.
 	Xbox.Bind({{EPadButton::Triangle, "Y"}, {EPadButton::Square, "X"}, {EPadButton::Cross, "A"}, {EPadButton::Circle, "A"}});
 	Check(Placed(Xbox), AsDrawn);
