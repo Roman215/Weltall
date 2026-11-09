@@ -485,6 +485,13 @@ namespace Weltall
 
 	FMenuIconPicture DrawMenuButtonIcon(EButtonIconSet Set, std::string_view Icon, EMenuIconSlot Slot)
 	{
+		if (Set == EButtonIconSet::Keyboard && Icon == "+" && Slot == EMenuIconSlot::FaceButton)
+		{
+			FCanvas Canvas(FaceSize, FaceSize);
+			constexpr int32 Scale = 4;
+			DrawText(Canvas, Icon, (FaceSize - 3 * Scale) / 2, (FaceSize - 5 * Scale) / 2, Scale, false, LabelWhite, SymbolShadow, 1);
+			return std::move(Canvas.Picture);
+		}
 		if (Slot == EMenuIconSlot::Cluster)
 		{
 			if (const EFaceButtonPlace Place = FaceButtonPlace(Set, Icon); Place != EFaceButtonPlace::None)

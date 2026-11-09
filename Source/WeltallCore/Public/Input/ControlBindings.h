@@ -137,6 +137,18 @@ namespace Weltall
 	/** The devices a key (by the engine's name) belongs to: a gamepad's keys are named Gamepad_. */
 	WELTALLCORE_API EInputFamily FamilyOfKey(std::string_view Binding);
 
+	struct FControllerChord
+	{
+		std::string_view Modifier;
+		std::string_view Trigger;
+	};
+
+	/** An ordered pair of distinct controller buttons, written as Modifier+Trigger. */
+	WELTALLCORE_API std::optional<FControllerChord> ControllerChordOf(std::string_view Binding);
+
+	/** Only the port's shortcuts may take a controller chord. */
+	WELTALLCORE_API bool CanBindControl(EControlAction Action, std::string_view Binding);
+
 	/** Where a key is bound: its action, and its place among that action's keys of its family. */
 	struct FBoundPlace
 	{

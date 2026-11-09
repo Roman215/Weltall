@@ -616,6 +616,20 @@ TEST_CASE("The CRT filter's parts show the look in use, and changing one makes i
 	CHECK(FSettingsPages::Row(ESettingsPage::Crt, 1, Settings).Value == "None");
 }
 
+TEST_CASE("The Display page cycles the field compass through four placements and off", "[Menu]")
+{
+	FPlayerSettings Settings;
+	bool bCustomPicked = false;
+	const int32 Row = FSettingsPages::RowCount(ESettingsPage::Display) - 1;
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, Row + 2, Settings, false, WideDisplay).Label == "Compass");
+	for (const std::string_view Value : {"16:9", "21:9", "Screen", "Off", "4:3"})
+	{
+		CHECK(FSettingsPages::Row(ESettingsPage::Display, Row, Settings).Value == Value);
+		REQUIRE(FSettingsPages::Step(ESettingsPage::Display, Row, 1, Settings, bCustomPicked));
+	}
+	CHECK(Settings.Field.Compass == ECompassPlacement::Wide);
+}
+
 TEST_CASE("The window's size is chosen among the display's, from the window's own", "[Menu]")
 {
 	// No window's rows where the display offers no sizes: the page begins with the picture's shape.

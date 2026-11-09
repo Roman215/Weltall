@@ -296,6 +296,10 @@ namespace Weltall
 		{
 			const std::string Asked = IsViewAxis(At->Action) ? std::string(bKeyboard ? AxisAsked(At->Action).Mouse : AxisAsked(At->Action).Stick)
 															 : OptionsText::Fill(Text::PressKey, {Noun});
+			if (IsPortAction(At->Action))
+			{
+				return {std::string(Text::PressShortcut), std::string(Text::PressChord), std::string(Text::StopListening)};
+			}
 			return {Asked, std::string(Text::StopListening), ""};
 		}
 		// The buttons the game reads for the parts the help names, by their rows' names.
@@ -469,7 +473,7 @@ namespace Weltall
 			ListenRow = Row;
 			ListenedFrames = 0;
 			ToldRow = -1;
-			Keys.Listen(true);
+			Keys.Listen(true, IsPortAction(At->Action));
 			return true;
 		case ERowKind::AlwaysRun:
 			Bindings.bAlwaysRun = !Bindings.bAlwaysRun;
@@ -534,7 +538,8 @@ namespace Weltall
 			return EControlsHeard::Stopped;
 		}
 		const bool bAxisRow = IsViewAxis(At->Action);
-		if (IsNegatedBinding(Pressed.Key) || bAxisRow != (Pressed.Axis != 0) || (bAxisRow && !IsViewAxisKey(Pressed.Key)))
+		if (IsNegatedBinding(Pressed.Key) || !CanBindControl(At->Action, Pressed.Key)
+			|| bAxisRow != (Pressed.Axis != 0) || (bAxisRow && !IsViewAxisKey(Pressed.Key)))
 		{
 			return EControlsHeard::Ignored;
 		}
@@ -548,8 +553,8 @@ namespace Weltall
 		const int32 Row = ListenRow;
 		StopListening();
 		const std::optional<FBoundPlace> Was = Bindings.Find(Binding);
-		const bool bFree = Bindings.KeyAt(At->Action, Shown, Slot).empty();
-		if (Was && Was->Action != At->Action && bFree && IsButton(Was->Action) && Bindings.Count(Was->Action, Shown) == 1)
+		if (Was && Was->Action != At->Action && IsButton(Was->Action) && Bindings.Count(Was->Action, Shown) == 1
+			&& !CanBindControl(Was->Action, Bindings.KeyAt(At->Action, Shown, Slot)))
 		{
 			Tell(Row, OptionsText::Fill(Text::OnlyKey, {LabelOf(Was->Action)}));
 			return EControlsHeard::Refused;

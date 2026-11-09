@@ -4,6 +4,7 @@
 #include "Rendering/FieldSceneRendering.h"
 #include "RenderGraphResources.h"
 #include "ShaderParameterStruct.h"
+#include "ShaderPermutation.h"
 #include "TextureReplacementParameters.h"
 
 class FFieldSceneVS final : public FGlobalShader
@@ -38,6 +39,9 @@ public:
 	DECLARE_GLOBAL_SHADER(FFieldScenePS);
 	SHADER_USE_PARAMETER_STRUCT(FFieldScenePS, FGlobalShader);
 
+	class FPerSampleTexels : SHADER_PERMUTATION_BOOL("PER_SAMPLE_TEXELS");
+	using FPermutationDomain = TShaderPermutationDomain<FPerSampleTexels>;
+
 	BEGIN_SHADER_PARAMETER_STRUCT(FParameters, )
 		SHADER_PARAMETER_RDG_BUFFER_SRV(StructuredBuffer<FFieldPolygon>, Polygons)
 		SHADER_PARAMETER_RDG_BUFFER_SRV(StructuredBuffer<FFieldPolygon>, DynamicPolygons)
@@ -51,7 +55,6 @@ public:
 		SHADER_PARAMETER(uint32, SpriteFilter)
 		SHADER_PARAMETER(float, ColorScale)
 		SHADER_PARAMETER(float, OutputAlpha)
-		SHADER_PARAMETER(uint32, SampleCount)
 	END_SHADER_PARAMETER_STRUCT()
 };
 

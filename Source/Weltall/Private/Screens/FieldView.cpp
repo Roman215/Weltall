@@ -135,6 +135,7 @@ bool FFieldView::Fill(FFieldScreenFrame& Display, const Weltall::FFieldScene& Sc
 	const Weltall::FFieldFrame* Before, float Alpha, const std::vector<int32>* LayerMatches, const FShownMovie& Shown) const
 {
 	Display.MoviePicture = Shown.Picture;
+	Display.Compass = Options.Compass;
 	Display.Alpha = Alpha;
 	Display.Cover = {};
 	Display.Picture = nullptr;
@@ -229,6 +230,7 @@ TSharedPtr<const IScreenFrame> FFieldView::CaptureStill(const Weltall::FFieldPro
 		return Still;
 	}
 	const TSharedRef<FFieldScreenFrame> Next = MakeShared<FFieldScreenFrame>(Mesh.ToSharedRef(), Vram);
+	Next->Compass = Options.Compass;
 	BuildFieldFrameDraw(Program.Drawing().Scene(), *Latest, nullptr, 1.0f, *Mesh, Options, Next->Draw, TexelKindsOf(Program.Drawing().Vram(), *Latest));
 	// The picture of the screen keeps its place among the layer's primitives that remain.
 	Next->Cover = Latest->Cover;

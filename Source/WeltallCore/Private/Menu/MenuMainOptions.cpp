@@ -66,6 +66,7 @@ namespace Weltall
 		/** A row's keys: the pictures' left edges (the second's ending at the list's inner edge), the arrow before one, a free one's dimness. */
 		constexpr int32 CellWidth = 12;
 		constexpr std::array<int32, ControlSlots> CellX = {ValueRight - CellWidth - 44, ValueRight - CellWidth};
+		constexpr int32 ChordWidth = 28;
 		constexpr int32 CursorBeforeCell = 12;
 		constexpr int32 CursorY = 0x11;
 		/** A face button's picture in the menu's sheet: the keys' stand-in, which the display draws as the key. */
@@ -345,7 +346,9 @@ namespace Weltall
 			{
 				// On a row of keys the arrow points at the key the page is on.
 				const std::size_t Cell = static_cast<std::size_t>(State.ControlsPage->Cell());
-				DrawCursorAt(CellX[Cell] - CursorBeforeCell, (State.Row - State.Top + 1) * RowStep + CursorY, 0);
+				const auto& Glyph = State.Rows[static_cast<std::size_t>(State.Row)].Cells[Cell];
+				const int32 ExtraWidth = ControllerChordOf(Glyph.Key) ? ChordWidth : 0;
+				DrawCursorAt(CellX[Cell] - CursorBeforeCell - ExtraWidth, (State.Row - State.Top + 1) * RowStep + CursorY, 0);
 			}
 			else
 			{
@@ -665,10 +668,10 @@ namespace Weltall
 
 	void FMenuMain::DrawOptionsCells(const FSettingsRow& Shown, int32 Y)
 	{
-		for (std::size_t Cell = 0; Cell < Shown.Cells.size() && Cell < CellX.size(); ++Cell)
+		const auto Draw = [this, Y](int32 X, FButtonGlyph Glyph)
 		{
 			const std::size_t First = Options.Cells.size();
-			Resources.Sheet().Draw(CellFrame, CellX[Cell], Y, FullScale, Options.Cells);
+			Resources.Sheet().Draw(CellFrame, X, Y, FullScale, Options.Cells);
 			for (std::size_t Part = First; Part < Options.Cells.size(); ++Part)
 			{
 				FMenuPrimitive& Picture = Options.Cells[Part];
@@ -677,14 +680,28 @@ namespace Weltall
 					Picture.ButtonRole = static_cast<uint16>(MenuKeyRole + Options.Keys.size());
 					Picture.ButtonSlot = EMenuIconSlot::FaceButton;
 				}
-				if (Shown.Cells[Cell].Icon.empty())
+				if (Glyph.Icon.empty())
 				{
 					Picture.Code = static_cast<uint8>((Picture.Code | MenuGpu::SemiTransparent) & ~MenuGpu::RawTexture);
 					Picture.Page = static_cast<uint16>(Picture.Page | MenuGpu::PageBlendAdd);
 					Picture.Corners[0].Color = {FreeCell, FreeCell, FreeCell};
 				}
 			}
-			Options.Keys.push_back(Shown.Cells[Cell]);
+			Options.Keys.push_back(std::move(Glyph));
+		};
+		for (std::size_t Cell = 0; Cell < Shown.Cells.size() && Cell < CellX.size(); ++Cell)
+		{
+			const FButtonGlyph& Glyph = Shown.Cells[Cell];
+			if (const auto Chord = ControllerChordOf(Glyph.Key))
+			{
+				Draw(CellX[Cell] - ChordWidth, {Glyph.Set, {}, ButtonIcon(Glyph.Set, Chord->Modifier)});
+				Draw(CellX[Cell] - ChordWidth / 2, {EButtonIconSet::Keyboard, {}, "+"});
+				Draw(CellX[Cell], {Glyph.Set, {}, ButtonIcon(Glyph.Set, Chord->Trigger)});
+			}
+			else
+			{
+				Draw(CellX[Cell], Glyph);
+			}
 		}
 	}
 

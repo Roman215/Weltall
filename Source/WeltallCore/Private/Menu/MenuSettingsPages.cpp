@@ -154,7 +154,7 @@ namespace Weltall
 		namespace Display
 		{
 			enum : int32 { FullScreen, WindowSize, Aspect, IntegerScaling, Sorting, SceneryFilter, SpriteFilter, MovieFilter, Crt, AntiAliasing, Culling, Pilots, Gears, ChapterCards, TextSpeed, AutoAdvance,
-				BattleSpeed, BattleFlashes, BackgroundPause, Count };
+				BattleSpeed, BattleFlashes, BackgroundPause, Compass, Count };
 
 			/** The window's rows (full screen, its size) are not there where the game has no window of its own: the rows after them move up. */
 			int32 Hidden(const FDisplayModes& Modes)
@@ -321,6 +321,8 @@ namespace Weltall
 				return Shown(Text::Display::BattleSpeed, ChoiceName(Settings.BattleSpeed, Text::Display::BattleSpeedValues));
 			case Display::BattleFlashes:
 				return Shown(Text::Display::BattleFlashes, ChoiceName(Settings.Field.BattleFlashes, Text::Display::BattleFlashesValues));
+			case Display::Compass:
+				return Shown(Text::Display::Compass, ChoiceName(Settings.Field.Compass, Text::Display::CompassValues));
 			default:
 				return Shown(Text::Display::PauseInBackground, OnOff(Settings.Display.bPauseInBackground));
 			}
@@ -532,6 +534,8 @@ namespace Weltall
 				return StepChoice(Settings.BattleSpeed, Direction, BattleSpeedCount);
 			case Display::BattleFlashes:
 				return StepChoice(Settings.Field.BattleFlashes, Direction, 3);
+			case Display::Compass:
+				return StepChoice(Settings.Field.Compass, Direction, static_cast<int32>(OptionsText::Display::CompassValues.size()));
 			default:
 				Settings.Display.bPauseInBackground = !Settings.Display.bPauseInBackground;
 				return true;

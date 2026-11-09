@@ -91,6 +91,8 @@ namespace Weltall::OptionsText
 		inline constexpr FRow BattleFlashes{"Battle flashes", {"Softer dims the screen flashes", "of attacks and Ethers. Off", "removes them."}};
 		inline constexpr std::array<std::string_view, 3> BattleFlashesValues{"Original", "Softer", "Off"};
 		inline constexpr FRow PauseInBackground{"Pause in background", {"Pauses the game when its", "window isn't in focus. Play", "time stops too."}};
+		inline constexpr FRow Compass{"Compass", {"Sets the field compass edge.", "Wider choices use the picture", "edge. Off hides the compass."}};
+		inline constexpr std::array<std::string_view, 5> CompassValues{"4:3", "16:9", "21:9", "Screen", "Off"};
 	}
 
 	/** The CRT filter's parts. */
@@ -490,6 +492,8 @@ namespace Weltall::OptionsText
 
 		/** Listening for a key: what to press ("{}" the noun), then how to stop. */
 		inline constexpr std::string_view PressKey = "Press a {} to assign.";
+		inline constexpr std::string_view PressShortcut = "Press a key or tap a button.";
+		inline constexpr std::string_view PressChord = "Hold one, press another.";
 		inline constexpr std::string_view StopListening = "Esc or wait to cancel.";
 		/** Listening for an axis: the way asked for, on the mouse and on a stick. */
 		inline constexpr std::string_view MoveMouseRight = "Move the mouse right.";

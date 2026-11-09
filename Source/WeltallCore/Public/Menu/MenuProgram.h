@@ -173,7 +173,7 @@ namespace Weltall
 		virtual ~IMenuKeys() = default;
 
 		/** Starts or stops listening. While it listens the game is given no buttons, and none after it stops until every one is let go. */
-		virtual void Listen(bool bListening) = 0;
+		virtual void Listen(bool bListening, bool bControllerChords = false) = 0;
 		/** The next key pressed since listening began, oldest first; none when there are no more. */
 		virtual std::optional<FPressedKey> TakePressed() = 0;
 

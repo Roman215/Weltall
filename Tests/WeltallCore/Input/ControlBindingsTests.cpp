@@ -1,8 +1,35 @@
 #include "Input/ControlBindings.h"
+#include "Game/PlayerSettings.h"
 
 #include <catch_amalgamated.hpp>
 
 using namespace Weltall;
+
+TEST_CASE("Controller shortcuts round-trip and are exclusive by ordered pair", "[Input]")
+{
+	const std::string Chord = "Gamepad_Special_Left+Gamepad_RightShoulder";
+	const std::string Reversed = "Gamepad_RightShoulder+Gamepad_Special_Left";
+	const auto Parsed = ControllerChordOf(Chord);
+	REQUIRE(Parsed);
+	CHECK(Parsed->Modifier == "Gamepad_Special_Left");
+	CHECK(Parsed->Trigger == "Gamepad_RightShoulder");
+	CHECK_FALSE(ControllerChordOf("Gamepad_Special_Left+Gamepad_Special_Left"));
+	CHECK_FALSE(ControllerChordOf("Gamepad_Special_Left+F5"));
+	CHECK_FALSE(ControllerChordOf("Gamepad_Special_Left+Gamepad_RightShoulder+Gamepad_LeftShoulder"));
+
+	FPlayerSettings Settings;
+	Settings.Controls.Rebind(EControlAction::SaveState, 0, Chord);
+	Settings.Controls.Rebind(EControlAction::LoadState, 0, Reversed);
+	Settings.Controls.Rebind(EControlAction::NextStateSlot, 0, Chord);
+	CHECK(Settings.Controls.FirstKey(EControlAction::SaveState, EInputFamily::Gamepad).empty());
+	CHECK(Settings.Controls.FirstKey(EControlAction::NextStateSlot, EInputFamily::Gamepad) == Chord);
+	CHECK(Settings.Controls.FirstKey(EControlAction::LoadState, EInputFamily::Gamepad) == Reversed);
+	CHECK(Settings.Controls.FirstKey(EControlAction::Select, EInputFamily::Gamepad) == Parsed->Modifier);
+	CHECK(Settings.Controls.FirstKey(EControlAction::R1, EInputFamily::Gamepad) == Parsed->Trigger);
+	CHECK(ReadPlayerSettings(WritePlayerSettings(Settings)).Controls == Settings.Controls);
+	Settings.Controls.ResetFamily(EInputFamily::Gamepad);
+	CHECK(Settings.Controls == FControlBindings::Defaults());
+}
 
 TEST_CASE("Every PlayStation button but the stick buttons has its action", "[Input]")
 {

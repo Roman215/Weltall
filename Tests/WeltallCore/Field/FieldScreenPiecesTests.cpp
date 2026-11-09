@@ -187,11 +187,14 @@ TEST_CASE("The compass is drawn after the cockpit's instruments and before the s
 	CHECK(Shadow.Texture->Page == FTexturePage{640, 256, ETextureDepth::Indexed4, EBlendMode::Subtract});
 	CHECK(Shadow.Texture->Clut == FClutPosition{256, 242});
 	CHECK(Shadow.Blend == EDrawBlend::SemiTransparent);
+	CHECK(Shadow.bAnchorRight);
 	const FDrawPrimitive& Dial = Layer.Primitives[1];
 	CHECK(Dial.Texture->Page.Depth == ETextureDepth::Indexed8);
 	CHECK(Dial.Blend == EDrawBlend::Opaque);
+	CHECK(Dial.bAnchorRight);
 	CHECK(Shadow.BlendKey != Dial.BlendKey);
 	CHECK_FALSE(Layer.Primitives[2].Texture);
+	CHECK_FALSE(Layer.Primitives[2].bAnchorRight);
 }
 
 TEST_CASE("FE DF's still is drawn after the windows as five columns across the wide screen, shown at half their width", "[Field]")

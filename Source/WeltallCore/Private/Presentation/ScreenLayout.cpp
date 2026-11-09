@@ -1,5 +1,7 @@
 #include "Presentation/ScreenLayout.h"
 
+#include "Field/FieldRenderOptions.h"
+
 #include <algorithm>
 #include <cmath>
 
@@ -31,6 +33,20 @@ namespace Weltall
 		const int32 Width = std::min(DisplayWidth, static_cast<int32>(static_cast<int64>(DisplayHeight) * Across / Down));
 		const int32 Height = std::min(DisplayHeight, static_cast<int32>(static_cast<int64>(DisplayWidth) * Down / Across));
 		return {(DisplayWidth - Width) / 2, (DisplayHeight - Height) / 2, Width, Height};
+	}
+
+	int32 CompassRightEdge(int32 Width, int32 Height, ECompassPlacement Placement)
+	{
+		int64 Limit = Width;
+		switch (Placement)
+		{
+		case ECompassPlacement::Standard: Limit = static_cast<int64>(Height) * 4 / 3; break;
+		case ECompassPlacement::Wide: Limit = static_cast<int64>(Height) * 16 / 9; break;
+		case ECompassPlacement::Ultrawide: Limit = static_cast<int64>(Height) * 21 / 9; break;
+		default: break;
+		}
+		const int32 Fitted = static_cast<int32>(std::min<int64>(Width, Limit));
+		return (Width - Fitted) / 2 + Fitted;
 	}
 
 	FScreenLayout FScreenLayout::Fit(int32 DisplayWidth, int32 DisplayHeight, FScreenSize Screen)

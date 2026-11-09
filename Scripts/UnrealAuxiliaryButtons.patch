@@ -1,0 +1,36 @@
+--- a/Engine/Source/Runtime/ApplicationCore/Public/Android/AndroidInputInterface.h
++++ b/Engine/Source/Runtime/ApplicationCore/Public/Android/AndroidInputInterface.h
+@@ -145,5 +145,5 @@
+ 
+ #define MAX_NUM_CONTROLLERS					8  // reasonable limit for now
+-#define MAX_NUM_PHYSICAL_CONTROLLER_BUTTONS	18
++#define MAX_NUM_PHYSICAL_CONTROLLER_BUTTONS	20
+ #define MAX_NUM_VIRTUAL_CONTROLLER_BUTTONS	8
+ #define MAX_NUM_CONTROLLER_BUTTONS			MAX_NUM_PHYSICAL_CONTROLLER_BUTTONS + MAX_NUM_VIRTUAL_CONTROLLER_BUTTONS
+--- a/Engine/Source/Runtime/ApplicationCore/Private/Android/AndroidInputInterface.cpp
++++ b/Engine/Source/Runtime/ApplicationCore/Private/Android/AndroidInputInterface.cpp
+@@ -146,4 +146,6 @@
+ namespace AndroidKeyNames
+ {
++	constexpr int32 AuxiliaryC = 18;
++	constexpr int32 AuxiliaryZ = 19;
+ 	const FGamepadKeyNames::Type Android_Back("Android_Back");
+ 	const FGamepadKeyNames::Type Android_Menu("Android_Menu");
+@@ -178,4 +180,7 @@
+ 
+ 	// Virtual buttons
++	ButtonMapping[AndroidKeyNames::AuxiliaryC] = FGamepadKeyNames::Type("Gamepad_Auxiliary_C");
++	ButtonMapping[AndroidKeyNames::AuxiliaryZ] = FGamepadKeyNames::Type("Gamepad_Auxiliary_Z");
++
+ 	ButtonMapping[MAX_NUM_PHYSICAL_CONTROLLER_BUTTONS + 0] = FGamepadKeyNames::LeftStickLeft;
+ 	ButtonMapping[MAX_NUM_PHYSICAL_CONTROLLER_BUTTONS + 1] = FGamepadKeyNames::LeftStickRight;
+@@ -1951,4 +1956,9 @@
+ 		}
+ 	}
++	else if (buttonId == AKEYCODE_BUTTON_C || buttonId == AKEYCODE_BUTTON_Z)
++	{
++		const int32 Auxiliary = buttonId == AKEYCODE_BUTTON_C ? AndroidKeyNames::AuxiliaryC : AndroidKeyNames::AuxiliaryZ;
++		DeviceData->NewControllerData.ButtonStates[Auxiliary] = buttonDown;
++	}
+ 	else
+ 	{

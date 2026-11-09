@@ -109,6 +109,30 @@ namespace Weltall
 		return BoundKeyName(Binding).starts_with(GamepadPrefix) ? EInputFamily::Gamepad : EInputFamily::KeyboardAndMouse;
 	}
 
+	std::optional<FControllerChord> ControllerChordOf(std::string_view Binding)
+	{
+		const std::size_t Plus = Binding.find('+');
+		if (Plus == std::string_view::npos)
+		{
+			return std::nullopt;
+		}
+		const std::string_view Modifier = Binding.substr(0, Plus);
+		const std::string_view Trigger = Binding.substr(Plus + 1);
+		if (!Modifier.starts_with(GamepadPrefix) || Modifier.size() == GamepadPrefix.size()
+			|| !Trigger.starts_with(GamepadPrefix) || Trigger.size() == GamepadPrefix.size()
+			|| Trigger.find('+') != std::string_view::npos || Modifier == Trigger)
+		{
+			return std::nullopt;
+		}
+		return FControllerChord{Modifier, Trigger};
+	}
+
+	bool CanBindControl(EControlAction Action, std::string_view Binding)
+	{
+		return !BoundKeyName(Binding).empty()
+			&& (Binding.find('+') == std::string_view::npos || (IsPortAction(Action) && ControllerChordOf(Binding).has_value()));
+	}
+
 	FControlBindings FControlBindings::Defaults(EButtonLayout Layout)
 	{
 		FControlBindings Bindings;
@@ -163,7 +187,7 @@ namespace Weltall
 
 	void FControlBindings::Bind(EControlAction Action, int32 Slot, std::string_view Binding)
 	{
-		if (BoundKeyName(Binding).empty())
+		if (!CanBindControl(Action, Binding))
 		{
 			return;
 		}
@@ -184,7 +208,7 @@ namespace Weltall
 
 	void FControlBindings::Rebind(EControlAction Action, int32 Slot, std::string_view Binding)
 	{
-		if (BoundKeyName(Binding).empty())
+		if (!CanBindControl(Action, Binding))
 		{
 			return;
 		}
@@ -199,7 +223,7 @@ namespace Weltall
 				Held = Binding;
 				return;
 			}
-			if (Replaced.empty())
+			if (!CanBindControl(Was->Action, Replaced))
 			{
 				std::vector<std::string>& Keys = Bound[static_cast<std::size_t>(Was->Action)];
 				Keys.erase(Keys.begin() + (&Held - Keys.data()));

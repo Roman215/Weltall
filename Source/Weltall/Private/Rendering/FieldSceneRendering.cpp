@@ -5,6 +5,7 @@
 #include "FieldSceneShaders.h"
 #include "PipelineStateCache.h"
 #include "PixelShaderUtils.h"
+#include "RHI.h"
 #include "RHIStaticStates.h"
 #include "RenderGraphBuilder.h"
 #include "RenderGraphUtils.h"
@@ -20,6 +21,17 @@ namespace
 	constexpr float NearPlane = 1.0f;
 	constexpr uint8 MsaaSamples = 4;
 	constexpr int32 SupersamplingFactor = 2;
+
+	bool SupportsFieldMsaa()
+	{
+#if PLATFORM_ANDROID
+		// The Adreno 610 Vulkan driver can fail to create the field's multisample pipeline.
+		constexpr uint32 Adreno610 = 0x06010001;
+		return !IsRHIDeviceQualcomm() || GRHIDeviceId != Adreno610;
+#else
+		return true;
+#endif
+	}
 
 	/** The GPU's blend modes as blend states; the pixel shader scales the new pixel for B + F / 4 and outputs alpha 0.5 for averaging. */
 	FRHIBlendState* BlendStateOf(const FFieldDrawRun& Run)
@@ -357,7 +369,9 @@ namespace
 
 		const FGlobalShaderMap* ShaderMap = GetGlobalShaderMap(GMaxRHIFeatureLevel);
 		TShaderMapRef<FFieldSceneVS> VertexShader(ShaderMap);
-		TShaderMapRef<FFieldScenePS> PixelShader(ShaderMap);
+		FFieldScenePS::FPermutationDomain Permutation;
+		Permutation.Set<FFieldScenePS::FPerSampleTexels>(Samples == MsaaSamples);
+		TShaderMapRef<FFieldScenePS> PixelShader(ShaderMap, Permutation);
 		// H times the clip units of one pixel of the original screen: its height fills the target's.
 		const float Vertical = Draw.ProjectionDistance * 2.0f / ScreenHeight;
 		const FVector2f ProjectionScale(Vertical * static_cast<float>(Size.Y) / static_cast<float>(Size.X), Vertical);
@@ -390,7 +404,7 @@ namespace
 
 		GraphBuilder.AddPass(RDG_EVENT_NAME("FieldScene"), PassParameters, ERDGPassFlags::Raster,
 			[PassParameters, Runs, VertexShader, PixelShader, Viewport, ProjectionScale, VramUnits, Filter, SpriteFilter, StaticCorners, StaticPolygons, bScissor,
-				ScissorRect, bDepthTarget, FloorUp, bShadowsOnFloors, Samples, Replacements](FRDGAsyncTask, FRHICommandList& RHICmdList)
+				ScissorRect, bDepthTarget, FloorUp, bShadowsOnFloors, Replacements](FRDGAsyncTask, FRHICommandList& RHICmdList)
 			{
 				RHICmdList.SetViewport(static_cast<float>(Viewport.Min.X), static_cast<float>(Viewport.Min.Y), 0.0f, static_cast<float>(Viewport.Max.X),
 					static_cast<float>(Viewport.Max.Y), 1.0f);
@@ -452,7 +466,6 @@ namespace
 						PixelParameters.SpriteFilter = SpriteFilter;
 						PixelParameters.ColorScale = IsBlended(Run) && Run.Blend == Weltall::EBlendMode::AddQuarter ? 0.25f : 1.0f;
 						PixelParameters.OutputAlpha = IsBlended(Run) && Run.Blend == Weltall::EBlendMode::Average ? 0.5f : 1.0f;
-						PixelParameters.SampleCount = Samples;
 						SetShaderParameters(RHICmdList, PixelShader, PixelShader.GetPixelShader(), PixelParameters);
 						RHICmdList.DrawPrimitive(0, Run.VertexCount / 3, 1);
 					}
@@ -488,7 +501,7 @@ void AddFieldScenePasses(FRDGBuilder& GraphBuilder, const FFieldSceneMesh& Mesh,
 		return;
 	}
 	const int32 Factor = Draw.AntiAliasing == EFieldAntiAliasing::Supersampling ? SupersamplingFactor : 1;
-	const uint8 Samples = Draw.AntiAliasing == EFieldAntiAliasing::Msaa ? MsaaSamples : 1;
+	const uint8 Samples = Draw.AntiAliasing == EFieldAntiAliasing::Msaa && SupportsFieldMsaa() ? MsaaSamples : 1;
 	const FIntPoint Size = Area.Size() * Factor;
 	const FSceneBuffers Buffers = UploadSceneBuffers(GraphBuilder, Mesh, Draw, Size);
 	const FIntRect Target(FIntPoint::ZeroValue, Size);

@@ -44,7 +44,8 @@ void UWeltallViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)
 		FRDGBuilder GraphBuilder(RHICmdList);
 		FRDGTextureRef Output = RegisterExternalTexture(GraphBuilder, Target, TEXT("GameViewport"));
 		GraphBuilder.SetTextureAccessFinal(Output, ERHIAccess::RTV);
-		AddDisplayFramePasses(GraphBuilder, Output, FIntRect(FIntPoint::ZeroValue, Size.ComponentMin(Output->Desc.Extent)), Options, Frame.Get());
+		AddDisplayFramePasses(GraphBuilder, Output, FIntRect(FIntPoint::ZeroValue, Size.ComponentMin(Output->Desc.Extent)), Options, Frame.Get(),
+			!Touch.Controls.IsEmpty() && Touch.Opacity > 0.0f);
 		AddTouchControlsPasses(GraphBuilder, Output, Touch);
 		GraphBuilder.Execute();
 	});

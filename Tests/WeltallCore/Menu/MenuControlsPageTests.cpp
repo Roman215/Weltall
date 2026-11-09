@@ -90,6 +90,29 @@ TEST_CASE("The Controls page changes controller symbols without rebinding the bu
 	CHECK(Bindings == Before);
 }
 
+TEST_CASE("The Controls page assigns shortcuts without taking their gameplay buttons", "[Menu]")
+{
+	FPressedKeys Keys;
+	Keys.Family = EInputFamily::Gamepad;
+	FMenuControlsPage Page(Keys);
+	FControlBindings Bindings = FControlBindings::Defaults();
+	const int32 Row = RowOf(Page, Text::SaveState.Label);
+	const std::string Chord = "Gamepad_Special_Left+Gamepad_RightShoulder";
+	REQUIRE(Page.Activate(Row, Bindings));
+	CHECK(Keys.bChords);
+	CHECK(Page.Heard({Chord, 0}, Bindings) == EControlsHeard::Bound);
+	CHECK(RowNamed(Page, Bindings, Text::SaveState.Label).Cells[0].Key == Chord);
+	CHECK(Bindings.FirstKey(EControlAction::Select, EInputFamily::Gamepad) == "Gamepad_Special_Left");
+	CHECK(Bindings.FirstKey(EControlAction::R1, EInputFamily::Gamepad) == "Gamepad_RightShoulder");
+	CHECK(Bindings.FirstKey(EControlAction::SaveState, EInputFamily::KeyboardAndMouse) == "F5");
+
+	// Replacing a chord with a button cannot transfer the chord to a gameplay row.
+	CHECK(BindOn(Page, Bindings, Text::SaveState.Label, {"Gamepad_RightShoulder", 0}) == EControlsHeard::Refused);
+	CHECK(Bindings.FirstKey(EControlAction::SaveState, EInputFamily::Gamepad) == Chord);
+	CHECK(BindOn(Page, Bindings, Text::CameraRight.Label, {Chord, 0}) == EControlsHeard::Ignored);
+	CHECK_FALSE(Keys.bChords);
+}
+
 TEST_CASE("The Controls page shows two keys of each button and camera action, of the device last touched", "[Menu]")
 {
 	FPressedKeys Keys;

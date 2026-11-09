@@ -101,6 +101,8 @@ namespace Weltall
 		 * bottom right) whatever their places here, its texels across it as they lie: a fill or a picture covering the screen.
 		 */
 		bool bSpansDisplay = false;
+		/** Follow the right edge when the picture extends past the game screen. */
+		bool bAnchorRight = false;
 		/**
 		 * Non-zero for a primitive that moves or changes size between ticks: the one with the same key
 		 * in the tick before is drawn in between at the display's rate. Keys are unique in a list.

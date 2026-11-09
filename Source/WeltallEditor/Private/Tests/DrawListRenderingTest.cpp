@@ -1,9 +1,11 @@
+#include "Field/FieldRenderOptions.h"
 #include "Graphics/Vram.h"
 #include "Misc/AutomationTest.h"
 #include "OffscreenRender.h"
 #include "Presentation/DrawList.h"
 #include "RenderingThread.h"
 #include "Rendering/DrawListTextures.h"
+#include "Rendering/ScreenArea.h"
 
 #if WITH_DEV_AUTOMATION_TESTS
 
@@ -148,6 +150,61 @@ bool FDrawListSpanTest::RunTest(const FString&)
 	Is(TEXT("the second, red"), 170, 120, FColor(255, 0, 0));
 	Is(TEXT("the third, green"), 300, 230, FColor(0, 255, 0));
 	Is(TEXT("the last, white, out to the display's right edge, past the screen's"), 470, 120, FColor(255, 255, 255));
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FDrawListAnchorRightTest, "Weltall.Rendering.DrawListCanAnchorToThePicturesRightEdge",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FDrawListAnchorRightTest::RunTest(const FString&)
+{
+	const Weltall::FVram Vram = MakeVram();
+	const Weltall::FDrawTexture Textures[] = {Texture()};
+	FDrawListTextures Resources(std::span<const Weltall::FVram>(&Vram, 1), Textures);
+	BeginInitResource(&Resources);
+
+	Weltall::FDrawList List;
+	List.Primitives.push_back(SolidRect(240, 130, 20, 20, {255, 0, 0}));
+	Weltall::FDrawPrimitive& Anchored = List.Primitives.emplace_back(SolidRect(240, 160, 20, 20, {0, 255, 0}));
+	Anchored.bAnchorRight = true;
+	Anchored.Clip = {240, 160, 10, 20};
+
+	// The picture has side bars of its own, so its right edge need not be the output's.
+	const FIntPoint Size(960, 240);
+	using Weltall::ECompassPlacement;
+	struct FCase { int32 Width; ECompassPlacement Placement; };
+	for (const FCase& Case : {FCase{320, ECompassPlacement::Ultrawide}, FCase{480, ECompassPlacement::Wide},
+		FCase{800, ECompassPlacement::Standard}, FCase{800, ECompassPlacement::Screen}, FCase{800, ECompassPlacement::Off}})
+	{
+		const int32 Width = Case.Width;
+		const int32 Left = (Size.X - Width) / 2;
+		const FScreenArea Area(FIntRect(Left, 0, Left + Width, 240));
+		const FIntRect ScreenRect = Area.ScreenRect({320, 224});
+		FDrawListFrame Frame{&List};
+		Frame.RightShift = Left + Weltall::CompassRightEdge(Width, Size.Y, Case.Placement) - ScreenRect.Max.X;
+		Frame.bHideRightAnchored = Case.Placement == ECompassPlacement::Off;
+		const TArray<FColor> Pixels = RenderPassesOffscreen(Size, [&Resources, &Frame, &ScreenRect](FRDGBuilder& GraphBuilder, FRDGTextureRef Color)
+		{
+			AddDrawListPasses(GraphBuilder, Resources, Frame, Color, ScreenRect, {320, 224});
+		});
+		if (TestEqual(TEXT("The frame was read back"), Pixels.Num(), Size.X * Size.Y))
+		{
+			const int32 Fixed = ScreenRect.Min.X + FMath::FloorToInt(245.0f * ScreenRect.Width() / 320.0f);
+			const int32 Moved = Fixed + Frame.RightShift;
+			const int32 FixedRow = ScreenRect.Min.Y + FMath::FloorToInt(135.0f * ScreenRect.Height() / 224.0f);
+			const int32 MovedRow = ScreenRect.Min.Y + FMath::FloorToInt(165.0f * ScreenRect.Height() / 224.0f);
+			TestEqual(TEXT("The rest of the layer stays on the centered screen"), Pixels[FixedRow * Size.X + Fixed], FColor::Red);
+			TestEqual(TEXT("The anchored piece keeps its right margin or is hidden"), Pixels[MovedRow * Size.X + Moved],
+				Frame.bHideRightAnchored ? FColor::Black : FColor::Green);
+			TestEqual(TEXT("The piece's clip moves with it"), Pixels[MovedRow * Size.X + Moved + 10], FColor::Black);
+			if (Frame.RightShift != 0)
+			{
+				TestEqual(TEXT("The anchored piece is absent from its old position"), Pixels[MovedRow * Size.X + Fixed], FColor::Black);
+			}
+		}
+	}
+	BeginReleaseResource(&Resources);
+	FlushRenderingCommands();
 	return true;
 }
 

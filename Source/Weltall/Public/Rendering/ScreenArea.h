@@ -10,10 +10,13 @@
 struct FScreenArea : public FIntRect
 {
 	FScreenArea() = default;
-	explicit FScreenArea(const FIntRect& Rect, int32 InWholeScale = 0) : FIntRect(Rect), WholeScale(InWholeScale) {}
+	explicit FScreenArea(const FIntRect& Rect, int32 InWholeScale = 0, bool bInTouchOverlay = false)
+		: FIntRect(Rect), WholeScale(InWholeScale), bTouchOverlay(bInTouchOverlay) {}
 
 	/** Pixels a game pixel for every screen of the frame; 0 fits each screen as large as it goes. */
 	int32 WholeScale = 0;
+	/** On-screen controls are drawn over the picture's sides. */
+	bool bTouchOverlay = false;
 
 	/** Where Screen lies, relative to the area's corner. */
 	Weltall::FScreenLayout Layout(Weltall::FScreenSize Screen) const
@@ -30,18 +33,18 @@ struct FScreenArea : public FIntRect
 	/** Screen's rows across the area's whole width, laid out as this area lays out screens: where a 3D scene of it is drawn. */
 	FScreenArea Rows(Weltall::FScreenSize Screen) const
 	{
-		return FScreenArea(InOutput(Layout(Screen).Rows(Width(), Screen)), WholeScale);
+		return FScreenArea(InOutput(Layout(Screen).Rows(Width(), Screen)), WholeScale, bTouchOverlay);
 	}
 
 	/** The same area with its corner at Corner: a picture of the frame in a texture of its own. */
 	FScreenArea At(FIntPoint Corner) const
 	{
-		return FScreenArea(FIntRect(Corner, Corner + Size()), WholeScale);
+		return FScreenArea(FIntRect(Corner, Corner + Size()), WholeScale, bTouchOverlay);
 	}
 
 	bool operator==(const FScreenArea& Other) const
 	{
-		return FIntRect::operator==(Other) && WholeScale == Other.WholeScale;
+		return FIntRect::operator==(Other) && WholeScale == Other.WholeScale && bTouchOverlay == Other.bTouchOverlay;
 	}
 
 private:

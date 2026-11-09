@@ -41,7 +41,7 @@ FRDGTextureRef FFieldCoverPicture::ScreenPixels(FRDGBuilder& GraphBuilder)
 FRDGTextureRef FFieldCoverPicture::Draw(FRDGBuilder& GraphBuilder, const FScreenArea& Area, FDrawn& Into)
 {
 	const FIntPoint Size = Area.Size();
-	if (Into.Target.IsValid() && Into.Target->GetDesc().Extent == Size && Into.WholeScale == Area.WholeScale)
+	if (Into.Target.IsValid() && Into.Area == Area)
 	{
 		return GraphBuilder.RegisterExternalTexture(Into.Target);
 	}
@@ -54,7 +54,7 @@ FRDGTextureRef FFieldCoverPicture::Draw(FRDGBuilder& GraphBuilder, const FScreen
 	AddClearRenderTargetPass(GraphBuilder, Picture, FLinearColor::Black);
 	Shown->AddPasses(GraphBuilder, Picture, Area);
 	GraphBuilder.QueueTextureExtraction(Picture, &Into.Target);
-	Into.WholeScale = Area.WholeScale;
+	Into.Area = Area;
 	return Picture;
 }
 
@@ -135,6 +135,7 @@ void FFieldScreenFrame::AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Outp
 	const bool bScreenPicture = Cover.bShown && Cover.bScreen && Picture.IsValid();
 	FRDGTextureRef PictureTexture = bScreenPicture ? Picture->Texture(GraphBuilder, Area) : nullptr;
 	const FIntRect ScreenRect = Area.ScreenRect(FieldScreen);
+	const FScreenArea Rows = Area.Rows(FieldScreen);
 	if (MoviePicture.IsValid())
 	{
 		const Weltall::FScreenRect WholeScreen{0, 0, static_cast<int16>(FieldScreen.Width), static_cast<int16>(FieldScreen.Height)};
@@ -142,9 +143,16 @@ void FFieldScreenFrame::AddPasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Outp
 	}
 	else
 	{
-		AddFieldScenePasses(GraphBuilder, *Mesh, *Vram, Draw, Output, Area.Rows(FieldScreen));
+		AddFieldScenePasses(GraphBuilder, *Mesh, *Vram, Draw, Output, Rows);
 	}
 	FDrawListFrame Frame{&Layer, bPreviousLayer ? &PreviousLayer : nullptr, bPreviousLayer ? &Matches : nullptr, Alpha};
+	Frame.bHideRightAnchored = Compass == Weltall::ECompassPlacement::Off;
+	if (!Frame.bHideRightAnchored && !MoviePicture.IsValid() && !Draw.bClipped && !Area.bTouchOverlay)
+	{
+		const int32 FieldRight = Draw.PictureStretch.bStaged ? Rows.Min.X + FieldPictureArea(Rows.Size()).Max.X : Rows.Max.X;
+		const int32 CompassRight = Area.Min.X + Weltall::CompassRightEdge(Area.Width(), Area.Height(), Compass);
+		Frame.RightShift = FMath::Min(CompassRight, FieldRight) - ScreenRect.Max.X;
+	}
 	Frame.End = Cover.LayerIndex;
 	const auto AddLayer = [&]()
 	{

@@ -15,7 +15,7 @@ namespace Weltall
 			std::array<std::string_view, 4> Icons;
 		};
 
-		constexpr std::array<FGamepadIcons, 20> GamepadIcons{{
+		constexpr std::array<FGamepadIcons, 22> GamepadIcons{{
 			{"Gamepad_FaceButton_Bottom", {"A", "Cross", "B", "A"}},
 			{"Gamepad_FaceButton_Right", {"B", "Circle", "A", "B"}},
 			{"Gamepad_FaceButton_Left", {"X", "Square", "Y", "X"}},
@@ -36,6 +36,8 @@ namespace Weltall
 			{"Gamepad_RightX", {"RightStick", "RightStick", "RightStick", "RightStick"}},
 			{"Gamepad_RightY", {"RightStick", "RightStick", "RightStick", "RightStick"}},
 			{"Gamepad_Right2D", {"RightStick", "RightStick", "RightStick", "RightStick"}},
+			{"Gamepad_Auxiliary_C", {"C", "C", "C", "C"}},
+			{"Gamepad_Auxiliary_Z", {"Z", "Z", "Z", "Z"}},
 		}};
 
 		/** Keys whose label is not their name. */

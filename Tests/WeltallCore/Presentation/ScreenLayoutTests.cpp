@@ -1,3 +1,4 @@
+#include "Field/FieldRenderOptions.h"
 #include "Presentation/ScreenLayout.h"
 
 #include <catch_amalgamated.hpp>
@@ -75,6 +76,16 @@ TEST_CASE("The picture takes the window's shape, or the largest 16:9 or 4:3 in i
 	CHECK(FitAspect(1280, 1024, EDisplayAspect::Wide) == FDisplayRect{0, 152, 1280, 720});
 	CHECK(FitAspect(1080, 1920, EDisplayAspect::Standard) == FDisplayRect{0, 555, 1080, 810});
 	CHECK(FitAspect(0, 720, EDisplayAspect::Wide) == FDisplayRect{0, 0, 0, 720});
+}
+
+TEST_CASE("The compass's aspect limits its right edge without exceeding the picture", "[Presentation]")
+{
+	CHECK(CompassRightEdge(3840, 1080, ECompassPlacement::Standard) == 2640);
+	CHECK(CompassRightEdge(3840, 1080, ECompassPlacement::Wide) == 2880);
+	CHECK(CompassRightEdge(3840, 1080, ECompassPlacement::Ultrawide) == 3180);
+	CHECK(CompassRightEdge(3840, 1080, ECompassPlacement::Screen) == 3840);
+	CHECK(CompassRightEdge(1920, 1080, ECompassPlacement::Ultrawide) == 1920);
+	CHECK(CompassRightEdge(1440, 1080, ECompassPlacement::Wide) == 1440);
 }
 
 TEST_CASE("A screen laid out whole takes as many display pixels a pixel as asked, centred", "[Presentation]")

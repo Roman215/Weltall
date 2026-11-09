@@ -6,6 +6,8 @@
 
 namespace Weltall
 {
+	enum class ECompassPlacement : uint8;
+
 	/** A rectangle of whole display pixels. */
 	struct FDisplayRect
 	{
@@ -19,6 +21,9 @@ namespace Weltall
 
 	/** The part of a display the picture takes: the whole of it, or the largest of the aspect's shape in its middle. */
 	WELTALLCORE_API FDisplayRect FitAspect(int32 DisplayWidth, int32 DisplayHeight, EDisplayAspect Aspect);
+
+	/** The right edge of the compass's centered area within the picture, in pixels from the picture's left. */
+	WELTALLCORE_API int32 CompassRightEdge(int32 Width, int32 Height, ECompassPlacement Placement);
 
 	/**
 	 * Where a game screen appears on a display: centred, with square pixels, as large as fits or at a whole

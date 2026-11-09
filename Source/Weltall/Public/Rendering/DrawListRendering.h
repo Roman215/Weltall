@@ -29,6 +29,9 @@ struct FDrawListFrame
 	/** The stretch of Latest's primitives drawn: the whole list unless told otherwise. */
 	std::size_t First = 0;
 	std::size_t End = static_cast<std::size_t>(-1);
+	/** Shift for right-anchored primitives, in output pixels. */
+	int32 RightShift = 0;
+	bool bHideRightAnchored = false;
 };
 
 /**

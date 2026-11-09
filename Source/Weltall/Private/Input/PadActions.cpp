@@ -68,6 +68,10 @@ void UPadActions::Map(const Weltall::FControlBindings& Bindings)
 		const EControlAction Action = static_cast<EControlAction>(Index);
 		for (const std::string& Binding : Bindings.Keys(Action))
 		{
+			if (Weltall::ControllerChordOf(Binding))
+			{
+				continue;
+			}
 			const std::string_view Name = Weltall::BoundKeyName(Binding);
 			const FKey Key(FName(static_cast<int32>(Name.size()), Name.data()));
 			if (!Key.IsValid())

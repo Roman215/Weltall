@@ -72,7 +72,7 @@ public:
 class FRenderKeys final : public Weltall::IMenuKeys
 {
 public:
-	virtual void Listen(bool bOn) override
+	virtual void Listen(bool bOn, bool bControllerChords) override
 	{
 		bListening = bOn;
 		ListenedAt.reset();

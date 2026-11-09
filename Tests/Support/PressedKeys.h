@@ -12,9 +12,10 @@ namespace Weltall::Testing
 	class FPressedKeys final : public IMenuKeys
 	{
 	public:
-		void Listen(bool bOn) override
+		void Listen(bool bOn, bool bControllerChords) override
 		{
 			bListening = bOn;
+			bChords = bOn && bControllerChords;
 			Listens += bOn ? 1 : 0;
 			if (!bOn)
 			{
@@ -41,6 +42,7 @@ namespace Weltall::Testing
 		EInputFamily Family = EInputFamily::KeyboardAndMouse;
 		EButtonIconSet Icons = EButtonIconSet::Xbox;
 		bool bListening = false;
+		bool bChords = false;
 		/** How many times listening began. */
 		int32 Listens = 0;
 		std::deque<FPressedKey> Queue;

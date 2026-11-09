@@ -109,13 +109,13 @@ uint SpriteFilter;
 // A blend mode's share of the new pixel (0.25 for B + F / 4) and the alpha averaging uses.
 float ColorScale;
 float OutputAlpha;
-// The target's samples a pixel.
-uint SampleCount;
 
+#if PER_SAMPLE_TEXELS
 // Multisampling's four samples at their standard places, in sixteenths of a pixel from its centre (Direct3D's, which
 // Vulkan's standard places are).
 #define MSAA_SAMPLES 4
 static const float2 SamplePositions[MSAA_SAMPLES] = {float2(-2.0, -6.0), float2(6.0, -2.0), float2(-6.0, 2.0), float2(2.0, 6.0)};
+#endif
 
 float3 UnpackColor(uint Color)
 {
@@ -336,50 +336,53 @@ float4 MainPS(
 	float2 TexCoord : TEXCOORD0,
 	float3 Color : COLOR0,
 	nointerpolation uint PolygonIndex : TEXCOORD1,
-	nointerpolation uint ColorFlags : TEXCOORD2,
-	uint Covered : SV_Coverage,
-	out uint Coverage : SV_Coverage) : SV_Target0
+	nointerpolation uint ColorFlags : TEXCOORD2
+#if PER_SAMPLE_TEXELS
+	, uint Covered : SV_Coverage, out uint Coverage : SV_Coverage
+#endif
+	) : SV_Target0
 {
 	const FFieldPolygon Polygon = PolygonAt(PolygonIndex);
 	const float2 TexelsAcross = ddx(TexCoord);
 	const float2 TexelsDown = ddy(TexCoord);
 	const float2 Footprint = abs(TexelsAcross) + abs(TexelsDown);
 	float3 Rgb = Color;
+#if PER_SAMPLE_TEXELS
 	Coverage = Covered;
+#endif
 	if (Polygon.Texture != PSX_NO_TEXTURE)
 	{
 		const uint PolygonFilter = (Polygon.Flags & FLAG_SPRITE) != 0 ? SpriteFilter : Filter;
 		float3 Texel;
 		bool bDrawn = SampleTexel(TexCoord, Polygon, PolygonFilter, Footprint, Texel);
-		if (SampleCount == MSAA_SAMPLES)
+	#if PER_SAMPLE_TEXELS
+		// The shader runs once a pixel, at its centre, but each sample keeps or drops the texel under it: a transparent
+		// texel at the centre would otherwise take away the samples over a drawn one beside it, opening a crack where
+		// another polygon starts at that texel's edge.
+		const int2 Centre = PolygonTexel(int2(floor(TexCoord)), Polygon);
+		Coverage = 0;
+		for (uint Sample = 0; Sample < MSAA_SAMPLES; ++Sample)
 		{
-			// The shader runs once a pixel, at its centre, but each sample keeps or drops the texel under it: a transparent
-			// texel at the centre would otherwise take away the samples over a drawn one beside it, opening a crack where
-			// another polygon starts at that texel's edge.
-			const int2 Centre = PolygonTexel(int2(floor(TexCoord)), Polygon);
-			Coverage = 0;
-			for (uint Sample = 0; Sample < MSAA_SAMPLES; ++Sample)
+			if ((Covered & (1u << Sample)) == 0)
 			{
-				if ((Covered & (1u << Sample)) == 0)
-				{
-					continue;
-				}
-				const float2 Offset = SamplePositions[Sample] / 16.0;
-				const float2 At = TexCoord + TexelsAcross * Offset.x + TexelsDown * Offset.y;
-				bool bSampleDrawn = bDrawn;
-				if (PolygonFilter != FILTER_NEAREST || any(PolygonTexel(int2(floor(At)), Polygon) != Centre))
-				{
-					float3 AtTexel;
-					bSampleDrawn = SampleTexel(At, Polygon, PolygonFilter, Footprint, AtTexel);
-					if (bSampleDrawn && Coverage == 0 && !bDrawn)
-					{
-						Texel = AtTexel;
-					}
-				}
-				Coverage |= bSampleDrawn ? 1u << Sample : 0u;
+				continue;
 			}
-			bDrawn = Coverage != 0;
+			const float2 Offset = SamplePositions[Sample] / 16.0;
+			const float2 At = TexCoord + TexelsAcross * Offset.x + TexelsDown * Offset.y;
+			bool bSampleDrawn = bDrawn;
+			if (PolygonFilter != FILTER_NEAREST || any(PolygonTexel(int2(floor(At)), Polygon) != Centre))
+			{
+				float3 AtTexel;
+				bSampleDrawn = SampleTexel(At, Polygon, PolygonFilter, Footprint, AtTexel);
+				if (bSampleDrawn && Coverage == 0 && !bDrawn)
+				{
+					Texel = AtTexel;
+				}
+			}
+			Coverage |= bSampleDrawn ? 1u << Sample : 0u;
 		}
+		bDrawn = Coverage != 0;
+	#endif
 		if (!bDrawn)
 		{
 			discard;

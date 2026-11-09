@@ -85,7 +85,7 @@ namespace
 	}
 
 	FScreenDrawVertex MakeVertex(const Weltall::FDrawPrimitive& Primitive, const Weltall::FDrawPrimitive* Before, int32 Corner, float Alpha,
-		uint32 Layer, uint32 VramTexture, const FVector4f& Display)
+		uint32 Layer, uint32 VramTexture, const FVector4f& Display, float RightOffset)
 	{
 		// A flat primitive takes its first corner's color everywhere.
 		const auto ColorOf = [Corner](const Weltall::FDrawPrimitive& Shape) { return Shape.Corners[Shape.bGouraud ? Corner : 0].Color; };
@@ -94,7 +94,7 @@ namespace
 		const Weltall::FDrawColor Color = ColorOf(Primitive);
 		const Weltall::FDrawColor ThenColor = Before != nullptr ? ColorOf(*Before) : Color;
 		FScreenDrawVertex Vertex;
-		Vertex.Position = FVector2f(Lerp(Then.X, Now.X, Alpha), Lerp(Then.Y, Now.Y, Alpha));
+		Vertex.Position = FVector2f(Lerp(Then.X, Now.X, Alpha) + RightOffset, Lerp(Then.Y, Now.Y, Alpha));
 		if (Primitive.bSpansDisplay)
 		{
 			Vertex.Position = FVector2f((Corner & 1) != 0 ? Display.Z : Display.X, (Corner & 2) != 0 ? Display.W : Display.Y);
@@ -102,7 +102,7 @@ namespace
 		Vertex.TexCoord = FVector2f(Lerp(Then.U, Now.U, Alpha), Lerp(Then.V, Now.V, Alpha));
 		Vertex.Color = FVector4f(Lerp(ThenColor.R, Color.R, Alpha), Lerp(ThenColor.G, Color.G, Alpha), Lerp(ThenColor.B, Color.B, Alpha), 255.0f);
 		const Weltall::FScreenRect& Clip = Primitive.Clip;
-		Vertex.Clip = FVector4f(Clip.X, Clip.Y, Clip.X + Clip.Width, Clip.Y + Clip.Height);
+		Vertex.Clip = FVector4f(Clip.X + RightOffset, Clip.Y, Clip.X + Clip.Width + RightOffset, Clip.Y + Clip.Height);
 		Vertex.Texture = Layer;
 		Vertex.Flags = Primitive.bModulate ? FlagModulate : 0;
 		Vertex.VramTexture = VramTexture;
@@ -174,11 +174,16 @@ namespace
 		};
 		const FVector4f Display(ToScreen(0, ScreenRect.Min.X, ScreenRect.Width(), Screen.Width), ToScreen(0, ScreenRect.Min.Y, ScreenRect.Height(), Screen.Height),
 			ToScreen(Extent.X, ScreenRect.Min.X, ScreenRect.Width(), Screen.Width), ToScreen(Extent.Y, ScreenRect.Min.Y, ScreenRect.Height(), Screen.Height));
+		const float RightOffset = ToScreen(Frame.RightShift, 0, ScreenRect.Width(), Screen.Width);
 		FDrawRuns& Runs = *GraphBuilder.AllocObject<FDrawRuns>();
 		uint32 Written = 0;
 		for (std::size_t Index = First; Index < End; ++Index)
 		{
 			const Weltall::FDrawPrimitive& Primitive = Primitives[Index];
+			if (Frame.bHideRightAnchored && Primitive.bAnchorRight)
+			{
+				continue;
+			}
 			uint32 Layer = NoTexture;
 			uint32 VramTexture = 0;
 			if (Primitive.Texture && Textures.Vram != nullptr)
@@ -202,11 +207,12 @@ namespace
 			// The GPU draws a four-point polygon as the triangles (0, 1, 2) and (1, 2, 3).
 			constexpr int32 Triangles[2][3] = {{0, 1, 2}, {1, 2, 3}};
 			const uint32 FirstVertex = Written;
+			const float Offset = Primitive.bAnchorRight ? RightOffset : 0.0f;
 			for (int32 Triangle = 0; Triangle < (Primitive.CornerCount == 4 ? 2 : 1); ++Triangle)
 			{
 				for (const int32 Corner : Triangles[Triangle])
 				{
-					Vertices[Written++] = MakeVertex(Primitive, Before, Corner, Frame.Alpha, Layer, VramTexture, Display);
+					Vertices[Written++] = MakeVertex(Primitive, Before, Corner, Frame.Alpha, Layer, VramTexture, Display, Offset);
 				}
 			}
 			const uint32 Count = Written - FirstVertex;

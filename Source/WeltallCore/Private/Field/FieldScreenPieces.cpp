@@ -111,6 +111,7 @@ namespace Weltall
 				Quad.bShadow ? EBlendMode::Subtract : EBlendMode::Average};
 			Primitive.Texture = FDrawTexture{0, Page, FClutPosition{Texture.ClutX, Texture.ClutY}};
 			Primitive.Blend = Quad.bShadow ? EDrawBlend::SemiTransparent : EDrawBlend::Opaque;
+			Primitive.bAnchorRight = true;
 			Primitive.BlendKey = CompassKeys | static_cast<uint32>(Index);
 			Layer.Primitives.push_back(Primitive);
 		}

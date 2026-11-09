@@ -320,6 +320,9 @@ TEST_CASE("Keys that keyboards mark with a symbol show it, and a mouse's buttons
 	CHECK(Key("MouseLeft").Texels != Key("MouseRight").Texels);
 	CHECK(Key("MouseMiddle").Texels != Key("MouseLeft").Texels);
 	CHECK(Key("LeftShift").Texels == Key("RightShift").Texels);
+	const FMenuIconPicture Separator = Key("+");
+	CHECK(Opaque(Separator) > 0);
+	CHECK(Opaque(Separator) < Opaque(Key("Add")));
 	// The rest keep their printed names.
 	CHECK(Key("Pause").Width > 24);
 }

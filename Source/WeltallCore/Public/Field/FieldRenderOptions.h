@@ -83,6 +83,15 @@ namespace Weltall
 		Off,
 	};
 
+	enum class ECompassPlacement : uint8
+	{
+		Standard,
+		Wide,
+		Ultrawide,
+		Screen,
+		Off,
+	};
+
 	/**
 	 * The ways the field can be presented, each the player's choice. The defaults sort everything by depth (the
 	 * scenery's decals in the original's order), keep the texels sharp, smooth only polygon edges, draw
@@ -108,6 +117,7 @@ namespace Weltall
 		 */
 		EFieldGearModels GearModels = EFieldGearModels::OutsideCutscenes;
 		EBattleFlashes BattleFlashes = EBattleFlashes::Original;
+		ECompassPlacement Compass = ECompassPlacement::Wide;
 
 		bool operator==(const FFieldRenderOptions&) const = default;
 	};

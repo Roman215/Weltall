@@ -26,7 +26,7 @@ public:
 	virtual void Initialize(FSubsystemCollectionBase& Collection) override;
 	virtual void Deinitialize() override;
 
-	virtual void Listen(bool bOn) override;
+	virtual void Listen(bool bOn, bool bControllerChords = false) override;
 	virtual std::optional<Weltall::FPressedKey> TakePressed() override;
 	virtual Weltall::EInputFamily LastFamily() const override;
 	virtual Weltall::EButtonIconSet GamepadIcons() const override;
@@ -36,11 +36,24 @@ public:
 
 	bool IsListening() const { return bListening; }
 
+	/** Controller shortcuts pressed since the last read, in the port actions' order. */
+	TArray<Weltall::EControlAction, TFixedAllocator<Weltall::PortActionCount>> TakeChords();
+
 	/** The input heard something, kept while listening. */
 	void Heard(const FKey& Key, int32 Axis);
 
 private:
+	friend class FKeyListenProcessor;
+	void HeardChord(const FKey& Modifier, const FKey& Trigger);
+	bool TriggerChord(const FKey& Trigger, const TSet<FKey>& Held);
+	void DeviceConnectionChanged(EInputDeviceConnectionState State, FPlatformUserId User, FInputDeviceId Device);
+	void AppActivationChanged(bool bActive);
+
 	TSharedPtr<FKeyListenProcessor> Processor;
+	FDelegateHandle ConnectionChanged;
+	FDelegateHandle ActivationChanged;
+	FDelegateHandle Backgrounded;
+	uint8 ChordsPressed = 0;
 	bool bListening = false;
 	/** Listening stopped with buttons held, which the game is not given until they are let go. */
 	bool bWithheld = false;

@@ -37,6 +37,7 @@ namespace
 		Settings.Field.bDetailedPilots = false;
 		Settings.Field.GearModels = EFieldGearModels::Everywhere;
 		Settings.Field.BattleFlashes = EBattleFlashes::Softer;
+		Settings.Field.Compass = ECompassPlacement::Ultrawide;
 		Settings.SoundOutput = ESoundOutput::WideStereo;
 		Settings.VoiceLanguage = EVoiceLanguage::Japanese;
 		Settings.MovieSubtitles = EMovieSubtitles::On;
@@ -170,6 +171,9 @@ TEST_CASE("The settings' text lists every setting and reads back the same", "[Se
 	CHECK(ValueOf(Defaults, "sound.output") == "stereo");
 	CHECK(ValueOf(Defaults, "display.window_size").empty());
 	CHECK(ValueOf(Defaults, "display.aspect") == "window");
+	CHECK(ValueOf(Defaults, "field.compass") == "16:9");
+	CHECK(ReadPlayerSettings("field.compass = off\n").Field.Compass == ECompassPlacement::Off);
+	CHECK(ReadPlayerSettings("field.compass = 32:9\n").Field.Compass == ECompassPlacement::Wide);
 	CHECK(ValueOf(Defaults, "display.integer_scaling") == "false");
 	CHECK(ReadPlayerSettings("display.integer_scaling = true\n").Display.bIntegerScaling);
 	CHECK(ValueOf(Defaults, "display.crt_filter") == "off");

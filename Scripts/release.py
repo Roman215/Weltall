@@ -37,15 +37,16 @@ You'll need your own copy of the USA release or a supported English undub. No ga
 
 ## What's new
 
-- Fixed a stop at the start of the Brigandier battle near Dazil in the Brazilian Portuguese translation.
-  The battle now continues when a line of dialogue is missing from a patched disc.
-  [Issue #35](https://github.com/Roman215/Weltall/issues/35)
-- Choose the button symbols that match your controller under **Options → Controls → Controller icons**.
-  Automatic follows the detected controller. You can also choose Xbox, PlayStation, Nintendo or Steam Deck.
-  Your bindings stay the same. [Issue #31](https://github.com/Roman215/Weltall/issues/31)
-- To change your party during free play, turn on **Options → Modding → Party changes**, then hold **Gear L**
-  and press **Menu** on the field or world map (L2 + Square by default). Story restrictions and member
-  availability still apply. The option is off by default.
+- Bind two-button controller shortcuts for saving and loading states, changing slots and opening the
+  message log. In **Options → Controls**, select a binding slot, hold one button and press the other.
+  Use the buttons in that order. [Issue #40](https://github.com/Roman215/Weltall/issues/40)
+- Bind the extra C and Z buttons on Android controllers and handhelds that report them.
+  [Issue #37](https://github.com/Roman215/Weltall/issues/37)
+- Move the field compass under **Options → Display → Compass**. Choose 4:3, 16:9, 21:9, Screen or Off.
+  [Issue #36](https://github.com/Roman215/Weltall/issues/36)
+- On Android devices with Adreno 610 graphics, field scenes use single-sample rendering when MSAA is
+  selected. This works around a Vulkan pipeline failure reported after the opening movie.
+  [Issue #41](https://github.com/Roman215/Weltall/issues/41)
 
 ## Playing
 
@@ -84,8 +85,8 @@ If the game stops with an error on screen, attach the log file it names to a
 [bug report](https://github.com/Roman215/Weltall/issues/new?template=bug_report.md) and describe what you
 were doing. If it crashes, zip and attach the newest folder in `%LOCALAPPDATA%\\Weltall\\Saved\\Crashes`
 (Windows) or `~/.config/Epic/Weltall/Saved/Crashes` (Linux). On Android, tap **Save the log** on the
-error screen, or under **Options → Saves** after a crash, and attach the zip file it saves. A save from
-just before the problem helps too.
+error screen or reopen the game and use **Options → Saves → Save the log**. Attach the zip file it
+saves. A save from just before the problem helps too.
 
 ## Support
 

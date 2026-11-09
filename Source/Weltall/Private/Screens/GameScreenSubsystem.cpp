@@ -16,7 +16,7 @@
 #include "Shell/GameWindowSubsystem.h"
 
 void AddDisplayFramePasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, const FIntRect& Display, const Weltall::FDisplayOptions& Options,
-	const IScreenFrame* Frame)
+	const IScreenFrame* Frame, bool bTouchOverlay)
 {
 	AddClearRenderTargetPass(GraphBuilder, Output, FLinearColor::Black, Display);
 	if (Frame == nullptr)
@@ -26,7 +26,7 @@ void AddDisplayFramePasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, con
 	const Weltall::FScreenSize Screen = Frame->ScreenSize();
 	const Weltall::FPictureArea Placed = Weltall::PictureArea(Display.Width(), Display.Height(), Options, Screen);
 	const FIntPoint Origin = Display.Min + FIntPoint(Placed.Rect.X, Placed.Rect.Y);
-	const FScreenArea Area(FIntRect(Origin, Origin + FIntPoint(Placed.Rect.Width, Placed.Rect.Height)), Placed.WholeScale);
+	const FScreenArea Area(FIntRect(Origin, Origin + FIntPoint(Placed.Rect.Width, Placed.Rect.Height)), Placed.WholeScale, bTouchOverlay);
 	if (Options.Crt == Weltall::ECrtFilter::Off)
 	{
 		Frame->AddPasses(GraphBuilder, Output, Area);
@@ -77,6 +77,8 @@ void UGameScreenSubsystem::Tick(float DeltaTime)
 		Sound->SetHeld(bHeld || Screen->HoldsGame());
 	}
 	UPadPortsSubsystem* Ports = GetGameInstance()->GetSubsystem<UPadPortsSubsystem>();
+	UKeyListenerSubsystem* Listener = GetGameInstance()->GetSubsystem<UKeyListenerSubsystem>();
+	auto Chords = Listener ? Listener->TakeChords() : TArray<Weltall::EControlAction, TFixedAllocator<Weltall::PortActionCount>>();
 	if (bHeld)
 	{
 		// A motor running as the game is held would run on.
@@ -91,9 +93,13 @@ void UGameScreenSubsystem::Tick(float DeltaTime)
 	{
 		Screen->AddViewInput(Controller->ReadView(DeltaTime));
 		// A key pressed while the Controls page listens is the one it binds.
-		const UKeyListenerSubsystem* Listener = GetGameInstance()->GetSubsystem<UKeyListenerSubsystem>();
 		const bool bKeyTaken = Listener != nullptr && Listener->IsListening();
-		for (const Weltall::EControlAction Action : Controller->ReadPortKeys())
+		auto Actions = Controller->ReadPortKeys();
+		for (const Weltall::EControlAction Action : Chords)
+		{
+			Actions.AddUnique(Action);
+		}
+		for (const Weltall::EControlAction Action : Actions)
 		{
 			if (!bKeyTaken)
 			{
