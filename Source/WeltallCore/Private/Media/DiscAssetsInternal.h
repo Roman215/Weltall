@@ -17,7 +17,8 @@ namespace Weltall
 
 	namespace DiscAssets
 	{
-		TResult<bool> SafePath(const std::filesystem::path& Root, const std::filesystem::path& Relative);
+		/** Returns false when an optional override's root is unavailable. Export always requires a valid root. */
+		TResult<bool> SafePath(const std::filesystem::path& Root, const std::filesystem::path& Relative, bool bOptionalOverride = false);
 		TResult<bool> PrepareFolder(const std::filesystem::path& Root, const std::filesystem::path& Relative);
 		TResult<bool> WriteManifest(const std::filesystem::path& Root, const std::string& Manifest);
 		TResult<bool> ValidateManifest(const std::filesystem::path& Root, const std::string& Manifest);

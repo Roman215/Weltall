@@ -78,6 +78,7 @@ namespace Weltall
 		Session.Kernel().LightMatrix = Program->DrawingTables.LightMatrix;
 
 		FWorldMapServices Services;
+		Services.Session = &Session;
 		Services.Image = &Session.Image();
 		Services.Index = &Session.Index();
 		Services.Tables = &Program->Tables;

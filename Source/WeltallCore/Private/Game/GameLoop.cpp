@@ -3,10 +3,12 @@
 #include "Game/BattleGameProgram.h"
 #include "Game/BattlingGameProgram.h"
 #include "Game/FieldProgram.h"
+#include "Game/GamePace.h"
 #include "Game/GameSession.h"
 #include "Game/MovieProgram.h"
 #include "Game/WorldMapProgram.h"
 
+#include <algorithm>
 #include <string>
 
 namespace Weltall
@@ -15,6 +17,7 @@ namespace Weltall
 	{
 		/** L1, R1, Start and Select together: the kernel's start waits for them to be let go. */
 		constexpr uint16 SoftResetButtons = 0x090C;
+		constexpr uint16 SpeedButtons = FPadState::Bit(EPadButton::L1) | FPadState::Bit(EPadButton::R1);
 
 		/** A program the port does not run, named with what the kernel's globals and the game state hand it. */
 		FError NotRunYet(const FGameSession& Session, EGameProgram Program)
@@ -92,10 +95,11 @@ namespace Weltall
 		switch (LoopStage)
 		{
 		case EGameLoopStage::Boot:
+			HeldBefore = HeldPerVblank[0].Buttons;
 			return Boot(HeldPerVblank[0]);
 		case EGameLoopStage::Program:
 		{
-			if (auto Error = RunningEntry->Frame(HeldPerVblank))
+			if (auto Error = RunningEntry->Frame(ReadExplorationSpeed(HeldPerVblank)))
 			{
 				return Stop(std::move(*Error));
 			}
@@ -114,6 +118,35 @@ namespace Weltall
 		default:
 			return std::nullopt;
 		}
+	}
+
+	std::span<const FPadState> FGameLoop::ReadExplorationSpeed(std::span<const FPadState> HeldPerVblank)
+	{
+		const FPlayerSettings& Settings = Session.Settings();
+		if (!Settings.Balance.bExplorationFastForward)
+		{
+			ResetExplorationSpeed();
+		}
+		if (!CanFastForwardExploration(*this, Settings)
+			|| std::none_of(HeldPerVblank.begin(), HeldPerVblank.end(), [](FPadState Held) { return (Held.Buttons & SpeedButtons) != 0; }))
+		{
+			HeldBefore = HeldPerVblank.back().Buttons;
+			return HeldPerVblank;
+		}
+		FilteredInput.assign(HeldPerVblank.begin(), HeldPerVblank.end());
+		for (FPadState& Held : FilteredInput)
+		{
+			const FPadState Pressed{static_cast<uint16>(Held.Buttons & ~HeldBefore)};
+			HeldBefore = Held.Buttons;
+			if (Session.Pad().FirstPortButtons(Held) == SoftResetButtons)
+			{
+				continue;
+			}
+			ExplorationPace = StepBattleSpeed(ExplorationPace, Pressed);
+			Held.Buttons &= static_cast<uint16>(~SpeedButtons);
+			Held.ZoomButtons &= static_cast<uint16>(~SpeedButtons);
+		}
+		return FilteredInput;
 	}
 
 	std::optional<FError> FGameLoop::Boot(FPadState Held)

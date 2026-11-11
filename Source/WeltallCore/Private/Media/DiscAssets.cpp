@@ -134,8 +134,9 @@ namespace Weltall
 		if (!State->bEnabled) return std::optional<std::vector<uint8>>{};
 		const auto Path = AssetPath(Record);
 		if (Path.empty()) return std::optional<std::vector<uint8>>{};
-		const auto Safe = DiscAssets::SafePath(State->Folder, Path.lexically_relative(State->Folder));
+		const auto Safe = DiscAssets::SafePath(State->Folder, Path.lexically_relative(State->Folder), true);
 		if (!Safe) return Safe.Error();
+		if (!*Safe) return std::optional<std::vector<uint8>>{};
 		std::error_code Error;
 		const bool bExists = std::filesystem::exists(Path, Error);
 		if (Error) return MakeError("cannot inspect external asset: " + Error.message());
@@ -161,10 +162,10 @@ namespace Weltall
 		auto Found = State->MovieFiles.find(Entry.Record.Lba);
 		if (Found == State->MovieFiles.end())
 		{
-			const auto Safe = DiscAssets::SafePath(State->Folder, Entry.Path);
+			const auto Safe = DiscAssets::SafePath(State->Folder, Entry.Path, true);
 			if (!Safe) return Safe.Error();
 			std::error_code Error;
-			const bool bExists = std::filesystem::exists(State->Folder / Entry.Path, Error);
+			const bool bExists = *Safe && std::filesystem::exists(State->Folder / Entry.Path, Error);
 			if (Error) return MakeError("cannot inspect movie replacement: " + Error.message());
 			std::shared_ptr<const IByteSource> Source;
 			if (bExists)

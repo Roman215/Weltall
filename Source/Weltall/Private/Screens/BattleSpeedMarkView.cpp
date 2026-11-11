@@ -1,6 +1,5 @@
 #include "BattleSpeedMarkView.h"
 
-#include "Game/GameSession.h"
 #include "Rendering/DrawListRendering.h"
 #include "Rendering/SharedRenderResource.h"
 #include "Rendering/VramTexture.h"
@@ -43,16 +42,15 @@ FBattleSpeedMarkView::FBattleSpeedMarkView() : Vram(ShareRenderResource(new FVra
 
 FBattleSpeedMarkView::~FBattleSpeedMarkView() = default;
 
-TSharedRef<const IScreenFrame> FBattleSpeedMarkView::Capture(const Weltall::FGameSession& Session, TSharedRef<const IScreenFrame> Background) const
+TSharedRef<const IScreenFrame> FBattleSpeedMarkView::Capture(Weltall::EBattleSpeed Speed, const Weltall::FMesFont& Font, TSharedRef<const IScreenFrame> Background) const
 {
-	const Weltall::EBattleSpeed Speed = Session.Settings().BattleSpeed;
 	if (Speed == Weltall::EBattleSpeed::Normal)
 	{
 		return Background;
 	}
 	TSharedRef<FBattleSpeedMarkFrame>* Free = DisplayFrames.FindByPredicate([](const TSharedRef<FBattleSpeedMarkFrame>& Candidate) { return Candidate.IsUnique(); });
 	TSharedRef<FBattleSpeedMarkFrame> Next = Free != nullptr ? *Free : DisplayFrames.Add_GetRef(MakeShared<FBattleSpeedMarkFrame>(Vram));
-	Drawing.Build(Speed, Session.Text().Font, Next->Mark);
+	Drawing.Build(Speed, Font, Next->Mark);
 	Vram->Follow(Drawing.Pictures());
 	Next->Background = MoveTemp(Background);
 	return Next;

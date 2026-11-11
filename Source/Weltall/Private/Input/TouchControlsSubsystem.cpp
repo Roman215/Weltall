@@ -3,6 +3,7 @@
 #include "Engine/GameInstance.h"
 #include "HAL/PlatformMisc.h"
 #include "Input/ButtonGlyphSubsystem.h"
+#include "Input/KeyListenerSubsystem.h"
 #include "Rendering/TouchControlsRendering.h"
 #include "Shell/PlayerSettingsSubsystem.h"
 
@@ -62,6 +63,10 @@ void UTouchControlsSubsystem::FollowWindow(const FIntPoint& Size)
 	const Weltall::ETouchMovement Movement = Controls().TouchMovement;
 	if ((Size != LaidOutFor || Movement != LaidOutMovement) && Size.X > 0 && Size.Y > 0)
 	{
+		if (UKeyListenerSubsystem* Listener = GetGameInstance()->GetSubsystem<UKeyListenerSubsystem>())
+		{
+			Listener->ForgetTouch();
+		}
 		Pad = Weltall::FTouchPad::Standard(static_cast<float>(Size.X) / static_cast<float>(Size.Y), Movement);
 		LaidOutFor = Size;
 		LaidOutMovement = Movement;
@@ -78,6 +83,7 @@ void UTouchControlsSubsystem::Touch(const FTouchId& Finger, ETouchType::Type Typ
 	const uint64 Id = static_cast<uint64>(static_cast<uint32>(Finger.GetDeviceId().GetId())) << 32 | static_cast<uint32>(Finger.GetIndex());
 	const float X = static_cast<float>(Location.X) / static_cast<float>(LaidOutFor.Y);
 	const float Y = static_cast<float>(Location.Y) / static_cast<float>(LaidOutFor.Y);
+	const uint16 Before = Pad.HeldButtons();
 	switch (Type)
 	{
 	case ETouchType::Began:
@@ -93,6 +99,10 @@ void UTouchControlsSubsystem::Touch(const FTouchId& Finger, ETouchType::Type Typ
 		Pad.Move(Id, X, Y);
 		break;
 	}
+	if (UKeyListenerSubsystem* Listener = GetGameInstance()->GetSubsystem<UKeyListenerSubsystem>(); Listener != nullptr && IsShown())
+	{
+		Listener->TouchButtonsChanged(Pad, Before, Controls());
+	}
 }
 
 bool UTouchControlsSubsystem::IsShown() const
@@ -103,8 +113,19 @@ bool UTouchControlsSubsystem::IsShown() const
 
 Weltall::FPadState UTouchControlsSubsystem::TakeHeld()
 {
-	const Weltall::FPadState Held = Pad.Take(Controls());
-	return IsShown() ? Held : Weltall::FPadState{};
+	if (!IsShown())
+	{
+		if (Pad.HeldButtons() != 0)
+		{
+			if (UKeyListenerSubsystem* Listener = GetGameInstance()->GetSubsystem<UKeyListenerSubsystem>())
+			{
+				Listener->ForgetTouch();
+			}
+		}
+		ResetTouches();
+		return {};
+	}
+	return Pad.Take(Controls());
 }
 
 void UTouchControlsSubsystem::Draw(const FIntPoint& WindowSize, FTouchControlsDrawn& Into)

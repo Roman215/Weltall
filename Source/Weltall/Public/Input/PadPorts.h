@@ -12,8 +12,7 @@ class IInputInterface;
  *
  * Every gamepad is the first player's until the game reads its second port. From then on a gamepad other than
  * the one the first player was using at that moment is the second player's as soon as a button is pressed on
- * it: it is given the engine's second user, whom no player answers for, so the first player's input no longer
- * hears it, until the game stops reading the port or the gamepad is unplugged. Its buttons are the gamepad keys
+ * it. Its events are consumed until the game stops reading the port or the gamepad is unplugged. Its buttons are the gamepad keys
  * the player's bindings name.
  *
  * Each port's motor is the gamepad's small one, on or off: the first port's on the first player's gamepad, the
@@ -31,6 +30,7 @@ public:
 
 	/** Whether a gamepad fills the second port. */
 	bool HasSecond() const { return Second.IsValid(); }
+	bool IsSecond(FInputDeviceId Device) const { return HasSecond() && Device == Second; }
 
 	/**
 	 * The buttons held on the second port's gamepad, by the bindings' gamepad keys, with the directions only its
@@ -62,6 +62,7 @@ private:
 	/** The gamepad the first player was using as the second port began to be read; none when that was the keyboard. */
 	FInputDeviceId First;
 	FInputDeviceId Second;
+	bool bSecondRemapped = false;
 	/** The gamepad keys held on the second port's gamepad, and where its axes stand. */
 	TSet<FName> SecondDown;
 	TMap<FName, float> SecondAxes;

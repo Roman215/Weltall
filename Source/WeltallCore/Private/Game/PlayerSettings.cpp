@@ -350,6 +350,7 @@ namespace Weltall
 			Visitor.Choice("balance.experience", Balance.Experience, {"original", "1.5x", "2x", "3x", "4x"});
 			Visitor.Choice("balance.gold", Balance.Gold, {"original", "1.5x", "2x", "3x", "4x"});
 			Visitor.Choice("balance.encounters", Balance.Encounters, {"none", "quarter", "half", "original", "double"});
+			Visitor.Flag("balance.exploration_fast_forward", Balance.bExplorationFastForward);
 			Visitor.Flag("game.party_change_anywhere", Settings.bPartyChangeAnywhere);
 
 			auto& PerfectWorks = Settings.PerfectWorks;

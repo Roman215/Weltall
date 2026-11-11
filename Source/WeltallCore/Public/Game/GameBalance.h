@@ -30,6 +30,7 @@ namespace Weltall
 		ERewardRate Experience = ERewardRate::Original;
 		ERewardRate Gold = ERewardRate::Original;
 		EEncounterRate Encounters = EEncounterRate::Original;
+		bool bExplorationFastForward = false;
 
 		bool operator==(const FGameBalance&) const = default;
 	};

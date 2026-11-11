@@ -33,6 +33,8 @@ they come in. See [Reporting a problem](#reporting-a-problem) for where to find 
 ## What Weltall adds
 
 - **Higher resolutions and widescreen** up to 32:9, with scenery extending beyond the original 4:3 view.
+  On a 4:3 display, choose **Options → Display → Aspect ratio → 4:3** and turn off **Integer scaling**
+  to fill the screen.
 - **Field compass placement** under Options → Display. Choose 4:3, 16:9, 21:9, Screen or Off.
   The default is 16:9. A choice wider than the game picture uses its edge. With touch controls visible,
   the compass uses its original placement.
@@ -44,7 +46,11 @@ they come in. See [Reporting a problem](#reporting-a-problem) for where to find 
 - **Softer battle flashes**, or none at all, for the bright screen flashes from attacks and Ether.
 - **Separate volumes** for the music, sound effects, battle voices and movies, plus a master volume.
 - **3D Gears** on the field and world map, using their battle models, plus full-size party sprites in Gear areas.
-- **Battle speeds of 2x and 4x**, and faster text up to instant. Timed dialogue still leaves you time to read it.
+- **Battle speeds of 2x and 4x**, and faster text up to instant. Story battles start at normal speed. Press R1
+  (Camera right) to speed them up. Timed dialogue still leaves you time to read it.
+- **Optional field fast-forward** under **Options → Modding → Balance → Field fast-forward**. Use R1 and L1 to
+  step through 1x, 2x and 4x on the field and world map, including in-game scenes. While enabled,
+  use the right stick or mouse to move the camera. Menus and prerecorded movies play at normal speed.
 - **Balance options** to earn up to four times the experience and gold, and to have fewer random battles, more of
   them, or none at all.
 - **Optional party changes during free play**: enable **Options → Modding → Party changes**, then hold L2 and
@@ -227,6 +233,8 @@ in Weltall, and may not load in a different version. Keep ordinary saves too.
 To assign a controller shortcut, select a binding slot and tap one button, or hold one and press
 another on the same controller. Use a combo by pressing the buttons in that order. The first button
 keeps its normal action. The second button runs the shortcut while the first is held.
+The same two-button combos can be assigned and used with the on-screen controls. For example, hold
+the on-screen Select button (−) and tap R1 to assign **Save state**, or tap L1 to assign **Load state**.
 
 ### Reporting a problem
 
@@ -307,7 +315,7 @@ other configurations use the SDK's debug key.
 `python Scripts/package.py --archive Shipping` also creates a release zip in `out/releases`, without
 disc images, and a separate debug symbols archive. For Android, the release file is the arm64 APK.
 
-`python Scripts/release.py 1.0.2` builds the Windows, Linux and Android Shipping packages from a
+`python Scripts/release.py 1.0.3` builds the Windows, Linux and Android Shipping packages from a
 pushed commit whose `ProjectVersion` matches that version. It creates the archives and a GitHub draft
 release with the player downloads and release notes, using the GitHub CLI. Publish the draft from
 the release page.

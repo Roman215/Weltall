@@ -150,6 +150,18 @@ bool FPadPortsSecondGamepadTest::RunTest(const FString&)
 	Ports.DeviceDisconnected(One);
 	TestFalse(TEXT("A second pad after it is unplugged"), Ports.HasSecond());
 	Ports.SetSecondRead(false, FInputDeviceId());
+
+	IPlatformInputDeviceMapper& Mapper = IPlatformInputDeviceMapper::Get();
+	const FPlatformUserId OtherUser = Mapper.GetPlatformUserForUserIndex(2);
+	Mapper.Internal_MapInputDeviceToUser(Two, OtherUser, EInputDeviceConnectionState::Connected);
+	Ports.SetSecondRead(true, One);
+	TestTrue(TEXT("A gamepad assigned to another platform user can take the second port"),
+		Ports.KeyChanged(EKeys::Gamepad_DPad_Up, Two, true));
+	TestTrue(TEXT("Only the assigned controller is reserved"), Ports.IsSecond(Two) && !Ports.IsSecond(One));
+	TestEqual(TEXT("The second port reads the other user's controller"), Ports.SecondHeld(Bindings).Buttons, Up);
+	Ports.SetSecondRead(false, One);
+	TestFalse(TEXT("The controller returns to play on the first port"), Ports.IsSecond(Two));
+	TestTrue(TEXT("The platform assignment is retained"), Mapper.GetUserForInputDevice(Two) == OtherUser);
 	return true;
 }
 

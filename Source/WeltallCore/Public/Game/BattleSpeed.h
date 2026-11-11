@@ -7,7 +7,7 @@
 
 namespace Weltall
 {
-	/** How fast a battle is fought: at the game's own pace, or fast-forwarded to twice or four times it. */
+	/** A program's simulation speed: normal, twice or four times the game's pace. */
 	enum class EBattleSpeed : uint8
 	{
 		Normal,
@@ -24,7 +24,7 @@ namespace Weltall
 	WELTALLCORE_API std::string_view BattleSpeedName(EBattleSpeed Speed);
 
 	/**
-	 * The speed after the buttons newly pressed during a battle, which reads neither: R1 a step faster, L1 a
+	 * The speed after the buttons newly pressed: R1 a step faster, L1 a
 	 * step back toward the game's own pace, no further than either end.
 	 */
 	WELTALLCORE_API EBattleSpeed StepBattleSpeed(EBattleSpeed Speed, FPadState Pressed);

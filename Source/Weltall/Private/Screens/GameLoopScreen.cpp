@@ -437,14 +437,14 @@ void FGameLoopScreen::Update(double DeltaSeconds, Weltall::FPadState Held)
 	HeldThroughLog &= Held.Buttons;
 	Held.Buttons &= static_cast<uint16>(~HeldThroughLog);
 	Held.StickButtons &= static_cast<uint16>(~HeldThroughLog);
-	Pace = 1;
 	if (!GameLoop || HasStopped())
 	{
 		return;
 	}
 	Latch.Sample(Held);
 	FollowAddedDiscs();
-	Pace = Weltall::GamePace(*GameLoop, Session->Settings());
+	const int32 Pace = Weltall::GamePace(*GameLoop, Session->Settings());
+	const int32 Runs = GameLoop->ProgramRuns();
 	Session->SetPace(Pace);
 	const int32 Due = Vblanks.Advance(DeltaSeconds, Pace);
 	for (int32 Vblank = 0; Vblank < Due && GameLoop && !HasStopped(); ++Vblank)
@@ -454,8 +454,8 @@ void FGameLoopScreen::Update(double DeltaSeconds, Weltall::FPadState Held)
 		if (static_cast<int32>(HeldPerVblank.size()) >= GameLoop->VblanksPerFrame())
 		{
 			RunFrame();
-			// The fight's end begins what follows at the game's own pace: the display frame's other vertical blanks are dropped.
-			if (Pace > 1 && GameLoop && !Weltall::IsBattleFought(*GameLoop))
+			// Extra ticks from fast-forward must not spill into a different program or a normal-speed screen.
+			if (Pace > 1 && GameLoop && (GameLoop->ProgramRuns() != Runs || Weltall::GamePace(*GameLoop, Session->Settings()) == 1))
 			{
 				break;
 			}
@@ -545,6 +545,11 @@ void FGameLoopScreen::AddViewInput(const Weltall::FFieldViewInput& Input)
 	{
 		WorldMapProgram->AddViewInput(Input);
 	}
+}
+
+bool FGameLoopScreen::UsesShouldersForSpeed() const
+{
+	return GameLoop && Session && Weltall::CanFastForwardExploration(*GameLoop, Session->Settings());
 }
 
 void FGameLoopScreen::RunFrame()
@@ -649,9 +654,9 @@ TSharedRef<const IScreenFrame> FGameLoopScreen::CaptureFrame() const
 	{
 		return Frame;
 	}
-	if (Pace > 1)
+	if (GameLoop)
 	{
-		Frame = BattleSpeedMark->Capture(*Session, MoveTemp(Frame));
+		Frame = BattleSpeedMark->Capture(Weltall::ActiveGameSpeed(*GameLoop, Session->Settings()), Session->Text().Font, MoveTemp(Frame));
 	}
 	return LogView->Capture(Glyphs, StateNotice->Capture(Session->Text().Font, MoveTemp(Frame)));
 }
@@ -736,6 +741,10 @@ TSharedRef<const IScreenFrame> FGameLoopScreen::CaptureProgramFrame() const
 void FGameLoopScreen::ApplySettings(const Weltall::FPlayerSettings& InSettings)
 {
 	StartSettings = InSettings;
+	if (GameLoop && !InSettings.Balance.bExplorationFastForward)
+	{
+		GameLoop->ResetExplorationSpeed();
+	}
 	if (Session)
 	{
 		Session->SetSettings(InSettings);

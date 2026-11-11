@@ -112,14 +112,12 @@ bool FPadPorts::KeyChanged(const FKey& Key, FInputDeviceId Device, bool bDown)
 	}
 	IPlatformInputDeviceMapper& Mapper = IPlatformInputDeviceMapper::Get();
 	const FPlatformUserId Owner = Mapper.GetUserForInputDevice(Device);
-	if (!bDown || !bSecondRead || Second.IsValid() || Device == First || Owner != Mapper.GetPrimaryPlatformUser())
+	if (!bDown || !bSecondRead || Second.IsValid() || Device == First)
 	{
 		return false;
 	}
-	if (!Mapper.Internal_ChangeInputDeviceUserMapping(Device, Mapper.GetPlatformUserForUserIndex(SecondUserIndex), Owner))
-	{
-		return false;
-	}
+	bSecondRemapped = Owner == Mapper.GetPrimaryPlatformUser()
+		&& Mapper.Internal_ChangeInputDeviceUserMapping(Device, Mapper.GetPlatformUserForUserIndex(SecondUserIndex), Owner);
 	Second = Device;
 	SecondDown.Reset();
 	SecondAxes.Reset();
@@ -141,12 +139,13 @@ void FPadPorts::ReleaseSecond(bool bStillConnected)
 	{
 		return;
 	}
-	if (bStillConnected)
+	if (bStillConnected && bSecondRemapped)
 	{
 		IPlatformInputDeviceMapper& Mapper = IPlatformInputDeviceMapper::Get();
 		Mapper.Internal_ChangeInputDeviceUserMapping(Second, Mapper.GetPrimaryPlatformUser(), Mapper.GetUserForInputDevice(Second));
 	}
 	Second = FInputDeviceId();
+	bSecondRemapped = false;
 	SecondDown.Reset();
 	SecondAxes.Reset();
 }

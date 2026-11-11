@@ -11,6 +11,7 @@
 #include "Rendering/CrtRendering.h"
 #include "RenderGraphBuilder.h"
 #include "RenderGraphUtils.h"
+#include "ScreenPass.h"
 #include "Audio/GameSoundSubsystem.h"
 #include "Screens/GameScreen.h"
 #include "Shell/GameWindowSubsystem.h"
@@ -27,16 +28,43 @@ void AddDisplayFramePasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, con
 	const Weltall::FPictureArea Placed = Weltall::PictureArea(Display.Width(), Display.Height(), Options, Screen);
 	const FIntPoint Origin = Display.Min + FIntPoint(Placed.Rect.X, Placed.Rect.Y);
 	const FScreenArea Area(FIntRect(Origin, Origin + FIntPoint(Placed.Rect.Width, Placed.Rect.Height)), Placed.WholeScale, bTouchOverlay);
-	if (Options.Crt == Weltall::ECrtFilter::Off)
+	if (Area.IsEmpty())
+	{
+		return;
+	}
+	FIntPoint DrawSize = Area.Size();
+	if (Options.Aspect == Weltall::EDisplayAspect::Standard && !Options.bIntegerScaling && Screen.Width > 0 && Screen.Height > 0)
+	{
+		// Fit the active rows at their native proportions, then map them onto the 4:3 display.
+		const int32 ActiveHeight = static_cast<int32>(static_cast<int64>(DrawSize.X) * Screen.Height / Screen.Width);
+		DrawSize.Y = FMath::Clamp(ActiveHeight, 1, DrawSize.Y);
+	}
+	const bool bScaleToDisplay = DrawSize != Area.Size();
+	const bool bCrt = Options.Crt != Weltall::ECrtFilter::Off;
+	if (!bCrt && !bScaleToDisplay)
 	{
 		Frame->AddPasses(GraphBuilder, Output, Area);
 		return;
 	}
-	FRDGTextureRef Picture = GraphBuilder.CreateTexture(FRDGTextureDesc::Create2D(Area.Size(), Output->Desc.Format, FClearValueBinding::Black,
-		TexCreate_RenderTargetable | TexCreate_ShaderResource), TEXT("CrtPicture"));
+
+	const FScreenArea DrawArea(FIntRect(FIntPoint::ZeroValue, DrawSize), Area.WholeScale, bTouchOverlay);
+	const FRDGTextureDesc Desc = FRDGTextureDesc::Create2D(DrawSize, Output->Desc.Format, FClearValueBinding::Black,
+		TexCreate_RenderTargetable | TexCreate_ShaderResource);
+	FRDGTextureRef Picture = GraphBuilder.CreateTexture(Desc, TEXT("GamePicture"));
 	AddClearRenderTargetPass(GraphBuilder, Picture, FLinearColor::Black);
-	Frame->AddPasses(GraphBuilder, Picture, Area.At(FIntPoint::ZeroValue));
-	AddCrtPasses(GraphBuilder, Picture, Output, Area, Weltall::CrtParameters(Weltall::ShownCrtLook(Options)), Screen);
+	Frame->AddPasses(GraphBuilder, Picture, DrawArea);
+	if (bCrt)
+	{
+		FRDGTextureRef CrtOutput = bScaleToDisplay ? GraphBuilder.CreateTexture(Desc, TEXT("CrtPicture")) : Output;
+		AddCrtPasses(GraphBuilder, Picture, CrtOutput, bScaleToDisplay ? DrawArea : Area,
+			Weltall::CrtParameters(Weltall::ShownCrtLook(Options)), Screen);
+		Picture = CrtOutput;
+	}
+	if (bScaleToDisplay)
+	{
+		AddDrawTexturePass(GraphBuilder, FScreenPassViewInfo(), FScreenPassTexture(Picture, DrawArea),
+			FScreenPassRenderTarget(Output, Area, ERenderTargetLoadAction::ELoad));
+	}
 }
 
 void UGameScreenSubsystem::Show(TSharedRef<IGameScreen> InScreen)
@@ -91,7 +119,7 @@ void UGameScreenSubsystem::Tick(float DeltaTime)
 	AWeltallPlayerController* Controller = Cast<AWeltallPlayerController>(GetGameInstance()->GetFirstLocalPlayerController());
 	if (Controller != nullptr)
 	{
-		Screen->AddViewInput(Controller->ReadView(DeltaTime));
+		Screen->AddViewInput(Controller->ReadView(DeltaTime, !Screen->UsesShouldersForSpeed()));
 		// A key pressed while the Controls page listens is the one it binds.
 		const bool bKeyTaken = Listener != nullptr && Listener->IsListening();
 		auto Actions = Controller->ReadPortKeys();

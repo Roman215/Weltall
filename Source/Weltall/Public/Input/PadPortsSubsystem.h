@@ -27,6 +27,7 @@ public:
 
 	/** Whether a gamepad fills the second port. */
 	bool HasSecond() const { return Ports.HasSecond(); }
+	bool IsSecond(FInputDeviceId Device) const { return Ports.IsSecond(Device); }
 
 	/** The buttons held on the second port's gamepad. */
 	Weltall::FPadState SecondHeld() const;

@@ -102,6 +102,19 @@ namespace
 	};
 }
 
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFieldSceneAndroidSamplesTest, "Weltall.Rendering.FieldSceneAvoidsMsaaOnAdreno610",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FFieldSceneAndroidSamplesTest::RunTest(const FString&)
+{
+	const FStringView Adreno610(TEXT("Adreno (TM) 610 Vulkan"));
+	TestEqual(TEXT("Adreno 610 uses one sample even with MSAA selected"), FieldSceneSampleCount(EFieldAntiAliasing::Msaa, Adreno610), uint8{1});
+	TestEqual(TEXT("Other Android adapters can use MSAA"), FieldSceneSampleCount(EFieldAntiAliasing::Msaa, TEXT("Adreno (TM) 618 Vulkan")), uint8{4});
+	TestEqual(TEXT("Desktop can use MSAA"), FieldSceneSampleCount(EFieldAntiAliasing::Msaa, {}), uint8{4});
+	TestEqual(TEXT("Supersampling still uses a single-sample target"), FieldSceneSampleCount(EFieldAntiAliasing::Supersampling, Adreno610), uint8{1});
+	return true;
+}
+
 IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFieldSceneRenderingTest, "Weltall.Rendering.FieldSceneFollowsTheGpusRules",
 	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
 

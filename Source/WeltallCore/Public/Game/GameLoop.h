@@ -1,6 +1,7 @@
 #pragma once
 
 #include "Foundation/Result.h"
+#include "Game/BattleSpeed.h"
 #include "Game/BootNotice.h"
 #include "Game/GameProgram.h"
 #include "Input/PadState.h"
@@ -8,6 +9,7 @@
 #include <memory>
 #include <optional>
 #include <span>
+#include <vector>
 
 namespace Weltall
 {
@@ -76,6 +78,8 @@ namespace Weltall
 		EGameProgram Program() const { return RunningProgram; }
 		/** How many programs the kernel has started: a new count is a new program, even one of the same kind. */
 		int32 ProgramRuns() const { return Runs; }
+		EBattleSpeed ExplorationSpeed() const { return ExplorationPace; }
+		void ResetExplorationSpeed() { ExplorationPace = EBattleSpeed::Normal; }
 		/** Why the loop stopped, when it has. */
 		const std::optional<FError>& StopReason() const { return Stopped; }
 
@@ -101,6 +105,7 @@ namespace Weltall
 		/** The kernel runs the next program. */
 		std::optional<FError> RunNextProgram();
 		std::optional<FError> Stop(FError Error);
+		std::span<const FPadState> ReadExplorationSpeed(std::span<const FPadState> HeldPerVblank);
 
 		FGameSession& Session;
 		EGameLoopStage LoopStage = EGameLoopStage::Boot;
@@ -110,6 +115,9 @@ namespace Weltall
 		EGameProgram RunningProgram = EGameProgram::DebugMenu;
 		std::unique_ptr<IGameProgram> RunningEntry;
 		int32 Runs = 0;
+		EBattleSpeed ExplorationPace = EBattleSpeed::Normal;
+		uint16 HeldBefore = 0xFFFF;
+		std::vector<FPadState> FilteredInput;
 		std::optional<FError> Stopped;
 	};
 }

@@ -7,14 +7,8 @@
 class FBattleSpeedMarkFrame;
 class FVramTexture;
 
-namespace Weltall
-{
-	class FGameSession;
-}
-
 /**
- * The mark of a battle fought faster than the game's pace (Weltall::FBattleSpeedMarkDrawing), drawn in the
- * top right corner of the battle's frame.
+ * The fast-forward indicator, drawn in the top right corner.
  */
 class FBattleSpeedMarkView
 {
@@ -22,8 +16,7 @@ public:
 	FBattleSpeedMarkView();
 	~FBattleSpeedMarkView();
 
-	/** Background with the mark of the session's battle speed over it; Background itself at the game's own pace. */
-	TSharedRef<const IScreenFrame> Capture(const Weltall::FGameSession& Session, TSharedRef<const IScreenFrame> Background) const;
+	TSharedRef<const IScreenFrame> Capture(Weltall::EBattleSpeed Speed, const Weltall::FMesFont& Font, TSharedRef<const IScreenFrame> Background) const;
 
 private:
 	mutable Weltall::FBattleSpeedMarkDrawing Drawing;

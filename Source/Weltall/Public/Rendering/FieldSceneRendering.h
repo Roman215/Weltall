@@ -345,3 +345,6 @@ WELTALL_API bool StretchFieldPictureScene(const FFieldSceneDraw& Draw, float Fac
 
 /** Maps the field's 320 x 224 screen into a target of the given size (scale xy, then offset zw): its height fills the target's, centred across. */
 WELTALL_API FVector4f FieldScreenPlacement(FIntPoint Size);
+
+/** Field render target samples, with a single-sample fallback for affected Android Vulkan adapters. */
+WELTALL_API uint8 FieldSceneSampleCount(EFieldAntiAliasing AntiAliasing, FStringView AndroidAdapterName);

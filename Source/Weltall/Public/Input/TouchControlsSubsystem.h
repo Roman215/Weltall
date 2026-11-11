@@ -31,6 +31,7 @@ public:
 
 	/** The game's buttons the fingers pressed since the last take (a tap shorter than a frame among them), while the pad is shown. */
 	Weltall::FPadState TakeHeld();
+	void ResetTouches() { Pad.ReleaseAll(); }
 
 	/** The pad drawn over a window of WindowSize (laid out for it first), while it is shown. */
 	void Draw(const FIntPoint& WindowSize, FTouchControlsDrawn& Into);

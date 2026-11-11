@@ -14,10 +14,10 @@ Weltall::FPadState AWeltallPlayerController::HeldPad() const
 	return Input != nullptr && Pad != nullptr ? Pad->ReadHeld(*Input) : Weltall::FPadState{};
 }
 
-Weltall::FFieldViewInput AWeltallPlayerController::ReadView(float DeltaSeconds)
+Weltall::FFieldViewInput AWeltallPlayerController::ReadView(float DeltaSeconds, bool bCameraShoulders)
 {
 	const UEnhancedPlayerInput* Input = Cast<UEnhancedPlayerInput>(PlayerInput);
-	return Input != nullptr && Pad != nullptr ? Pad->ReadView(*Input, DeltaSeconds) : Weltall::FFieldViewInput{};
+	return Input != nullptr && Pad != nullptr ? Pad->ReadView(*Input, DeltaSeconds, bCameraShoulders) : Weltall::FFieldViewInput{};
 }
 
 TArray<Weltall::EControlAction, TFixedAllocator<Weltall::PortActionCount>> AWeltallPlayerController::ReadPortKeys()

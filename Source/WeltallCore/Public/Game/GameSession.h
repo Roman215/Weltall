@@ -226,9 +226,12 @@ namespace Weltall
 		 */
 		WELTALLCORE_API void Vblank(FPadState Held);
 
+		/** Count time and read the pads. Programs with their own motor and timer work call this directly. */
+		void CountVblank(FPadState Held, FPadState Second = {});
+
 		/**
-		 * How many vertical blanks pass in the time one does on the console: 1, or a battle's speed while it is fought
-		 * fast. Only one of every Pace vertical blanks is then the player's own time: the play time and the play clock
+		 * How many vertical blanks pass in the time one does on the console.
+		 * Only one of every Pace vertical blanks is then the player's own time: the play time and the play clock
 		 * count those alone, and the pads' repeat lasts as many times the vertical blanks.
 		 */
 		WELTALLCORE_API void SetPace(int32 InPace);

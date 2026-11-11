@@ -4,7 +4,9 @@
 #include "Game/FieldProgram.h"
 #include "Game/GamePace.h"
 #include "Game/GameState.h"
+#include "Game/KernelState.h"
 #include "Game/PlayerSettings.h"
+#include "Game/WorldMapProgram.h"
 #include "Support/GameDiscs.h"
 #include "Support/GameLoopSession.h"
 
@@ -124,7 +126,80 @@ TEST_CASE("The battle speed makes the game run faster only while a battle is fou
 	CHECK(Speed(*Game) == EBattleSpeed::Quadruple);
 }
 
-TEST_CASE("In a battle R1 steps the speed up and L1 back, each press a step, and nowhere else", "[Game][Content]")
+TEST_CASE("Opt-in field fast-forward steps during scenes and keeps battle speed independent", "[Game][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	auto Game = Testing::FGameLoopSession::Start(*Disc);
+	FFieldProgram& Field = EnterForest(*Game);
+	FPlayerSettings Settings = Game->Session->Settings();
+	Press(*Game, R1Held);
+	CHECK(GamePace(*Game->Loop, Settings) == 1);
+	Settings.Balance.bExplorationFastForward = true;
+	Game->Session->SetSettings(Settings);
+
+	// Losing player control for a scripted scene still leaves fast-forward available.
+	Field.Runtime().Context().bPlayerControlled = false;
+	REQUIRE(CanFastForwardExploration(*Game->Loop, Settings));
+	for (int32 Frame = 0; Frame < 8; ++Frame)
+	{
+		REQUIRE_FALSE(Game->Frame(R1Held));
+	}
+	CHECK(GamePace(*Game->Loop, Settings) == 2);
+	CHECK(Game->Session->Pad().Held() == 0);
+	REQUIRE_FALSE(Game->Frame());
+	Press(*Game, R1Held);
+	CHECK(GamePace(*Game->Loop, Settings) == 4);
+	CHECK(Speed(*Game) == EBattleSpeed::Normal);
+
+	StartBattle(*Game, Field, R1Held);
+	CHECK(GamePace(*Game->Loop, Settings) == 1);
+	CHECK(Game->Loop->ExplorationSpeed() == EBattleSpeed::Quadruple);
+	REQUIRE_FALSE(Game->Frame(R1Held));
+	CHECK(Speed(*Game) == EBattleSpeed::Normal);
+}
+
+TEST_CASE("Opt-in world map fast-forward counts play time at normal speed and keeps soft reset", "[Game][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	auto Game = Testing::FGameLoopSession::Start(*Disc);
+	FGameSession& Session = *Game->Session;
+	FPlayerSettings Settings = Session.Settings();
+	Settings.Balance.bExplorationFastForward = true;
+	Session.SetSettings(Settings);
+	Session.Game().SetSavedEventVariable(0, 30);
+	Session.Game().SetWorldMapPlace(0x401, 1, 0xC00, 1);
+	auto Loop = FGameLoop::EnterWorldMap(Session);
+	REQUIRE(Loop);
+	Game->Loop = std::move(*Loop);
+	CHECK_FALSE(CanFastForwardExploration(*Game->Loop, Settings));
+	Game->RunUntil([&] { return Game->Loop->WorldMap()->TicksMap(); }, FWorldMapProgram::EntryFadeFrames + 1, R1Held);
+	REQUIRE_FALSE(Game->Frame(R1Held));
+	CHECK(GamePace(*Game->Loop, Settings) == 1);
+	REQUIRE_FALSE(Game->Frame());
+	Press(*Game, R1Held);
+	Press(*Game, R1Held);
+	REQUIRE(GamePace(*Game->Loop, Settings) == 4);
+
+	Session.SetPace(4);
+	const uint32 Before = Session.Game().PlayTime();
+	const uint8 Clock = Session.Clock().Frames;
+	for (int32 Tick = 0; Tick < 8; ++Tick)
+	{
+		REQUIRE_FALSE(Game->Frame());
+	}
+	CHECK(Session.Game().PlayTime() == Before + 4);
+	CHECK(Session.Clock().Frames == (Clock + 4) % 60);
+	Press(*Game, L1Held);
+	CHECK(GamePace(*Game->Loop, Settings) == 2);
+
+	const FPadState Reset{FPadState::Bit(EPadButton::L1) | FPadState::Bit(EPadButton::R1)
+		| FPadState::Bit(EPadButton::Start) | FPadState::Bit(EPadButton::Select)};
+	REQUIRE_FALSE(Game->Frame(Reset));
+	CHECK(Game->Loop->Stage() == EGameLoopStage::SoftReset);
+	CHECK(GamePace(*Game->Loop, Settings) == 1);
+}
+
+TEST_CASE("By default only a battle uses R1 and L1 for speed, each press a step", "[Game][Content]")
 {
 	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
 	auto Game = Testing::FGameLoopSession::Start(*Disc);

@@ -23,6 +23,7 @@ namespace Weltall
 	class FCdImage;
 	class FFieldSprites;
 	class FGameFileIndex;
+	class FGameSession;
 	class FGameState;
 	class FKernelPad;
 	class FKernelVibration;
@@ -73,6 +74,8 @@ namespace Weltall
 		 * translation's credits before the picture that ends the game. None on other discs.
 		 */
 		const FIndexRecord* TranslationCreditsCue = nullptr;
+		/** The shared play clock and pad pacing when running inside the game loop. */
+		FGameSession* Session = nullptr;
 	};
 
 	/**

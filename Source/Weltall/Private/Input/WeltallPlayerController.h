@@ -25,7 +25,7 @@ public:
 	Weltall::FPadState HeldPad() const;
 
 	/** What the player did to the field's view in the last DeltaSeconds. */
-	Weltall::FFieldViewInput ReadView(float DeltaSeconds);
+	Weltall::FFieldViewInput ReadView(float DeltaSeconds, bool bCameraShoulders);
 
 	/** The port's own keys (the save states' and the message log's) pressed since the last call, each press once. */
 	TArray<Weltall::EControlAction, TFixedAllocator<Weltall::PortActionCount>> ReadPortKeys();

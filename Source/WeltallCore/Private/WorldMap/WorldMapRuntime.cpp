@@ -3,6 +3,7 @@
 #include "Foundation/LittleEndian.h"
 #include "Game/EllysHair.h"
 #include "Game/GameState.h"
+#include "Game/GameSession.h"
 #include "Game/PsxRandom.h"
 #include "Input/KernelPad.h"
 #include "Media/GameFileIndex.h"
@@ -725,10 +726,16 @@ namespace Weltall
 		FGameState& Game = *Services.Game;
 		for (const FPadState Held : HeldPerVblank)
 		{
-			// The console counts the vertical blank before it reads the pad: the repeat keeps to the count.
-			Game.SetPlayTime(Game.PlayTime() + 1);
-			Services.Pad->Vblank(Held, Game.PlayTime());
-			Services.Clock->Vblank();
+			if (Services.Session != nullptr)
+			{
+				Services.Session->CountVblank(Held);
+			}
+			else
+			{
+				Game.SetPlayTime(Game.PlayTime() + 1);
+				Services.Pad->Vblank(Held, Game.PlayTime());
+				Services.Clock->Vblank();
+			}
 		}
 	}
 

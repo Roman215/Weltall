@@ -69,16 +69,6 @@ private:
 			return;
 		}
 		const bool bGamepad = Key.IsGamepadKey();
-		if (bGamepad && Device.IsValid())
-		{
-			// A second player's gamepad is not the player's device: it has a user of its own.
-			const IPlatformInputDeviceMapper& Mapper = IPlatformInputDeviceMapper::Get();
-			const FPlatformUserId User = Mapper.GetUserForInputDevice(Device);
-			if (User.IsValid() && User != Mapper.GetPrimaryPlatformUser())
-			{
-				return;
-			}
-		}
 		FName Hardware;
 		if (const UInputDeviceSubsystem* Devices = bGamepad ? UInputDeviceSubsystem::Get() : nullptr)
 		{

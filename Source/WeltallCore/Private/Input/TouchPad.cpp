@@ -85,9 +85,10 @@ namespace Weltall
 		const auto Found = std::find_if(Fingers.begin(), Fingers.end(), [Finger](const FFinger& Each) { return Each.Id == Finger; });
 		if (Found != Fingers.end())
 		{
-			Latched |= ButtonsOf(*Found);
+			Latched |= Unsuppressed(ButtonsOf(*Found));
 			Found->X = X;
 			Found->Y = Y;
+			if (Suppressed != 0) Suppressed &= HeldButtons();
 		}
 	}
 
@@ -95,9 +96,10 @@ namespace Weltall
 	{
 		for (const FFinger& Each : Fingers)
 		{
-			Latched |= Each.Id == Finger ? ButtonsOf(Each) : 0;
+			Latched |= Each.Id == Finger ? Unsuppressed(ButtonsOf(Each)) : 0;
 		}
 		std::erase_if(Fingers, [Finger](const FFinger& Each) { return Each.Id == Finger; });
+		if (Suppressed != 0) Suppressed &= HeldButtons();
 	}
 
 	uint16 FTouchPad::ButtonsOf(const FFinger& Finger) const
@@ -148,9 +150,14 @@ namespace Weltall
 
 	uint16 FTouchPad::TakeButtons()
 	{
-		const uint16 Buttons = static_cast<uint16>(HeldButtons() | Latched);
+		const uint16 Buttons = static_cast<uint16>(Unsuppressed(HeldButtons()) | Latched);
 		Latched = 0;
 		return Buttons;
+	}
+
+	std::string_view FTouchPad::KeyOf(EPadButton Button) const
+	{
+		return (HasStick() ? StickKeys : GamepadKeys)[static_cast<std::size_t>(Button)];
 	}
 
 	FPadState FTouchPad::Take(const FControlBindings& Bindings)

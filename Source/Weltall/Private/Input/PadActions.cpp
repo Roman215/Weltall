@@ -96,7 +96,7 @@ void UPadActions::Map(const Weltall::FControlBindings& Bindings)
 	}
 }
 
-Weltall::FFieldViewInput UPadActions::ReadView(const UEnhancedPlayerInput& Input, float DeltaSeconds)
+Weltall::FFieldViewInput UPadActions::ReadView(const UEnhancedPlayerInput& Input, float DeltaSeconds, bool bCameraShoulders)
 {
 	const auto Pushed = [this, &Input](EControlAction Action) { return Input.GetActionValue(Actions[static_cast<int32>(Action)]).Get<float>(); };
 	const auto Moved = [this, &Input](EControlAction Action) { return Input.GetActionValue(Movements[static_cast<int32>(Action)]).Get<float>(); };
@@ -105,7 +105,7 @@ Weltall::FFieldViewInput UPadActions::ReadView(const UEnhancedPlayerInput& Input
 	View.Tilt = Pushed(EControlAction::ViewTilt) * Weltall::FFieldViewInput::TiltPerSecond * StickScale * DeltaSeconds + Moved(EControlAction::ViewTilt) * MouseDegrees;
 	View.Zoom = Pushed(EControlAction::ViewZoom) * Weltall::FFieldViewInput::ZoomPerSecond * DeltaSeconds + Moved(EControlAction::ViewZoom) * ZoomPerWheelNotch;
 	View.Wheel = Moved(EControlAction::ViewZoom);
-	if (Bound.CameraButtons == Weltall::ECameraButtons::Zoom)
+	if (bCameraShoulders && Bound.CameraButtons == Weltall::ECameraButtons::Zoom)
 	{
 		const auto Held = [this, &Input](EControlAction Action) { return Input.GetActionValue(Actions[static_cast<int32>(Action)]).Get<bool>() ? 1.0f : 0.0f; };
 		View.Zoom += (Held(EControlAction::R1) - Held(EControlAction::L1)) * Weltall::FFieldViewInput::ZoomPerSecond * DeltaSeconds;

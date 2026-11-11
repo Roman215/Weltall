@@ -54,7 +54,6 @@ bool FIntegerScalingRenderingTest::RunTest(const FString&)
 	Options.bIntegerScaling = true;
 	const TArray<FColor> Field = RenderScreenFrameOffscreen(FRowsTestFrame({320, 224}, 100), FullHd, Options);
 	const TArray<FColor> WorldMap = RenderScreenFrameOffscreen(FRowsTestFrame({320, 216}, 100), FullHd, Options);
-	Options.bIntegerScaling = false;
 	Options.Aspect = Weltall::EDisplayAspect::Standard;
 	const TArray<FColor> Standard = RenderScreenFrameOffscreen(FRowsTestFrame({320, 224}, 100), FullHd, Options);
 	if (!TestEqual(TEXT("The frames were read back"), Field.Num() + WorldMap.Num() + Standard.Num(), 3 * FullHd.X * FullHd.Y))
@@ -94,15 +93,44 @@ bool FIntegerScalingRenderingTest::RunTest(const FString&)
 	Expect(TEXT("The world map's last row"), WorldMap, 1000, 971, EShade::Blue);
 	Expect(TEXT("Below the world map's rows"), WorldMap, 1000, 972, EShade::Black);
 
-	// Without it, a 4:3 picture's 240 lines show the screen's 224 rows between bars, 4.5 display rows each.
-	Expect(TEXT("4:3's left bar"), Standard, 239, 500, EShade::Black);
-	Expect(TEXT("4:3's left edge"), Standard, 240, 500, EShade::Blue);
-	Expect(TEXT("4:3's right edge"), Standard, 1679, 500, EShade::Blue);
-	Expect(TEXT("4:3's right bar"), Standard, 1680, 500, EShade::Black);
-	Expect(TEXT("Above 4:3's rows"), Standard, 1000, 35, EShade::Black);
-	Expect(TEXT("4:3's first row"), Standard, 1000, 36, EShade::Blue);
-	Expect(TEXT("4:3's last row"), Standard, 1000, 1043, EShade::Blue);
-	Expect(TEXT("Below 4:3's rows"), Standard, 1000, 1044, EShade::Black);
+	Expect(TEXT("4:3's left bar"), Standard, 319, 500, EShade::Black);
+	Expect(TEXT("4:3's left edge"), Standard, 320, 500, EShade::Blue);
+	Expect(TEXT("4:3's right edge"), Standard, 1599, 500, EShade::Blue);
+	Expect(TEXT("4:3's right bar"), Standard, 1600, 500, EShade::Black);
+	Expect(TEXT("Above 4:3's rows"), Standard, 1000, 91, EShade::Black);
+	Expect(TEXT("4:3's first row"), Standard, 1000, 92, EShade::Blue);
+	Expect(TEXT("4:3's last row"), Standard, 1000, 987, EShade::Blue);
+	Expect(TEXT("Below 4:3's rows"), Standard, 1000, 988, EShade::Black);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FFourByThreeRenderingTest, "Weltall.Rendering.FourByThreeFillsTheDisplayWithActiveRows",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FFourByThreeRenderingTest::RunTest(const FString&)
+{
+	Weltall::FDisplayOptions Options;
+	Options.Aspect = Weltall::EDisplayAspect::Standard;
+	const FIntPoint Handheld(1280, 960);
+	for (const int32 Rows : {216, 224, 240})
+	{
+		const TArray<FColor> Pixels = RenderScreenFrameOffscreen(FRowsTestFrame({320, Rows}, Rows / 2), Handheld, Options);
+		if (!TestEqual(TEXT("The handheld frame was read back"), Pixels.Num(), Handheld.X * Handheld.Y))
+		{
+			return false;
+		}
+		TestTrue(TEXT("The first and last rows reach both display edges"), Pixels[0].B > 200 && Pixels.Last().B > 200);
+		TestTrue(TEXT("The middle row stays centred"), Pixels[Handheld.X * (Handheld.Y / 2)].R > 200);
+	}
+	const TArray<FColor> Wide = RenderScreenFrameOffscreen(FRowsTestFrame({320, 224}, 100), FullHd, Options);
+	if (!TestEqual(TEXT("The wide frame was read back"), Wide.Num(), FullHd.X * FullHd.Y))
+	{
+		return false;
+	}
+	TestTrue(TEXT("The 4:3 picture reaches the top and bottom of the wide display"),
+		ShadeAt(Wide, 240, 0) == EShade::Blue && ShadeAt(Wide, 1679, 1079) == EShade::Blue);
+	TestTrue(TEXT("The wide display keeps its side bars"),
+		ShadeAt(Wide, 239, 500) == EShade::Black && ShadeAt(Wide, 1680, 500) == EShade::Black);
 	return true;
 }
 

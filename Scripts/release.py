@@ -37,16 +37,20 @@ You'll need your own copy of the USA release or a supported English undub. No ga
 
 ## What's new
 
-- Bind two-button controller shortcuts for saving and loading states, changing slots and opening the
-  message log. In **Options → Controls**, select a binding slot, hold one button and press the other.
-  Use the buttons in that order. [Issue #40](https://github.com/Roman215/Weltall/issues/40)
-- Bind the extra C and Z buttons on Android controllers and handhelds that report them.
-  [Issue #37](https://github.com/Roman215/Weltall/issues/37)
-- Move the field compass under **Options → Display → Compass**. Choose 4:3, 16:9, 21:9, Screen or Off.
-  [Issue #36](https://github.com/Roman215/Weltall/issues/36)
-- On Android devices with Adreno 610 graphics, field scenes use single-sample rendering when MSAA is
-  selected. This works around a Vulkan pipeline failure reported after the opening movie.
-  [Issue #41](https://github.com/Roman215/Weltall/issues/41)
+- Fill a 4:3 display, including handhelds like the Retroid Pocket Nova. Choose **4:3** under
+  **Options → Display → Aspect ratio** and turn **Integer scaling** off.
+- Bind and use two-button shortcuts with the on-screen controls on Android. Under **Options → Controls
+  → Save states**, select a binding, hold one touch button and tap another. Use the same order in play.
+  [Issue #43](https://github.com/Roman215/Weltall/issues/43)
+- Speed up the field, world map and in-game cutscenes to 2x or 4x. Turn on **Field fast-forward** under
+  **Options → Modding → Balance**. R1 steps up and L1 steps down. Menus and prerecorded movies play at
+  normal speed. [Issue #44](https://github.com/Roman215/Weltall/issues/44)
+- Use a second controller for player one in normal play, even when the system assigns it a separate user.
+  Battling can still reserve a controller for player two. [Issue #45](https://github.com/Roman215/Weltall/issues/45)
+- Fall back to disc data if an optional asset folder becomes unavailable during play.
+  [Issue #47](https://github.com/Roman215/Weltall/issues/47)
+- Correct Adreno 610 detection on Android so the Vulkan workaround uses single-sample field rendering
+  when MSAA is selected. [Issue #41](https://github.com/Roman215/Weltall/issues/41)
 
 ## Playing
 

@@ -154,7 +154,7 @@ TEST_CASE("The Modding page's balance rows show the original first and step thro
 {
 	FPlayerSettings Settings;
 	bool bCustomPicked = false;
-	REQUIRE(FSettingsPages::RowCount(ESettingsPage::Modding) == 5);
+	REQUIRE(FSettingsPages::RowCount(ESettingsPage::Modding) == 6);
 	const FSettingsRow Heading = FSettingsPages::Row(ESettingsPage::Modding, 0, Settings);
 	CHECK(Heading.bHeading);
 	CHECK(Heading.Label == Text::Modding::Balance);
@@ -191,6 +191,11 @@ TEST_CASE("The Modding page's balance rows show the original first and step thro
 	CHECK(Settings.Balance.Encounters == EEncounterRate::None);
 	CHECK(FSettingsPages::Row(ESettingsPage::Modding, 3, Settings).Value == "None");
 	CHECK(FSettingsPages::Activate(ESettingsPage::Modding, 3, Settings, false) == ESettingsAction::None);
+	CHECK(FSettingsPages::Row(ESettingsPage::Modding, 5, Settings).Label == Text::Modding::ExplorationFastForward.Label);
+	CHECK(FSettingsPages::Row(ESettingsPage::Modding, 5, Settings).Value == "Off");
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Modding, 5, 1, Settings, bCustomPicked));
+	CHECK(Settings.Balance.bExplorationFastForward);
+	CHECK(FSettingsPages::Row(ESettingsPage::Modding, 5, Settings).Value == "On");
 	CHECK(FSettingsPages::Title(ESettingsPage::Modding) == Text::Titles::Modding);
 }
 

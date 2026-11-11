@@ -59,7 +59,7 @@ namespace
 		Settings.Controls.ChangeButtonLayout(EButtonLayout::Japan);
 		Settings.TextSpeed = EMesTextSpeed::Quadruple;
 		Settings.BattleSpeed = EBattleSpeed::Quadruple;
-		Settings.Balance = {ERewardRate::OneAndAHalf, ERewardRate::Quadruple, EEncounterRate::Quarter};
+		Settings.Balance = {ERewardRate::OneAndAHalf, ERewardRate::Quadruple, EEncounterRate::Quarter, true};
 		Settings.PerfectWorks = {true, false, EPerfectWorksPortraits::Resized, true, false, false, true, false, true, true};
 		Settings.Expansions = {false, "Elly's errand"};
 		return Settings;
@@ -250,6 +250,7 @@ TEST_CASE("The settings' text lists every setting and reads back the same", "[Se
 	CHECK(ValueOf(Defaults, "balance.experience") == "original");
 	CHECK(ValueOf(Defaults, "balance.gold") == "original");
 	CHECK(ValueOf(Defaults, "balance.encounters") == "original");
+	CHECK(ValueOf(Defaults, "balance.exploration_fast_forward") == "false");
 	CHECK(ReadPlayerSettings("balance.experience = 3x\n").Balance.Experience == ERewardRate::Triple);
 	CHECK(ReadPlayerSettings("balance.encounters = none\n").Balance.Encounters == EEncounterRate::None);
 	CHECK(ReadPlayerSettings("balance.gold = 5x\n").Balance.Gold == ERewardRate::Original);
@@ -300,6 +301,7 @@ TEST_CASE("The settings' text lists every setting and reads back the same", "[Se
 	CHECK(ValueOf(Text, "balance.experience") == "1.5x");
 	CHECK(ValueOf(Text, "balance.gold") == "4x");
 	CHECK(ValueOf(Text, "balance.encounters") == "quarter");
+	CHECK(ValueOf(Text, "balance.exploration_fast_forward") == "true");
 	CHECK(ValueOf(Text, "mods.perfect_works") == "true");
 	CHECK(ValueOf(Text, "mods.perfect_works.portraits") == "resized");
 	CHECK(ValueOf(Text, "mods.perfect_works.title_screen") == "false");

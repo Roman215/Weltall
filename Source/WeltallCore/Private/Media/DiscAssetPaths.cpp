@@ -35,7 +35,7 @@ namespace Weltall::DiscAssets
 #endif
 		}
 	}
-	TResult<bool> SafePath(const std::filesystem::path& Root, const std::filesystem::path& Relative)
+	TResult<bool> SafePath(const std::filesystem::path& Root, const std::filesystem::path& Relative, bool bOptionalOverride)
 	{
 		if (Relative.empty() || Relative.is_absolute())
 		{
@@ -44,8 +44,14 @@ namespace Weltall::DiscAssets
 		std::filesystem::path Current = Root;
 		std::error_code RootError;
 		const auto ResolvedRoot = std::filesystem::weakly_canonical(Root, RootError);
-		if (RootError || ResolvedRoot != Root.lexically_normal()) return MakeError("asset folder changed its resolved location");
-		if (std::filesystem::is_symlink(std::filesystem::symlink_status(Root, RootError)))
+		if (RootError || ResolvedRoot != Root.lexically_normal())
+		{
+			if (bOptionalOverride) return false;
+			return MakeError("asset folder changed its resolved location");
+		}
+		const auto RootStatus = std::filesystem::symlink_status(Root, RootError);
+		if (bOptionalOverride && (RootError || !std::filesystem::is_directory(RootStatus))) return false;
+		if (std::filesystem::is_symlink(RootStatus))
 		{
 			return MakeError("asset folders cannot be symbolic links");
 		}

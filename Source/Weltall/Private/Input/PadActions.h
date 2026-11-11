@@ -43,7 +43,7 @@ public:
 	 * moves it at FFieldViewInput's rates, the mouse by how far it moved, each scaled by the player's
 	 * sensitivity, L1 and R1 held as a stick pushed where the camera buttons zoom; the reset once as it is pressed.
 	 */
-	Weltall::FFieldViewInput ReadView(const UEnhancedPlayerInput& Input, float DeltaSeconds);
+	Weltall::FFieldViewInput ReadView(const UEnhancedPlayerInput& Input, float DeltaSeconds, bool bCameraShoulders);
 
 	/** The port's own keys (Weltall::IsPortAction) pressed since the last read, in the actions' order: each press once, however long it is held. */
 	TArray<Weltall::EControlAction, TFixedAllocator<Weltall::PortActionCount>> ReadPortKeys(const UEnhancedPlayerInput& Input);

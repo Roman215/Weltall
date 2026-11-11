@@ -174,6 +174,26 @@ TEST_CASE("A tap shorter than the game's frame, or a slide through a button, is 
 	CHECK(Pad.TakeButtons() == Bit(EPadButton::Triangle));
 }
 
+TEST_CASE("A consumed touch button stays out of the game until the last finger leaves it", "[Input]")
+{
+	FTouchPad Pad = FTouchPad::Standard(PhoneAspect);
+	const auto& Trigger = ControlOf(Pad, ETouchControlKind::Button, EPadButton::R1);
+	const auto& Other = ControlOf(Pad, ETouchControlKind::Button, EPadButton::Square);
+	Pad.Press(1, Trigger.X, Trigger.Y);
+	Pad.SuppressButtons(Bit(EPadButton::R1));
+	Pad.Press(2, Trigger.X, Trigger.Y);
+	Pad.Release(1);
+	CHECK(Pad.HeldButtons() == Bit(EPadButton::R1));
+	CHECK(Pad.TakeButtons() == 0);
+	Pad.Move(2, Other.X, Other.Y);
+	CHECK(Pad.TakeButtons() == Bit(EPadButton::Square));
+	Pad.Press(1, Trigger.X, Trigger.Y);
+	CHECK(Pad.TakeButtons() == (Bit(EPadButton::Square) | Bit(EPadButton::R1)));
+	Pad.Release(1);
+	Pad.ReleaseAll();
+	CHECK(Pad.TakeButtons() == 0);
+}
+
 TEST_CASE("The stick layout puts a stick in the cross's place, a DualShock's left stick whose rim is a full push", "[Input]")
 {
 	const FTouchPad Crossed = FTouchPad::Standard(PhoneAspect);

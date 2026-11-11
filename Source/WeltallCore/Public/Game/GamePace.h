@@ -1,6 +1,6 @@
 #pragma once
 
-#include "Foundation/Types.h"
+#include "Game/BattleSpeed.h"
 
 namespace Weltall
 {
@@ -13,9 +13,12 @@ namespace Weltall
 	 */
 	WELTALLCORE_API bool IsBattleFought(const FGameLoop& Loop);
 
-	/**
-	 * How many times its own pace the game runs at this moment: the settings' battle speed while a battle is
-	 * fought, its own pace (1) everywhere else.
-	 */
+	/** Whether Camera L/R control fast-forward in the field or world map right now. */
+	WELTALLCORE_API bool CanFastForwardExploration(const FGameLoop& Loop, const FPlayerSettings& Settings);
+
+	/** The speed of the current game program, or Normal where it runs at its own pace. */
+	WELTALLCORE_API EBattleSpeed ActiveGameSpeed(const FGameLoop& Loop, const FPlayerSettings& Settings);
+
+	/** How many times its own pace the game runs at this moment. */
 	WELTALLCORE_API int32 GamePace(const FGameLoop& Loop, const FPlayerSettings& Settings);
 }

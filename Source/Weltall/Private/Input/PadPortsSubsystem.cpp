@@ -7,6 +7,7 @@
 #include "GameFramework/PlayerController.h"
 #include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
 #include "Input/ButtonGlyphSubsystem.h"
+#include "Input/KeyListenerSubsystem.h"
 #include "Shell/PlayerSettingsSubsystem.h"
 
 /** Watches the gamepads' keys before anything else of the game hears them. */
@@ -26,7 +27,7 @@ public:
 		{
 			Ports->KeyChanged(Event.GetKey(), Event.GetInputDeviceId(), true);
 		}
-		return false;
+		return Ports != nullptr && Event.GetKey().IsGamepadKey() && Ports->IsSecond(Event.GetInputDeviceId());
 	}
 
 	virtual bool HandleKeyUpEvent(FSlateApplication& Application, const FKeyEvent& Event) override
@@ -35,7 +36,7 @@ public:
 		{
 			Ports->KeyChanged(Event.GetKey(), Event.GetInputDeviceId(), false);
 		}
-		return false;
+		return Ports != nullptr && Event.GetKey().IsGamepadKey() && Ports->IsSecond(Event.GetInputDeviceId());
 	}
 
 	virtual bool HandleAnalogInputEvent(FSlateApplication& Application, const FAnalogInputEvent& Event) override
@@ -44,7 +45,7 @@ public:
 		{
 			Ports->AxisChanged(Event.GetKey(), Event.GetInputDeviceId(), Event.GetAnalogValue());
 		}
-		return false;
+		return Ports != nullptr && Event.GetKey().IsGamepadKey() && Ports->IsSecond(Event.GetInputDeviceId());
 	}
 
 	virtual const TCHAR* GetDebugName() const override { return TEXT("WeltallPadPorts"); }
@@ -123,6 +124,10 @@ void UPadPortsSubsystem::KeyChanged(const FKey& Key, FInputDeviceId Device, bool
 {
 	if (Ports.KeyChanged(Key, Device, bDown))
 	{
+		if (UKeyListenerSubsystem* Listener = GetGameInstance()->GetSubsystem<UKeyListenerSubsystem>())
+		{
+			Listener->ForgetController(Device);
+		}
 		// What the first player's input heard held on this gamepad would never be heard let go.
 		if (APlayerController* Player = GetGameInstance()->GetFirstLocalPlayerController())
 		{

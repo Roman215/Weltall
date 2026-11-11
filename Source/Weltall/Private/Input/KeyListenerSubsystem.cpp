@@ -1,13 +1,21 @@
 #include "Input/KeyListenerSubsystem.h"
 
 #include "Engine/GameInstance.h"
+#include "Engine/GameViewportClient.h"
 #include "Framework/Application/IInputProcessor.h"
 #include "Framework/Application/SlateApplication.h"
+#include "GameFramework/PlayerController.h"
 #include "GenericPlatform/GenericPlatformInputDeviceMapper.h"
 #include "Input/ButtonGlyphSubsystem.h"
+#include "Input/TouchControlsSubsystem.h"
 #include "InputCoreTypes.h"
+#include "InputKeyEventArgs.h"
+#include "Misc/App.h"
 #include "Misc/CoreDelegates.h"
 #include "Shell/PlayerSettingsSubsystem.h"
+#include "UnrealClient.h"
+
+#include <bit>
 
 namespace
 {
@@ -15,6 +23,12 @@ namespace
 	constexpr float StickPushed = 0.5f;
 	constexpr float StickBack = 0.25f;
 	constexpr double MouseTravel = 40.0;
+
+	FKey TouchKey(const Weltall::FTouchPad& Pad, uint16 Button)
+	{
+		const std::string_view Name = Pad.KeyOf(static_cast<Weltall::EPadButton>(std::countr_zero(Button)));
+		return FKey(FName(static_cast<int32>(Name.size()), Name.data()));
+	}
 }
 
 /** Hears what the player presses, before the game takes it, while the keys listen. */
@@ -67,12 +81,6 @@ public:
 			}
 			return false;
 		}
-		const auto& Mapper = IPlatformInputDeviceMapper::Get();
-		if (Mapper.GetUserForInputDevice(Device) != Mapper.GetPrimaryPlatformUser())
-		{
-			Forget(Device);
-			return false;
-		}
 		FControllerButtons& Buttons = Controllers.FindOrAdd(Device);
 		if (Buttons.Consumed.Contains(Key))
 		{
@@ -80,9 +88,9 @@ public:
 		}
 		if (Event.IsRepeat() || Buttons.Held.Contains(Key))
 		{
-			return false;
+			return RouteButton(Event, IE_Repeat);
 		}
-		if (!Keys->IsListening() && !Buttons.Held.IsEmpty() && Keys->TriggerChord(Key, Buttons.Held))
+		if (!Keys->IsListening() && !Buttons.Held.IsEmpty() && Keys->TriggerChord(Key, Buttons.Held, Keys->Bindings()))
 		{
 			Buttons.Consumed.Add(Key);
 			return true;
@@ -104,7 +112,7 @@ public:
 		{
 			Hear(Key, 0);
 		}
-		return false;
+		return RouteButton(Event, IE_Pressed);
 	}
 
 	virtual bool HandleKeyUpEvent(FSlateApplication& Application, const FKeyEvent& Event) override
@@ -124,7 +132,7 @@ public:
 			Pending.Reset();
 			Hear(Key, 0);
 		}
-		return false;
+		return RouteButton(Event, IE_Released);
 	}
 
 	virtual bool HandleAnalogInputEvent(FSlateApplication& Application, const FAnalogInputEvent& Event) override
@@ -141,7 +149,7 @@ public:
 			Pushed.Add(Key);
 			Hear(Key, Value > 0.0f ? 1 : -1);
 		}
-		return false;
+		return RouteAxis(Event);
 	}
 
 	virtual bool HandleMouseMoveEvent(FSlateApplication& Application, const FPointerEvent& Event) override
@@ -163,7 +171,10 @@ public:
 
 	virtual bool HandleMouseButtonDownEvent(FSlateApplication& Application, const FPointerEvent& Event) override
 	{
-		Hear(Event.GetEffectingButton(), 0);
+		if (!Event.IsTouchEvent())
+		{
+			Hear(Event.GetEffectingButton(), 0);
+		}
 		return false;
 	}
 
@@ -179,6 +190,45 @@ public:
 	virtual const TCHAR* GetDebugName() const override { return TEXT("WeltallKeyListener"); }
 
 private:
+	/** Slate routes to the device owner's focus path, which is empty for a gamepad with no local player. */
+	UGameViewportClient* SharedViewport(const FKey& Key, FInputDeviceId Device) const
+	{
+		const auto& Mapper = IPlatformInputDeviceMapper::Get();
+		if (Keys == nullptr || !Key.IsGamepadKey() || !Device.IsValid()
+			|| Mapper.GetUserForInputDevice(Device) == Mapper.GetPrimaryPlatformUser())
+		{
+			return nullptr;
+		}
+		UGameViewportClient* Client = Keys->GetGameInstance()->GetGameViewportClient();
+		if (Client == nullptr || Client->IgnoreInput() || Client->Viewport == nullptr
+			|| !Client->Viewport->HasFocus() || Client->Viewport->IsPlayInEditorViewport())
+		{
+			return nullptr;
+		}
+		return Client;
+	}
+
+	bool RouteButton(const FKeyEvent& Event, EInputEvent Action) const
+	{
+		UGameViewportClient* Client = SharedViewport(Event.GetKey(), Event.GetInputDeviceId());
+		APlayerController* Player = Client != nullptr ? Keys->GetGameInstance()->GetFirstLocalPlayerController() : nullptr;
+		if (Player == nullptr) return false;
+		Player->InputKey(FInputKeyEventArgs(Client->Viewport, Event.GetInputDeviceId(), Event.GetKey(), Action,
+			1.0f, false, Event.GetEventTimestamp()));
+		return true;
+	}
+
+	bool RouteAxis(const FAnalogInputEvent& Event) const
+	{
+		UGameViewportClient* Client = SharedViewport(Event.GetKey(), Event.GetInputDeviceId());
+		APlayerController* Player = Client != nullptr ? Keys->GetGameInstance()->GetFirstLocalPlayerController() : nullptr;
+		if (Player == nullptr) return false;
+		const float Value = Event.GetKey() == EKeys::Gamepad_RightY ? -Event.GetAnalogValue() : Event.GetAnalogValue();
+		Player->InputKey(FInputKeyEventArgs(Client->Viewport, Event.GetInputDeviceId(), Event.GetKey(), Value,
+			FApp::GetDeltaTime(), 1, Event.GetEventTimestamp()));
+		return true;
+	}
+
 	void Hear(const FKey& Key, int32 Axis) const
 	{
 		if (Keys != nullptr && Keys->IsListening())
@@ -237,6 +287,8 @@ void UKeyListenerSubsystem::Listen(bool bOn, bool bControllerChords)
 {
 	bListening = bOn;
 	bWithheld |= bOn;
+	bCaptureTouchChords = bOn && bControllerChords;
+	ForgetTouch();
 	ChordsPressed = 0;
 	Pressed.clear();
 	if (Processor)
@@ -265,6 +317,10 @@ Weltall::EInputFamily UKeyListenerSubsystem::LastFamily() const
 Weltall::EButtonIconSet UKeyListenerSubsystem::GamepadIcons() const
 {
 	const UButtonGlyphSubsystem* Glyphs = GetGameInstance()->GetSubsystem<UButtonGlyphSubsystem>();
+	if (Glyphs != nullptr && Glyphs->IsTouchInUse())
+	{
+		return Weltall::EButtonIconSet::PlayStation;
+	}
 	return Glyphs != nullptr ? Glyphs->GamepadIconSet() : Weltall::EButtonIconSet::Xbox;
 }
 
@@ -294,13 +350,59 @@ void UKeyListenerSubsystem::HeardChord(const FKey& Modifier, const FKey& Trigger
 	Pressed.push_back({TCHAR_TO_UTF8(*Chord), 0});
 }
 
-bool UKeyListenerSubsystem::TriggerChord(const FKey& Trigger, const TSet<FKey>& Held)
+void UKeyListenerSubsystem::TouchButtonsChanged(Weltall::FTouchPad& Pad, uint16 Before, const Weltall::FControlBindings& Bindings)
+{
+	const uint16 Held = Pad.HeldButtons();
+	const uint16 StillHeld = Pad.Unsuppressed(static_cast<uint16>(Before & Held));
+	const uint16 PressedNow = static_cast<uint16>(Held & ~Before);
+	PendingTouch &= StillHeld;
+	// A diagonal presses two directions at once, so it has no ordered trigger.
+	if (!std::has_single_bit(PressedNow))
+	{
+		return;
+	}
+	if (bListening)
+	{
+		if (bCaptureTouchChords)
+		{
+			if (PendingTouch != 0)
+			{
+				HeardChord(TouchKey(Pad, PendingTouch), TouchKey(Pad, PressedNow));
+				ForgetTouch();
+			}
+			else
+			{
+				PendingTouch = PressedNow;
+			}
+		}
+		return;
+	}
+	if (StillHeld == 0 || bWithheld)
+	{
+		return;
+	}
+	TSet<FKey> Modifiers;
+	for (uint16 Remaining = StillHeld; Remaining != 0; Remaining &= static_cast<uint16>(Remaining - 1))
+	{
+		Modifiers.Add(TouchKey(Pad, static_cast<uint16>(1u << std::countr_zero(Remaining))));
+	}
+	if (TriggerChord(TouchKey(Pad, PressedNow), Modifiers, Bindings))
+	{
+		Pad.SuppressButtons(PressedNow);
+	}
+}
+
+const Weltall::FControlBindings& UKeyListenerSubsystem::Bindings() const
+{
+	return GetGameInstance()->GetSubsystem<UPlayerSettingsSubsystem>()->Settings().Controls;
+}
+
+bool UKeyListenerSubsystem::TriggerChord(const FKey& Trigger, const TSet<FKey>& Held, const Weltall::FControlBindings& Bindings)
 {
 	if (bWithheld)
 	{
 		return false;
 	}
-	const auto& Bindings = GetGameInstance()->GetSubsystem<UPlayerSettingsSubsystem>()->Settings().Controls;
 	for (int32 Index = 0; Index < Weltall::PortActionCount; ++Index)
 	{
 		const auto Action = static_cast<Weltall::EControlAction>(static_cast<int32>(Weltall::EControlAction::SaveState) + Index);
@@ -334,7 +436,15 @@ TArray<Weltall::EControlAction, TFixedAllocator<Weltall::PortActionCount>> UKeyL
 
 void UKeyListenerSubsystem::DeviceConnectionChanged(EInputDeviceConnectionState State, FPlatformUserId User, FInputDeviceId Device)
 {
-	if (Processor && State == EInputDeviceConnectionState::Disconnected)
+	if (State == EInputDeviceConnectionState::Disconnected)
+	{
+		ForgetController(Device);
+	}
+}
+
+void UKeyListenerSubsystem::ForgetController(FInputDeviceId Device)
+{
+	if (Processor)
 	{
 		Processor->Forget(Device);
 	}
@@ -342,9 +452,17 @@ void UKeyListenerSubsystem::DeviceConnectionChanged(EInputDeviceConnectionState 
 
 void UKeyListenerSubsystem::AppActivationChanged(bool bActive)
 {
-	if (!bActive && Processor)
+	if (!bActive)
 	{
-		Processor->ResetControllers();
+		if (Processor)
+		{
+			Processor->ResetControllers();
+		}
 		ChordsPressed = 0;
+		ForgetTouch();
+		if (UTouchControlsSubsystem* Touch = GetGameInstance()->GetSubsystem<UTouchControlsSubsystem>())
+		{
+			Touch->ResetTouches();
+		}
 	}
 }

@@ -235,6 +235,18 @@ namespace Weltall
 
 	void FGameSession::Vblank(FPadState Held)
 	{
+		FPadState Second;
+		if (SecondPadCount > 0)
+		{
+			Second = SecondPadHeld[static_cast<std::size_t>(std::min(SecondPadTaken, SecondPadCount - 1))];
+			++SecondPadTaken;
+		}
+		CountVblank(Held, Second);
+		KernelVibration.Vblank();
+	}
+
+	void FGameSession::CountVblank(FPadState Held, FPadState Second)
+	{
 		const bool bPlayersTime = ++PaceVblanks >= Pace;
 		if (bPlayersTime)
 		{
@@ -242,19 +254,12 @@ namespace Weltall
 			// The console counts the vertical blank before it reads the pad: the repeat keeps to the count.
 			State.SetPlayTime(State.PlayTime() + 1);
 		}
-		FPadState Second;
-		if (SecondPadCount > 0)
-		{
-			Second = SecondPadHeld[static_cast<std::size_t>(std::min(SecondPadTaken, SecondPadCount - 1))];
-			++SecondPadTaken;
-		}
 		// Run fast, the pad's count goes on by one a vertical blank and meets the play time's at each one it counts.
 		KernelPad.Vblank(Held, State.PlayTime() * static_cast<uint32>(Pace) + static_cast<uint32>(PaceVblanks), Second);
 		if (bPlayersTime)
 		{
 			PlayClock.Vblank();
 		}
-		KernelVibration.Vblank();
 	}
 
 	void FGameSession::SetPace(int32 InPace)

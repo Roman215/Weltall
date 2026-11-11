@@ -22,17 +22,6 @@ namespace
 	constexpr uint8 MsaaSamples = 4;
 	constexpr int32 SupersamplingFactor = 2;
 
-	bool SupportsFieldMsaa()
-	{
-#if PLATFORM_ANDROID
-		// The Adreno 610 Vulkan driver can fail to create the field's multisample pipeline.
-		constexpr uint32 Adreno610 = 0x06010001;
-		return !IsRHIDeviceQualcomm() || GRHIDeviceId != Adreno610;
-#else
-		return true;
-#endif
-	}
-
 	/** The GPU's blend modes as blend states; the pixel shader scales the new pixel for B + F / 4 and outputs alpha 0.5 for averaging. */
 	FRHIBlendState* BlendStateOf(const FFieldDrawRun& Run)
 	{
@@ -493,6 +482,13 @@ FVector4f FieldScreenPlacement(FIntPoint Size)
 	return FVector4f(Scale, Scale, static_cast<float>(Size.X) * 0.5f - ScreenWidth * 0.5f * Scale, 0.0f);
 }
 
+uint8 FieldSceneSampleCount(EFieldAntiAliasing AntiAliasing, FStringView AndroidAdapterName)
+{
+	// Android Vulkan reports the adapter name with this suffix and does not set GRHIDeviceId.
+	const bool bAdreno610 = AndroidAdapterName.Equals(TEXT("Adreno (TM) 610 Vulkan"), ESearchCase::IgnoreCase);
+	return AntiAliasing == EFieldAntiAliasing::Msaa && !bAdreno610 ? MsaaSamples : 1;
+}
+
 void AddFieldScenePasses(FRDGBuilder& GraphBuilder, const FFieldSceneMesh& Mesh, const FVramTexture& Vram, const FFieldSceneDraw& Draw,
 	FRDGTextureRef Output, const FIntRect& Area)
 {
@@ -501,7 +497,7 @@ void AddFieldScenePasses(FRDGBuilder& GraphBuilder, const FFieldSceneMesh& Mesh,
 		return;
 	}
 	const int32 Factor = Draw.AntiAliasing == EFieldAntiAliasing::Supersampling ? SupersamplingFactor : 1;
-	const uint8 Samples = Draw.AntiAliasing == EFieldAntiAliasing::Msaa && SupportsFieldMsaa() ? MsaaSamples : 1;
+	const uint8 Samples = FieldSceneSampleCount(Draw.AntiAliasing, PLATFORM_ANDROID ? FStringView(GRHIAdapterName) : FStringView());
 	const FIntPoint Size = Area.Size() * Factor;
 	const FSceneBuffers Buffers = UploadSceneBuffers(GraphBuilder, Mesh, Draw, Size);
 	const FIntRect Target(FIntPoint::ZeroValue, Size);

@@ -182,6 +182,38 @@ TEST_CASE("Disc export resumes without overwriting mods or publishing partial fi
 	CHECK_FALSE(PublishAssetFile(Folder.Path, "../outside.wav", std::vector<uint8>{1}));
 }
 
+#if !defined(_WIN32)
+TEST_CASE("A redirected override folder falls back to disc and rejects export", "[Media][Assets]")
+{
+	FAssetFolder Folder("WeltallAssetsMoved");
+	const auto Image = AssetImage();
+	const auto Index = AssetIndex();
+	const auto Store = FDiscAssetStore::Open(Folder.Path, "usa.disc1", Image, Index);
+	REQUIRE(Store);
+	const auto Original = AssetImage();
+	const auto& Record = *Index.Find(4, 1);
+	const auto Moved = Folder.Path / "moved";
+	std::filesystem::create_directories(Moved / "movies");
+	Write(Moved / "files/04/0001.bin", std::vector<uint8>(4096, 0xEE));
+	std::filesystem::create_directory_symlink(Moved, (*Store)->Folder());
+	Image.SetAssetStore(*Store);
+	(*Store)->SetEnabled(true);
+	const auto File = ReadFileSectors(Image, Record);
+	REQUIRE(File);
+	CHECK(*File == *ReadFileSectors(Original, Record));
+	const auto Movie = Image.ReadUserData(1);
+	REQUIRE(Movie);
+	CHECK(*Movie == *Original.ReadUserData(1));
+	CHECK_FALSE((*Store)->Export());
+
+	std::filesystem::remove((*Store)->Folder());
+	Write((*Store)->AssetPath(Record), std::vector<uint8>(4096, 0xAB));
+	const auto Restored = ReadFileSectors(Image, Record);
+	REQUIRE(Restored);
+	CHECK(Restored->front() == 0xAB);
+}
+#endif
+
 TEST_CASE("Movie replacement headers and audio are read from the external stream", "[Media][Assets]")
 {
 	FAssetFolder Folder("WeltallAssetsMovies");

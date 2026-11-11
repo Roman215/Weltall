@@ -6,6 +6,7 @@
 #include "Field/FieldReturn.h"
 #include "Field/FieldSprites.h"
 #include "Field/FieldTick.h"
+#include "Game/GameSession.h"
 #include "Game/GameState.h"
 #include "Input/KernelPad.h"
 #include "Input/KernelVibration.h"
@@ -159,9 +160,16 @@ namespace Weltall
 		FGameState& Game = *Services.Game;
 		for (const FPadState Held : HeldPerVblank)
 		{
-			// The console counts the vertical blank before it reads the pad: the repeat keeps to the count.
-			Game.SetPlayTime(Game.PlayTime() + 1);
-			Services.Pad->Vblank(Held, Game.PlayTime());
+			if (Services.Session != nullptr)
+			{
+				Services.Session->CountVblank(Held);
+			}
+			else
+			{
+				Game.SetPlayTime(Game.PlayTime() + 1);
+				Services.Pad->Vblank(Held, Game.PlayTime());
+				Services.Clock->Vblank();
+			}
 			DoorPauseLeft = std::max(DoorPauseLeft - 1, 0);
 			if (DefeatHoldVblanks != 0)
 			{
@@ -171,7 +179,6 @@ namespace Weltall
 			{
 				bDefeatHeldUntilReleased = false;
 			}
-			Services.Clock->Vblank();
 			if (Services.Vibration != nullptr)
 			{
 				Services.Vibration->Vblank();

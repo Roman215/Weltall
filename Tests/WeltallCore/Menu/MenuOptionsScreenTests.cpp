@@ -201,7 +201,7 @@ TEST_CASE("The Modding page changes balance and party options without external a
 	Press(Menu, EPadButton::Cross);
 	Press(Menu, EPadButton::R1);
 	Press(Menu, EPadButton::Right);
-	CHECK(Settings.Current.Balance == FGameBalance{ERewardRate::Double, ERewardRate::Quadruple, EEncounterRate::Quarter});
+	CHECK(Settings.Current.Balance == FGameBalance{ERewardRate::Double, ERewardRate::Quadruple, EEncounterRate::Quarter, false});
 	Press(Menu, EPadButton::Circle, 40);
 	REQUIRE(Settings.Kept.size() == 1);
 	CHECK(Settings.Kept.front().Balance.Gold == ERewardRate::Quadruple);

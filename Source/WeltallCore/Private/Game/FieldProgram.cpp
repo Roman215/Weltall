@@ -80,6 +80,7 @@ namespace Weltall
 		Program->bMainEffectsRegistered = true;
 
 		FFieldServices Services;
+		Services.Session = &Session;
 		Services.Image = &Session.Image();
 		Services.Index = &Session.Index();
 		Services.Arctangents = &Session.Arctangents();

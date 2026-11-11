@@ -57,10 +57,17 @@ namespace Weltall
 		WELTALLCORE_API bool Press(uint64 Finger, float X, float Y);
 		WELTALLCORE_API void Move(uint64 Finger, float X, float Y);
 		WELTALLCORE_API void Release(uint64 Finger);
-		void ReleaseAll() { Fingers.clear(); }
+		void ReleaseAll() { Fingers.clear(); Latched = 0; Suppressed = 0; }
 
 		/** The DualShock buttons the fingers hold. */
 		WELTALLCORE_API uint16 HeldButtons() const;
+
+		/** The binding key at Button's position on this layout. */
+		WELTALLCORE_API std::string_view KeyOf(EPadButton Button) const;
+
+		/** Keep these held buttons out of gameplay until they are released. */
+		void SuppressButtons(uint16 Buttons) { Suppressed |= Buttons; }
+		uint16 Unsuppressed(uint16 Buttons) const { return static_cast<uint16>(Buttons & ~Suppressed); }
 
 		/**
 		 * The DualShock buttons held since the last take: those the fingers hold, and those a finger held and has lifted or
@@ -98,5 +105,6 @@ namespace Weltall
 		std::vector<FFinger> Fingers;
 		/** What fingers held before they lifted or moved, since the last take. */
 		uint16 Latched = 0;
+		uint16 Suppressed = 0;
 	};
 }

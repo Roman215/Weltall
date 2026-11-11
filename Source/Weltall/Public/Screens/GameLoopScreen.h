@@ -109,6 +109,7 @@ public:
 
 	virtual void Update(double DeltaSeconds, Weltall::FPadState Held) override;
 	virtual void AddViewInput(const Weltall::FFieldViewInput& Input) override;
+	virtual bool UsesShouldersForSpeed() const override;
 	/**
 	 * The game saved to the chosen slot where the moment allows it, loaded from it anywhere, or the slot stepped, each told
 	 * over the game; or the message log opened over the game, or closed. While the log is open the states' keys do nothing.
@@ -295,7 +296,6 @@ private:
 	std::unique_ptr<Weltall::FGameLoop> GameLoop;
 	Weltall::FTickClock Vblanks;
 	/** How many times its own pace the game ran at in the last display frame: more than once in a battle fought fast. */
-	int32 Pace = 1;
 	Weltall::FPadLatch Latch;
 	Weltall::FPadLatch SecondLatch;
 	/** Each controller at each vertical blank since the last frame. */

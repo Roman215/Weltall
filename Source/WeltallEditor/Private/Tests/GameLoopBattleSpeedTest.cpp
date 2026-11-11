@@ -44,8 +44,7 @@ namespace
 		}
 
 		/**
-		 * The display frames 240 vertical blanks of a battle take: the first port's motor, which nothing in a battle
-		 * runs and the Battle program's vertical blanks count down, is started for as many and counted on.
+		 * The display frames 240 simulated vertical blanks take, measured by the first port's motor countdown.
 		 */
 		int32 FramesOf240Vblanks()
 		{
@@ -172,6 +171,56 @@ bool FGameLoopBattleSpeedTest::RunTest(const FString&)
 	TestTrue(TEXT("Back at the game's pace"), IsAbout(Game.FramesOf240Vblanks(), 1));
 	TestFalse(TEXT("The mark back at the game's pace"), ShowsArrows(Game.MarkPixels()));
 	TestTrue(TEXT("The settings' speed"), Game.Screen->Settings().BattleSpeed == Weltall::EBattleSpeed::Normal);
+	return true;
+}
+
+IMPLEMENT_SIMPLE_AUTOMATION_TEST(FGameLoopExplorationSpeedTest, "Weltall.Screens.OptInFieldFastForwardUsesTheBattleStepsAndIndicator",
+	EAutomationTestFlags::EditorContext | EAutomationTestFlags::EngineFilter)
+
+bool FGameLoopExplorationSpeedTest::RunTest(const FString&)
+{
+	Weltall::FGameLibrary Library;
+	const Weltall::FIso9660* Disc = FindTestDisc(Library);
+	if (Disc == nullptr)
+	{
+		AddInfo(TEXT("Skipped: the first disc is not in the Games folder"));
+		return true;
+	}
+	FBattleSpeedTestGame Game;
+	if (!TestTrue(TEXT("The game enters the map"), Game.Start(*Disc)))
+	{
+		return false;
+	}
+	Game.Run(3.0);
+	TestFalse(TEXT("The camera buttons keep their ordinary use by default"), Game.Screen->UsesShouldersForSpeed());
+	Weltall::FPlayerSettings Settings = Game.Screen->Settings();
+	Settings.Balance.bExplorationFastForward = true;
+	Game.Screen->ApplySettings(Settings);
+	TestTrue(TEXT("The toggle assigns the camera buttons to speed"), Game.Screen->UsesShouldersForSpeed());
+	TestFalse(TEXT("Enabling the toggle starts at normal speed"), ShowsArrows(Game.MarkPixels()));
+
+	Game.Press(BattleSpeedTestR1);
+	const int32 Twice = Game.FramesOf240Vblanks();
+	TestTrue(TEXT("The first press doubles the field rate"), Twice >= 118 && Twice <= 122);
+	TestTrue(TEXT("The field shows the speed indicator"), ShowsArrows(Game.MarkPixels()));
+	Game.Press(BattleSpeedTestR1);
+	const int32 FourTimes = Game.FramesOf240Vblanks();
+	TestTrue(TEXT("The second press quadruples the field rate"), FourTimes >= 59 && FourTimes <= 62);
+	const uint32 PlayTime = Game.Run(2.0);
+	TestTrue(TEXT("The play time still counts real seconds"), PlayTime >= 118 && PlayTime <= 121);
+	TestTrue(TEXT("The battle setting is independent"), Game.Screen->Settings().BattleSpeed == Weltall::EBattleSpeed::Normal);
+
+	Game.Press(BattleSpeedTestL1);
+	TestTrue(TEXT("One step back still shows fast-forward"), ShowsArrows(Game.MarkPixels()));
+	Game.Press(BattleSpeedTestL1);
+	TestFalse(TEXT("The mark is gone at normal speed"), ShowsArrows(Game.MarkPixels()));
+	Game.Press(BattleSpeedTestR1);
+	Settings.Balance.bExplorationFastForward = false;
+	Game.Screen->ApplySettings(Settings);
+	TestFalse(TEXT("Turning off the toggle restores the camera buttons"), Game.Screen->UsesShouldersForSpeed());
+	Settings.Balance.bExplorationFastForward = true;
+	Game.Screen->ApplySettings(Settings);
+	TestFalse(TEXT("Re-enabling starts at normal speed"), ShowsArrows(Game.MarkPixels()));
 	return true;
 }
 

@@ -22,6 +22,7 @@ namespace Weltall
 		struct FCutscene;
 	}
 	class FGameFileIndex;
+	class FGameSession;
 	class FGameState;
 	class FKernelPad;
 	class FPsxRandom;
@@ -83,6 +84,8 @@ namespace Weltall
 		uint8 GearLock = 0;
 		/** The port's story, whose documents add places to an era's scene as it is read (the game's state says whether the expanded second disc's do); none: the disc's places alone. */
 		const FStoryPacks* Story = nullptr;
+		/** The shared play clock and pad pacing when running inside the game loop. */
+		FGameSession* Session = nullptr;
 	};
 
 	/** What the world map stopped at. */
