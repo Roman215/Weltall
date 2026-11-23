@@ -71,7 +71,8 @@ void AddFieldPictureStretch(const Weltall::FFieldScene& Scene, const Weltall::FF
 	for (int32 Quad = 0; Quad < static_cast<int32>(Latest.Quads.size()); ++Quad)
 	{
 		const Weltall::FFieldCharacterView& Character = Latest.Characters[Latest.Quads[static_cast<std::size_t>(Quad)].Character];
-		AnchorCorners(Stretch, static_cast<uint32>(Quad) * QuadCorners, QuadCorners, PictureAnchorPoint(Character.Origin) + FieldCharacterOffset(Character, Previous, Alpha));
+		const FVector3f Anchor = Character.bOnFloor ? PictureAnchorPoint(Character.Origin) + FieldCharacterOffset(Character, Previous, Alpha) : FVector3f::ZeroVector;
+		AnchorCorners(Stretch, static_cast<uint32>(Quad) * QuadCorners, QuadCorners, Anchor);
 	}
 	// A particle by its own middle.
 	for (uint32 Particle = 0; Particle < Latest.Particles.size(); ++Particle)

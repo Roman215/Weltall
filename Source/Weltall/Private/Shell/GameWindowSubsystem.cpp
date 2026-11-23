@@ -6,6 +6,7 @@
 #include "GameFramework/GameUserSettings.h"
 #include "GenericPlatform/GenericApplication.h"
 #include "HAL/PlatformApplicationMisc.h"
+#include "HAL/PlatformProperties.h"
 #include "Media/GameFileIndex.h"
 #include "Media/PsxExecutable.h"
 #include "Menu/MenuResources.h"
@@ -15,6 +16,10 @@
 #include "UnrealClient.h"
 
 #include <algorithm>
+
+#if PLATFORM_LINUX
+#include "Shell/LinuxDisplayModes.h"
+#endif
 
 #if PLATFORM_WINDOWS
 #include "Windows/AllowWindowsPlatformTypes.h"
@@ -28,6 +33,11 @@ namespace
 	bool HasOwnWindow()
 	{
 		return !GIsEditor && !IsRunningCommandlet() && FApp::CanEverRender();
+	}
+
+	bool CanChangeWindowMode()
+	{
+		return FPlatformProperties::SupportsWindowedMode() && HasOwnWindow();
 	}
 
 #if PLATFORM_WINDOWS
@@ -137,10 +147,11 @@ void UGameWindowSubsystem::Deinitialize()
 Weltall::FDisplayModes UGameWindowSubsystem::Modes() const
 {
 	Weltall::FDisplayModes Result;
-	if (!HasOwnWindow())
+	if (!CanChangeWindowMode())
 	{
 		return Result;
 	}
+	Result.bSupportsFullscreen = true;
 	FDisplayMetrics Metrics;
 	FDisplayMetrics::RebuildDisplayMetrics(Metrics);
 	FScreenResolutionArray Resolutions;
@@ -148,13 +159,20 @@ Weltall::FDisplayModes UGameWindowSubsystem::Modes() const
 	{
 		for (const FScreenResolutionRHI& Resolution : Resolutions)
 		{
-			const Weltall::FDisplaySize Size{static_cast<int32>(Resolution.Width), static_cast<int32>(Resolution.Height)};
-			if (Size.Width <= Metrics.PrimaryDisplayWidth && Size.Height <= Metrics.PrimaryDisplayHeight)
-			{
-				Result.WindowSizes.push_back(Size);
-			}
+			Result.WindowSizes.push_back({static_cast<int32>(Resolution.Width), static_cast<int32>(Resolution.Height)});
 		}
 	}
+#if PLATFORM_LINUX
+	// The Vulkan backend does not enumerate display modes.
+	if (Result.WindowSizes.empty())
+	{
+		Result.WindowSizes = LinuxDisplaySizes();
+	}
+#endif
+	std::erase_if(Result.WindowSizes, [&Metrics](const Weltall::FDisplaySize& Size)
+	{
+		return !Size.IsSet() || Size.Width > Metrics.PrimaryDisplayWidth || Size.Height > Metrics.PrimaryDisplayHeight;
+	});
 	std::sort(Result.WindowSizes.begin(), Result.WindowSizes.end());
 	Result.WindowSizes.erase(std::unique(Result.WindowSizes.begin(), Result.WindowSizes.end()), Result.WindowSizes.end());
 	const UGameViewportClient* Client = GetGameInstance()->GetGameViewportClient();
@@ -179,7 +197,7 @@ void UGameWindowSubsystem::Follow()
 	FApp::SetUnfocusedVolumeMultiplier(Display.bSoundInBackground ? 1.0f : 0.0f);
 	const Weltall::FDisplaySize Chosen = Display.WindowSize;
 	UGameUserSettings* Window = GEngine != nullptr ? GEngine->GetGameUserSettings() : nullptr;
-	if ((Chosen == Followed && Display.bFullScreen == bFollowedFullScreen) || Window == nullptr || !HasOwnWindow())
+	if ((Chosen == Followed && Display.bFullScreen == bFollowedFullScreen) || Window == nullptr || !CanChangeWindowMode())
 	{
 		return;
 	}
@@ -200,6 +218,7 @@ void UGameWindowSubsystem::Follow()
 	Window->SetScreenResolution(Size);
 	Window->SetFullscreenMode(Mode);
 	Window->ApplyResolutionSettings(false);
+	Window->ConfirmVideoMode();
 	// Kept with the engine's own window settings too, so the next start opens the window at this size.
 	Window->SaveSettings();
 }

@@ -45,7 +45,7 @@ namespace
 void AddFieldSpriteModels(const Weltall::FFieldFrame& Latest, const Weltall::FFieldFrame* Previous, float Alpha, const FFieldSceneMesh& Mesh,
 	FFieldSceneDraw& Draw)
 {
-	const uint32 Identity = static_cast<uint32>(Draw.Objects.Num() / 3 - 1);
+	const uint32 Identity = Mesh.ViewSpaceObject();
 	const Weltall::FFieldSpriteModelsFrame& Models = Latest.SpriteModels;
 	for (const Weltall::FFieldSpriteModelPolygon& Polygon : Models.Polygons)
 	{

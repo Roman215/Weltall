@@ -1,5 +1,6 @@
 #include "Battle/BattleContext.h"
 
+#include "Game/CharacterSkills.h"
 #include "Game/GameState.h"
 
 namespace Weltall
@@ -19,6 +20,11 @@ namespace Weltall
 			return (Index - FirstGearCommand) % GearTableSize < FBattleTables::GearCommandCount;
 		}
 		return Index - FirstEnemyCommand < FBattleTables::EnemyCommandCount;
+	}
+
+	uint16 FBattleContext::UsableDeathblows(uint8 Character, uint16 Learned) const
+	{
+		return Growth.empty() ? Learned : Learned & LearnableDeathblowMask(Character, Growth);
 	}
 
 	FCharacterLooks FBattleContext::PartyLooks() const

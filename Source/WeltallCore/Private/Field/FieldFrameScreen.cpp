@@ -1,4 +1,5 @@
 #include "Field/FieldPresenter.h"
+#include "FieldScreenPieces.h"
 
 #include "Field/FieldMessages.h"
 #include "Field/FieldRuntime.h"
@@ -41,7 +42,7 @@ namespace Weltall
 		}
 	}
 
-	void FFieldPresenter::CaptureScreen(const FFieldRuntime& Runtime, const FFieldPresentedView& Shown, FFieldFrame& Frame)
+	void FFieldPresenter::CaptureScreen(const FFieldRuntime& Runtime, const FFieldPresentedView& Shown, bool bPictureOnly, FFieldFrame& Frame)
 	{
 		const FEventContext& Context = Runtime.Context();
 		const FFieldRenderState& Render = Context.Render;
@@ -56,13 +57,24 @@ namespace Weltall
 		}
 		const FFieldCover& Cover = Render.Cover;
 		FFieldFrameCover& Picture = Frame.Cover;
-		Picture.bShown = Cover.bShown;
+		Picture.bShown = bPictureOnly || Cover.bShown;
 		Picture.bAdditive = Cover.bAdditive;
 		Picture.bScreen = Cover.bScreen;
 		// The tick draws the columns of the buffer it draws into.
 		Picture.Brightness = Cover.Brightness[static_cast<std::size_t>(Context.DrawBuffer & 1)];
 		Picture.Scale = Cover.Scale;
 		Picture.Taken = Cover.Taken;
+		if (bPictureOnly)
+		{
+			Frame.Screen.Primitives.clear();
+			Frame.TextButtons.clear();
+			Picture.LayerIndex = 0;
+			if (!Picture.bScreen)
+			{
+				FieldScreenPieces::AddCoverColumns(Cover, Picture.Brightness, Frame.Screen);
+			}
+			return;
+		}
 		PlaceWindowsForView(Context, Shown);
 		Picture.LayerIndex = BuildFieldScreenLayer(Context, DrawingTables, Runtime.LastFrame(), Frame.Screen, &CompassFrame, &WindowShifts, &Frame.TextButtons);
 	}

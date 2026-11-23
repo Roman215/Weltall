@@ -120,6 +120,12 @@ TEST_CASE("The player's turn moves the eye as R1 turns the camera, and the view'
 	CHECK(Player.ViewTurn() == -0x200);
 	const double Change = ViewYaw(OffsetFieldEye(Camera.Eye, Camera.Target, 1.0f, 0.0f, 45.0f), Camera.Target) - ViewYaw(Camera.Eye, Camera.Target);
 	CHECK(std::abs(std::remainder(Change - Player.ViewTurn(), 4096.0)) < 2.0);
+	FFieldViewInput Input;
+	Input.Turn = -45.0f;
+	Player.AddInput(Input);
+	CHECK(Player.ViewTurn() == 0);
+	Player.Present(Before, true, false);
+	CHECK(Player.ViewTurn() == 0);
 }
 
 TEST_CASE("The player's zoom and tilt pull the eye back and raise it, short of looking straight down", "[Field]")

@@ -57,6 +57,8 @@ CONFIGURATIONS = ["DebugGame", "Development", "Shipping"]
 CREATE_NO_WINDOW = 0x08000000
 # The player's own folders beside the game, carried into every new build of a package.
 PLAYER_FOLDERS = ["Assets", "Mods"]
+# Portable profiles are kept across local rebuilds but omitted from release archives.
+RETAINED_FOLDERS = [*PLAYER_FOLDERS, "Portable"]
 # How long a finished package's move into place waits for a file in it that another program (a virus scan of the fresh
 # files) still holds open: Windows refuses to move a folder meanwhile.
 MOVE_TRIES = 30
@@ -203,7 +205,7 @@ def build(configuration, platform, ue_root):
     package = BUILDS / configuration / platform.name
     package.parent.mkdir(parents=True, exist_ok=True)
     previous = package.with_name(package.name + ".old")
-    for kept in PLAYER_FOLDERS:
+    for kept in RETAINED_FOLDERS:
         if (previous / kept).exists():
             print(f"Local {kept.lower()} remain in {previous / kept}; move them to a safe folder before rebuilding")
             return False
@@ -228,8 +230,8 @@ def build(configuration, platform, ue_root):
 
 
 def retain_player_folders(previous, package):
-    """Moves the player's own replacements and mods out of the old build before that build is removed."""
-    for kept in PLAYER_FOLDERS:
+    """Moves player folders out of the old build before that build is removed."""
+    for kept in RETAINED_FOLDERS:
         source = previous / kept
         if not source.exists():
             continue
@@ -373,7 +375,7 @@ def archive(configuration, platform):
     name = f"Weltall-{revision}-{platform.name}" + ("" if configuration == "Shipping" else f"-{configuration}")
     RELEASES.mkdir(parents=True, exist_ok=True)
     # Local disc images and exports never enter a release archive.
-    kept = {"games"} | {folder.casefold() for folder in PLAYER_FOLDERS}
+    kept = {"games"} | {folder.casefold() for folder in RETAINED_FOLDERS}
     files = sorted(path for path in package.rglob("*") if path.is_file() and path.relative_to(package).parts[0].casefold() not in kept)
     release = RELEASES / f"{name}.zip"
     programs = None

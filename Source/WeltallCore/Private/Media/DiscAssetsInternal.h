@@ -22,7 +22,6 @@ namespace Weltall
 		TResult<bool> PrepareFolder(const std::filesystem::path& Root, const std::filesystem::path& Relative);
 		TResult<bool> WriteManifest(const std::filesystem::path& Root, const std::string& Manifest);
 		TResult<bool> ValidateManifest(const std::filesystem::path& Root, const std::string& Manifest);
-		TResult<bool> Publish(const std::filesystem::path& Partial, const std::filesystem::path& Target);
 	}
 
 	struct FDiscAssetStore::FState

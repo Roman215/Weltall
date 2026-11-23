@@ -26,6 +26,11 @@
 #include "Widgets/Layout/SBorder.h"
 #include "Widgets/Text/STextBlock.h"
 
+#if PLATFORM_ANDROID
+#include "Android/AndroidApplication.h"
+#include "Android/AndroidJNI.h"
+#endif
+
 #include <filesystem>
 #include <string>
 
@@ -160,6 +165,10 @@ void AWeltallGameMode::FollowTransfer()
 
 void AWeltallGameMode::ShowNotice(const FText& Text, bool bOverPicture, TArray<FNoticeButton> Buttons, TFunction<FText()> Below)
 {
+	if (UDeviceFilesSubsystem::UsesPicker())
+	{
+		Buttons.Add({NSLOCTEXT("Weltall", "ExitGame", "Exit"), [this]() { QuitGame(); }});
+	}
 	HideNotice();
 	const FGameNotice Shown = MakeGameNotice(Text, bOverPicture, MoveTemp(Buttons));
 	Notice = Shown.Widget;
@@ -337,6 +346,17 @@ FText AWeltallGameMode::LogSaved() const
 	}
 }
 
+void AWeltallGameMode::QuitGame()
+{
+#if PLATFORM_ANDROID
+	JNIEnv* Env = FAndroidApplication::GetJavaEnv();
+	static const jmethodID Finish = FJavaWrapper::FindMethod(Env, FJavaWrapper::GameActivityClassID, "finishAndRemoveTask", "()V", false);
+	FJavaWrapper::CallVoidMethod(Env, FJavaWrapper::GameActivityThis, Finish);
+#else
+	UKismetSystemLibrary::QuitGame(GetWorld(), nullptr, EQuitPreference::Quit, false);
+#endif
+}
+
 bool AWeltallGameMode::StartGame()
 {
 	UGameInstance* Game = GetGameInstance();
@@ -384,11 +404,11 @@ bool AWeltallGameMode::StartGame()
 	Screen->SetDisplayModes([Window = Game->GetSubsystem<UGameWindowSubsystem>()]() { return Window->Modes(); });
 	Screen->SetSettingsFollowed([Settings](const Weltall::FPlayerSettings& Changed) { Settings->Follow(Changed); });
 	Screen->SetSettingsKept([Settings](const Weltall::FPlayerSettings& Kept) { Settings->Change(Kept); });
-	Screen->SetQuit([World = TWeakObjectPtr<UWorld>(GetWorld())]()
+	Screen->SetQuit([Weak = TWeakObjectPtr<AWeltallGameMode>(this)]()
 	{
-		if (UWorld* Playing = World.Get())
+		if (AWeltallGameMode* Mode = Weak.Get())
 		{
-			UKismetSystemLibrary::QuitGame(Playing, nullptr, EQuitPreference::Quit, false);
+			Mode->QuitGame();
 		}
 	});
 	Screen->SetDiscSought([Discs, Assets, Mods](Weltall::EDiscRelease Release)

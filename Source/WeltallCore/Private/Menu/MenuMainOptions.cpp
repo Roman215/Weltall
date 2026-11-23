@@ -311,6 +311,13 @@ namespace Weltall
 		while (true)
 		{
 			co_await Frame();
+			const bool bFullscreen = Services.Settings->Settings().Display.bFullScreen;
+			if (State.Settings.Display.bFullScreen != bFullscreen)
+			{
+				State.Settings.Display.bFullScreen = bFullscreen;
+				FillOptionsRows();
+				bChanged = true;
+			}
 			if (OnAssetsPage() && RefreshAssetProgress())
 			{
 				bChanged = true;

@@ -71,6 +71,16 @@ namespace
 	{
 		for (int32 First = 0; First + 2 < Draw.Objects.Num(); First += 3)
 		{
+			if (First >= Draw.FirstSpriteRow)
+			{
+				const FVector3f Origin(Draw.Objects[First].W, Draw.Objects[First + 1].W, Draw.Objects[First + 2].W);
+				const FVector3f Moved = Move.TransformPosition(Origin);
+				for (int32 Axis = 0; Axis < 3; ++Axis)
+				{
+					Draw.Objects[First + Axis].W = Moved[Axis];
+				}
+				continue;
+			}
 			// The object's rows as a matrix taking its own points to view space, then moved.
 			FMatrix44f Object = FMatrix44f::Identity;
 			for (int32 Row = 0; Row < 3; ++Row)
@@ -232,6 +242,7 @@ bool BuildFieldFrameDraw(const Weltall::FFieldScene& Scene, const Weltall::FFiel
 	const FFieldSceneMesh& Mesh, const FFieldRenderOptions& Options, FFieldSceneDraw& Draw, Weltall::FTexelKindCache* TexelKinds)
 {
 	Draw.Objects.Reset();
+	Draw.FirstSpriteRow = MAX_int32;
 	Draw.Colors.Reset();
 	Draw.DynamicCorners.Reset();
 	Draw.DynamicPolygons.Reset();
@@ -295,14 +306,13 @@ bool BuildFieldFrameDraw(const Weltall::FFieldScene& Scene, const Weltall::FFiel
 	}
 	Draw.bGearsDrawn = DoGearsFitMesh(Latest, Mesh);
 	AddGearColors(Latest, Mesh, Draw);
+	AddGearObjects(Latest, Before, Alpha, Draw);
 	AddFieldCharacterQuads(Latest, Before, Alpha, Mesh, Draw);
 	AddFieldParticleQuads(Latest, Before, Alpha, Mesh, Draw);
 	AddFieldSpriteModels(Latest, Before, Alpha, Mesh, Draw);
 	AddFieldChangedModels(Scene, Latest, Before, Alpha, Mesh, Draw);
 	AddFieldReleasedJoins(Scene, Latest, Before, Mesh, Draw);
 	AddFieldBackdrop(Latest, Before, Alpha, Mesh, Draw);
-	// The gears' rows after the identity the quads above are drawn by, then their cloths.
-	AddGearObjects(Latest, Before, Alpha, Draw);
 	AddGearCloths(Latest, Before, Alpha, Mesh, Draw);
 	AddFieldPictureStretch(Scene, Latest, Before, Alpha, Mesh, Draw);
 	FFieldDrawBuilder Builder(Scene, Latest.Scenery, Latest.Characters, Latest.Quads, Latest.Particles, Mesh, Draw, &Latest.Gears, &Latest.SpriteModels, TexelKinds);

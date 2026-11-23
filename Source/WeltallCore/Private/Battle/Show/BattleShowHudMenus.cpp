@@ -338,7 +338,8 @@ namespace Weltall
 			FaultState = EBattleHudFault::IndexOutsideHud;
 			return false;
 		}
-		return Deathblow < 16 && (BattleGameState::Word(*Battle->GameState, Offset) & (0x8000u >> Deathblow)) != 0;
+		const uint16 Learned = Battle->UsableDeathblows(Battle->PartyCharacters[Slot], BattleGameState::Word(*Battle->GameState, Offset));
+		return Deathblow < 16 && (Learned & (0x8000u >> Deathblow)) != 0;
 	}
 
 	void FBattleHud::DrawDeathblowHints(uint8 Slot)

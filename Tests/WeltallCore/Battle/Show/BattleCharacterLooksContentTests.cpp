@@ -208,12 +208,12 @@ namespace
 						++(bFromDress ? Fought.DressParts : Fought.OwnParts);
 					}
 				}
+				if (AtFirstRing)
+				{
+					AtFirstRing(Loop, Frame);
+				}
 				if (Buttons.empty())
 				{
-					if (AtFirstRing)
-					{
-						AtFirstRing(Loop, Frame);
-					}
 					Fought.bWentOn = true;
 					break;
 				}
@@ -260,6 +260,32 @@ namespace
 			}
 		}
 		return Fought;
+	}
+}
+
+TEST_CASE("Citan's attacks ignore saved bits for Deathblows he cannot learn", "[Battle][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	for (const std::string_view Buttons : {"SX", "XX", "SSX", "XTX"})
+	{
+		CAPTURE(Buttons);
+		const auto Attack = [&](uint16 Learned)
+		{
+			auto Game = FPlayedGame::Open(Disc, nullptr);
+			REQUIRE(Game);
+			return Fight(*Game, Citan, false, Buttons, false, SwordHeimdal, EllysOwnGear, {}, std::nullopt, std::nullopt,
+				[Learned](FGameLoop& Loop, const FLoopFrame&)
+				{
+					FGameState& State = *Loop.Battle()->Runtime().Context().GameState;
+					LittleEndian::WriteU16(State.Block(), LearnedSkills + Citan * LearnedSize, Learned);
+				});
+		};
+		const FFought Expected = Attack(CitansDeathblows);
+		const FFought WithExtraBits = Attack(0xFFFF);
+		REQUIRE(Expected.bWentOn);
+		REQUIRE(WithExtraBits.bWentOn);
+		CHECK(WithExtraBits.EnemyHp == Expected.EnemyHp);
+		CHECK(WithExtraBits.CountersAfter == Expected.CountersAfter);
 	}
 }
 

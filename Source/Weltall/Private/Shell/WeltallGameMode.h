@@ -42,6 +42,7 @@ protected:
 	virtual void EndPlay(const EEndPlayReason::Type EndPlayReason) override;
 
 private:
+	void QuitGame();
 	/** Powers the game on from disc 1, or from disc 2 when it is the only one; false when the player's discs have neither. */
 	bool StartGame();
 	/** Tells the player the discs are missing, and looks for them every two seconds. */

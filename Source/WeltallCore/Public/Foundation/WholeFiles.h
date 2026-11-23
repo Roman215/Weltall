@@ -18,4 +18,7 @@ namespace Weltall
 	 * file it replaces. Why not, when it could not be.
 	 */
 	WELTALLCORE_API std::optional<FError> ReplaceWholeFile(const std::filesystem::path& Path, std::span<const uint8> Bytes);
+
+	/** Publishes a completed file without replacing Target. Removes Prepared on success or if Target already exists. */
+	WELTALLCORE_API TResult<bool> PublishNewFile(const std::filesystem::path& Prepared, const std::filesystem::path& Target);
 }

@@ -76,6 +76,7 @@ public:
 	uint32 GearLayout() const { return GearRevision; }
 	/** The first object row the gears' objects are drawn by: after the scenery's models and the identity. */
 	uint32 FirstGearObject() const { return GearObjectRow; }
+	uint32 ViewSpaceObject() const { return GearObjectRow - 1; }
 	/** How a gear polygon blends: bit 0 semi-transparent, bit 1 textured, bits 2-3 its page's blend mode. */
 	uint8 GearBlend(uint32 Index) const { return GearBlends[static_cast<int32>(Index)]; }
 
@@ -228,8 +229,10 @@ struct FFieldPictureStretch
  */
 struct FFieldSceneDraw
 {
-	/** Three rows per placed model, model to view space; the view-space quads take the last, the identity. */
+	/** Three rows per object, from local to view space. */
 	TArray<FVector4f> Objects;
+	/** From this row on, camera movement transforms only the sprite's origin. */
+	int32 FirstSpriteRow = MAX_int32;
 	/** Per polygon, its corners' colors this frame (the first's top byte FieldColorFlags): the scenery's, the gears', then the dynamic polygons'. */
 	TArray<FUintVector4> Colors;
 	/**

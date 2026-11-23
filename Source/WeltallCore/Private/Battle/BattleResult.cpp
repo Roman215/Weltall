@@ -5,6 +5,7 @@
 #include "Formats/SectionContainer.h"
 #include "Foundation/LittleEndian.h"
 #include "Foundation/ProcessorDivide.h"
+#include "Game/CharacterSkills.h"
 #include "Media/GameFileIndex.h"
 
 #include <algorithm>
@@ -47,7 +48,6 @@ namespace Weltall
 			constexpr std::size_t GearDeathblowSources = 0xD0;
 			constexpr std::size_t GearCommandSources = 0xE0;
 			constexpr std::size_t AbilityLevels = 0xF0;
-			constexpr std::size_t DeathblowLevels = 0x100;
 		}
 
 		namespace Record
@@ -391,7 +391,7 @@ namespace Weltall
 				{
 					continue;
 				}
-				if (S.Byte(FResultState::Character(Id) + Record::Level) < S.GrowthByte(Id, Growth::DeathblowLevels + Number))
+				if (S.Byte(FResultState::Character(Id) + Record::Level) < S.GrowthByte(Id, CharacterSkills::DeathblowLevels + Number))
 				{
 					return 0;
 				}

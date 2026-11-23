@@ -20,4 +20,7 @@ public:
 	/** A finger on the window goes to the touch screen's pad. */
 	virtual bool InputTouch(FViewport* const InViewport, const FTouchId TouchId, const ETouchType::Type Type, const FVector2D& TouchLocation, const float Force,
 		const uint64 Timestamp) override;
+
+private:
+	void KeepFullscreen(bool bFullscreen);
 };

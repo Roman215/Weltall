@@ -68,6 +68,10 @@ namespace Weltall
 		FBattleContext& Battle = *Runtime->Battle;
 		Services.Show->BeginBattle(Battle);
 		BeginBattleSetup(Battle, Formation, Runtime->Scene);
+		if (Services.Growth != nullptr)
+		{
+			Battle.Growth = Services.Growth->Bytes();
+		}
 		Services.Show->PlayOpeningCue(EBattleOpeningCue::StartSounds, Runtime->Kind);
 		if (HasSetupTransition(Runtime->Kind))
 		{

@@ -20,12 +20,10 @@ namespace Weltall
 
 	FCrtParameters CrtParameters(const FCrtLook& Look)
 	{
-		// The ranges put the monitor's and the television's looks on whole steps.
 		FCrtParameters Parameters;
-		Parameters.LumaBlur = 0.6f - 0.05f * Steps(Look.Sharpness);
-		Parameters.ChromaBlur = Parameters.LumaBlur + 0.14f * Steps(Look.ColorBleed);
-		Parameters.BeamMin = 0.62f - 0.5f * Share(Look.Scanlines);
-		Parameters.BeamMax = std::max(0.4f, 0.85f - 0.5f * Share(Look.Scanlines));
+		Parameters.LumaBlur = 0.50f - 0.047f * Steps(Look.Sharpness);
+		Parameters.ChromaBlur = Parameters.LumaBlur + 0.10f * Steps(Look.ColorBleed);
+		Parameters.ScanlineStrength = Share(Look.Scanlines);
 		Parameters.MaskKind = Look.Mask == ECrtMask::ApertureGrille ? 1 : Look.Mask == ECrtMask::SlotMask ? 2 : 0;
 		Parameters.TriadsPerHeight = Look.MaskSize == ECrtMaskSize::Fine ? 480.0f : Look.MaskSize == ECrtMaskSize::Medium ? 360.0f : 270.0f;
 		Parameters.MaskStrength = Share(Look.MaskStrength);

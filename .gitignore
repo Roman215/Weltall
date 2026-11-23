@@ -2,6 +2,7 @@
 /Games/
 /Assets/
 /Mods/
+/Portable/
 
 # Machine-specific configuration
 /local.env

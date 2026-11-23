@@ -1,40 +1,11 @@
 #include "Media/DiscAssetsInternal.h"
+#include "Foundation/WholeFiles.h"
 #include "Media/AssetFiles.h"
 
 #include <sstream>
-#include <cerrno>
-#include <cstdio>
-
-#if defined(__linux__)
-#include <fcntl.h>
-#include <sys/syscall.h>
-#include <unistd.h>
-#endif
 
 namespace Weltall::DiscAssets
 {
-	namespace
-	{
-		TResult<bool> RenameWithoutReplacing(const std::filesystem::path& Partial, const std::filesystem::path& Target)
-		{
-#if defined(_WIN32)
-			if (_wrename(Partial.c_str(), Target.c_str()) == 0) return true;
-			const int Failure = errno;
-#elif defined(__linux__) && defined(SYS_renameat2)
-			constexpr unsigned RenameNoReplace = 1;
-			if (syscall(SYS_renameat2, AT_FDCWD, Partial.c_str(), AT_FDCWD, Target.c_str(), RenameNoReplace) == 0) return true;
-			const int Failure = errno;
-#else
-			return MakeError("this filesystem cannot publish assets without replacing existing files");
-#endif
-#if defined(_WIN32) || (defined(__linux__) && defined(SYS_renameat2))
-			std::error_code InspectError;
-			const auto Status = std::filesystem::symlink_status(Target, InspectError);
-			if (!InspectError && std::filesystem::exists(Status)) return false;
-			return MakeError("cannot publish asset output: " + std::error_code(Failure, std::generic_category()).message());
-#endif
-		}
-	}
 	TResult<bool> SafePath(const std::filesystem::path& Root, const std::filesystem::path& Relative, bool bOptionalOverride)
 	{
 		if (Relative.empty() || Relative.is_absolute())
@@ -99,7 +70,7 @@ namespace Weltall::DiscAssets
 		Output << Manifest;
 		Output.close();
 		if (!Output) return MakeError("cannot write asset manifest");
-		const auto Published = Publish(Root / "manifest.tsv.partial", Root / "manifest.tsv");
+		const auto Published = PublishNewFile(Root / "manifest.tsv.partial", Root / "manifest.tsv");
 		if (!Published) return Published.Error();
 		if (!*Published) return ValidateManifest(Root, Manifest);
 		return true;
@@ -122,24 +93,6 @@ namespace Weltall::DiscAssets
 		return true;
 	}
 
-	TResult<bool> Publish(const std::filesystem::path& Partial, const std::filesystem::path& Target)
-	{
-		std::error_code Error;
-		// Linking publishes a completed file without replacing a mod installed during export.
-		std::filesystem::create_hard_link(Partial, Target, Error);
-		bool bCreated = !Error;
-		if (Error && Error != std::errc::file_exists)
-		{
-			// FAT and some network filesystems have no hard links. A non-replacing rename keeps the final file atomic.
-			const auto Renamed = RenameWithoutReplacing(Partial, Target);
-			if (!Renamed) return Renamed.Error();
-			if (*Renamed) return true;
-			bCreated = false;
-		}
-		std::filesystem::remove(Partial, Error);
-		if (Error) return MakeError("cannot remove partial asset output: " + Error.message());
-		return bCreated;
-	}
 }
 
 namespace Weltall
@@ -160,6 +113,6 @@ namespace Weltall
 		Output.write(reinterpret_cast<const char*>(Bytes.data()), static_cast<std::streamsize>(Bytes.size()));
 		Output.close();
 		if (!Output) return MakeError("cannot write an asset file: " + Relative.generic_string());
-		return DiscAssets::Publish(Root / Partial, Root / Relative);
+		return PublishNewFile(Root / Partial, Root / Relative);
 	}
 }

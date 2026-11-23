@@ -55,12 +55,10 @@ void AddDisplayFramePasses(FRDGBuilder& GraphBuilder, FRDGTextureRef Output, con
 	Frame->AddPasses(GraphBuilder, Picture, DrawArea);
 	if (bCrt)
 	{
-		FRDGTextureRef CrtOutput = bScaleToDisplay ? GraphBuilder.CreateTexture(Desc, TEXT("CrtPicture")) : Output;
-		AddCrtPasses(GraphBuilder, Picture, CrtOutput, bScaleToDisplay ? DrawArea : Area,
+		AddCrtPasses(GraphBuilder, Picture, Output, DrawArea, Area,
 			Weltall::CrtParameters(Weltall::ShownCrtLook(Options)), Screen);
-		Picture = CrtOutput;
 	}
-	if (bScaleToDisplay)
+	else
 	{
 		AddDrawTexturePass(GraphBuilder, FScreenPassViewInfo(), FScreenPassTexture(Picture, DrawArea),
 			FScreenPassRenderTarget(Output, Area, ERenderTargetLoadAction::ELoad));

@@ -338,12 +338,12 @@ namespace Weltall
 			}
 		}
 		const int32 Next = Latest < 0 ? 0 : 1 - Latest;
+		FieldRuntime->SetViewTurn(PlayerCamera.ViewTurn());
 		if (auto Error = Presenter->Tick(*FieldRuntime, HeldPerVblank, Culling, Frames[static_cast<std::size_t>(Next)], &PlayerCamera))
 		{
 			return Error;
 		}
 		KeepElly::Hold(Session.Game());
-		FieldRuntime->SetViewTurn(PlayerCamera.ViewTurn());
 		FieldRuntime->SetShownView(PlayerCamera.ShownView().View.View);
 		// Nothing blends across a map change.
 		const bool bMapChanged = FieldRuntime->MapLoads() != MapLoadsSeen;

@@ -186,11 +186,12 @@ namespace Weltall
 		const std::span<const uint8> Commands = Resources.CharacterCommands(Character);
 		// The rows are typed a pair of planes at a time into one buffer.
 		std::fill(NameImage.Units.begin(), NameImage.Units.end(), uint16{0});
+		const uint16 Word = LittleEndian::ReadU16(Services.Game->Block(), 0x16C0 + static_cast<std::size_t>(Character) * 0x20)
+			& LearnableDeathblowMask(Character, Resources.Growth());
 		for (int32 Row = 0; Row < CharacterSkills::DeathblowCount; ++Row)
 		{
 			const std::size_t At = static_cast<std::size_t>(Row);
 			Deathblows.BarShown[At] = false;
-			const uint16 Word = LittleEndian::ReadU16(Services.Game->Block(), 0x16C0 + static_cast<std::size_t>(Character) * 0x20);
 			const bool bLearned = (Tables.SkillBits[At] & Word) != 0;
 			uint32 Percent = 0;
 			int32 Kind = Learned;

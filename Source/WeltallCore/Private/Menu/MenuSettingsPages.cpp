@@ -156,10 +156,18 @@ namespace Weltall
 			enum : int32 { FullScreen, WindowSize, Aspect, IntegerScaling, Sorting, SceneryFilter, SpriteFilter, MovieFilter, Crt, AntiAliasing, Culling, Pilots, Gears, ChapterCards, TextSpeed, AutoAdvance,
 				BattleSpeed, BattleFlashes, BackgroundPause, Compass, Count };
 
-			/** The window's rows (full screen, its size) are not there where the game has no window of its own: the rows after them move up. */
 			int32 Hidden(const FDisplayModes& Modes)
 			{
-				return Modes.WindowSizes.empty() ? Aspect : 0;
+				return (Modes.bSupportsFullscreen ? 0 : 1) + (Modes.WindowSizes.empty() ? 1 : 0);
+			}
+
+			int32 RowIndex(const FDisplayModes& Modes, int32 Row)
+			{
+				if (Modes.bSupportsFullscreen && Row == 0)
+				{
+					return FullScreen;
+				}
+				return Row + Hidden(Modes);
 			}
 
 			/** The size shown: the player's choice, the window's own until there is one. */
@@ -280,7 +288,7 @@ namespace Weltall
 		switch (Page)
 		{
 		case ESettingsPage::Display:
-			switch (Row + Display::Hidden(Modes))
+			switch (Display::RowIndex(Modes, Row))
 			{
 			case Display::FullScreen:
 				return Shown(Text::Display::FullScreen, OnOff(Settings.Display.bFullScreen));
@@ -473,7 +481,7 @@ namespace Weltall
 		switch (Page)
 		{
 		case ESettingsPage::Display:
-			switch (Row + Display::Hidden(Modes))
+			switch (Display::RowIndex(Modes, Row))
 			{
 			case Display::FullScreen:
 				Settings.Display.bFullScreen = !Settings.Display.bFullScreen;
@@ -721,7 +729,7 @@ namespace Weltall
 
 	ESettingsAction FSettingsPages::Activate(ESettingsPage Page, int32 Row, FPlayerSettings& Settings, bool bCustomPicked, const FSettingsContext& Context)
 	{
-		if (Page == ESettingsPage::Display && Row + Display::Hidden(Context.Display) == Display::Crt)
+		if (Page == ESettingsPage::Display && Display::RowIndex(Context.Display, Row) == Display::Crt)
 		{
 			return ESettingsAction::OpenCrt;
 		}

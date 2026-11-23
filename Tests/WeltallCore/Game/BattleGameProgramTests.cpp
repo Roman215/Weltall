@@ -7,6 +7,7 @@
 #include "Game/GameState.h"
 #include "Game/KernelState.h"
 #include "Game/PlayerSettings.h"
+#include "Mods/PerfectWorks.h"
 #include "Game/WorldMapProgram.h"
 #include "Sound/GameSoundSession.h"
 #include "Sound/GameSoundSystem.h"
@@ -19,6 +20,7 @@
 
 #include <catch_amalgamated.hpp>
 
+#include <filesystem>
 #include <string>
 
 using namespace Weltall;
@@ -102,8 +104,9 @@ namespace
 		for (int32 Frame = 0; Frame < 3000 && Game.Loop->ProgramRuns() == Runs; ++Frame)
 		{
 			const bool bPressed = bPressing && Frame % 24 < 2;
-			INFO("frame " << Frame);
-			REQUIRE_FALSE(Game.Frame(bPressed ? CrossHeld : NoButtons));
+			const auto Error = Game.Frame(bPressed ? CrossHeld : NoButtons);
+			INFO("frame " << Frame << ": " << (Error ? Error->Message : std::string()));
+			REQUIRE_FALSE(Error);
 		}
 		INFO(Stopped(Game));
 		REQUIRE(Game.Loop->ProgramRuns() != Runs);
@@ -252,6 +255,48 @@ TEST_CASE("A won battle's gold goes into the purse at the player's rate and stay
 	};
 	CHECK(GoldWon(ERewardRate::Original) == SoldiersGold);
 	CHECK(GoldWon(ERewardRate::Quadruple) == 4 * SoldiersGold);
+}
+
+TEST_CASE("The G Elements battle finishes with Perfect Works Story Mode and revised text", "[Game][Battle][Content][Mods]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc2);
+	const auto Release = FPerfectWorksRelease::Find(std::filesystem::path(WELTALL_GAMES_DIR).parent_path() / "Mods" / "PerfectWorks");
+	if (!Release || Release->Version() != "0.11.4")
+	{
+		SKIP("Perfect Works Build 0.11.4 not found in Mods/PerfectWorks");
+	}
+	const auto Executable = ReadBootExecutable(*Disc);
+	REQUIRE(Executable);
+	const auto Index = FGameFileIndex::Read(*Executable);
+	REQUIRE(Index);
+	FPerfectWorksOptions Options;
+	Options.bEnabled = true;
+	Options.bStoryMode = true;
+	Options.bScript = true;
+	const auto Files = Release->Files(Options, 2);
+	const Testing::FModFilesGiven Mod(*Disc, FDiscModFiles::Make(*Index, 2, Files, Release->Changes(Options, Files)));
+
+	const auto Game = Testing::FGameLoopSession::Start(*Disc);
+	FGameState& State = Game->Session->Game();
+	State.SetSavedEventVariable(0, 280);
+	State.SetParty({0, 9, 1});
+	State.SetJoinedCharacters(0x1FF);
+	for (int32 Slot = 0; Slot < 3; ++Slot)
+	{
+		State.SetPartySlotInGear(Slot, 1);
+	}
+	Testing::StrengthenParty(State);
+	Game->EnterField(627);
+	for (int32 Frame = 0; Frame < 4000 && Game->Loop->Battle() == nullptr; ++Frame)
+	{
+		REQUIRE_FALSE(Game->Frame(Frame % 24 < 2 ? CrossHeld : NoButtons));
+	}
+	REQUIRE(Game->Loop->Battle() != nullptr);
+	REQUIRE(Game->Loop->Battle()->Runtime().Context().Formation.Scene == 55);
+	Fight(*Game, true);
+	REQUIRE(Game->Loop->Field() != nullptr);
+	CHECK(Game->Loop->Field()->Runtime().Context().RunningMap == 628);
+	CHECK(State.ProgramResult == 0);
 }
 
 TEST_CASE("A party knocked out before the battle loses it at once, and the field starts again on the title's map", "[Game][Content]")

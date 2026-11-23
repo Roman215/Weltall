@@ -86,6 +86,44 @@ namespace
 	}
 }
 
+TEST_CASE("Leaving the tavern keeps its picture on screen as the village loads", "[Game][Content]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	FWalk Walk = WalkOut(*Disc, NoDoorPause);
+	FFieldProgram& Field = *Walk.Game->Loop->Field();
+	const FFieldFrame* Before = Field.FrameBeforeLatest();
+	REQUIRE(Before != nullptr);
+	REQUIRE(Before->bSceneDrawn);
+	const FFieldFrame& Loaded = *Field.LatestFrame();
+	CHECK_FALSE(Loaded.bSceneDrawn);
+	CHECK(Loaded.Cover.bScreen);
+	CHECK(Loaded.Cover.Taken == Before->Cover.Taken + 1);
+	CHECK(Loaded.Cover.bShown);
+	CHECK(Loaded.Cover.Brightness == FFieldCover::FullBrightness);
+	CHECK(Loaded.Cover.Scale == FFieldCover::UnitScale);
+	Walk.Run(Nothing, 1);
+	CHECK(Field.LatestFrame()->Cover.bShown);
+	Walk.Run(Nothing, FramesAfter);
+	CHECK(Field.LatestFrame()->bSceneDrawn);
+	CHECK_FALSE(Field.LatestFrame()->Cover.bShown);
+
+	// A script can draw its own picture into VRAM and request the zoom that reuses it.
+	FEventContext& Context = Field.Runtime().Context();
+	Context.Render.WroteVram(FFieldCover::PictureArea);
+	Context.MapNumber = TavernMap;
+	Context.Variables.Set(0x002, 0);
+	Context.Requests.bMapChange = true;
+	Context.Requests.MapTransition = 4;
+	Walk.Game->RunUntil([&Field] { return Field.Runtime().Context().RunningMap == TavernMap; }, FramesAfter);
+	REQUIRE(Field.Runtime().Context().RunningMap == TavernMap);
+	const FFieldFrame& Reused = *Field.LatestFrame();
+	CHECK_FALSE(Reused.bSceneDrawn);
+	CHECK(Reused.Cover.bShown);
+	CHECK_FALSE(Reused.Cover.bScreen);
+	CHECK(Reused.Cover.Taken == Field.FrameBeforeLatest()->Cover.Taken);
+	CHECK(Reused.Screen.Primitives.size() == 5);
+}
+
 TEST_CASE("After a door, a direction held through the map change waits out the pause, then walks on unpressed", "[Game][Content]")
 {
 	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);

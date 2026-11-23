@@ -31,10 +31,10 @@ namespace Weltall
 		int32 MaskStrength = 4;
 		ECrtMaskSize MaskSize = ECrtMaskSize::Fine;
 		/** How sharp each line is along itself. */
-		int32 Sharpness = 9;
+		int32 Sharpness = 10;
 		/** How much further the colour spreads along a line than the brightness. */
 		int32 ColorBleed = 0;
-		int32 Glow = 3;
+		int32 Glow = 1;
 		/** How much the glass bulges, its corners' roundness and its darkening towards them. */
 		int32 Curvature = 0;
 		int32 Corners = 0;
@@ -43,7 +43,7 @@ namespace Weltall
 		/** A studio monitor fed RGB: sharp, a fine aperture grille, a flat face. */
 		static constexpr FCrtLook Monitor() { return {}; }
 		/** A television fed S-Video: softer colour, a slot mask, curved glass. */
-		static constexpr FCrtLook Television() { return {8, ECrtMask::SlotMask, 5, ECrtMaskSize::Medium, 6, 5, 5, 3, 4, 4}; }
+		static constexpr FCrtLook Television() { return {7, ECrtMask::SlotMask, 4, ECrtMaskSize::Medium, 7, 3, 3, 3, 4, 4}; }
 
 		bool operator==(const FCrtLook&) const = default;
 	};
@@ -54,9 +54,8 @@ namespace Weltall
 		/** The signal's Gaussian along a line, its brightness's and its colour's, in the game screen's pixels. */
 		float LumaBlur = 0.0f;
 		float ChromaBlur = 0.0f;
-		/** The beam's Gaussian across its line, in lines: for black, and for full light (0.4 or more keeps a full line's peak within full). */
-		float BeamMin = 0.0f;
-		float BeamMax = 0.0f;
+		/** The blend between a continuous picture and individual scanline beams. */
+		float ScanlineStrength = 0.0f;
 		/** Crt.usf's mask kind (0 none, 1 an aperture grille, 2 a slot mask), its triads across a picture's height, and its strength. */
 		int32 MaskKind = 0;
 		float TriadsPerHeight = 0.0f;

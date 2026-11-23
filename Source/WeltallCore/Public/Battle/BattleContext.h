@@ -376,6 +376,8 @@ namespace Weltall
 		IBattleShow* Show = nullptr;
 		/** The Battle program's tables and libgte's arctangents, which the party's commands read. */
 		const FBattleProgramTables* Program = nullptr;
+		/** The character growth records used to check saved Deathblows during play. */
+		std::span<const uint8> Growth;
 		const FGteArctangents* Arctangents = nullptr;
 
 		FBattleFormation Formation;
@@ -553,6 +555,7 @@ namespace Weltall
 		 * in Xenogears.
 		 */
 		WELTALLCORE_API FCharacterLooks PartyLooks() const;
+		uint16 UsableDeathblows(uint8 Character, uint16 Learned) const;
 
 		/**
 		 * Whether Slot's gear Special Special is True Id: Fei drawn as Id keeps Xenogears' second Special, the

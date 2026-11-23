@@ -1,6 +1,7 @@
 #include "Field/FieldLight.h"
 #include "Game/FieldMovie.h"
 #include "Game/FieldProgram.h"
+#include "Mods/PerfectWorks.h"
 #include "Support/GameDiscs.h"
 #include "Support/GameLoopSession.h"
 
@@ -337,4 +338,43 @@ TEST_CASE("The field plays the movie of the disc in the drive, and stops at one 
 			CHECK(Stopped->Message == "the field's movie 2 ends at frame 153, before the frame 160 the field waits for");
 		}
 	}
+}
+
+TEST_CASE("The childhood flashback plays movie 11 through frame 228 with Perfect Works", "[Game][Content][Mods]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc2);
+	const auto Release = FPerfectWorksRelease::Find(std::filesystem::path(WELTALL_GAMES_DIR).parent_path() / "Mods" / "PerfectWorks");
+	if (!Release || Release->Version() != "0.11.4")
+	{
+		SKIP("Perfect Works Build 0.11.4 not found in Mods/PerfectWorks");
+	}
+	const auto Executable = ReadBootExecutable(*Disc);
+	REQUIRE(Executable);
+	const auto Index = FGameFileIndex::Read(*Executable);
+	REQUIRE(Index);
+	FPerfectWorksOptions Options;
+	Options.bEnabled = true;
+	Options.bScript = true;
+	const auto Files = Release->Files(Options, 2);
+	const Testing::FModFilesGiven Mod(*Disc, FDiscModFiles::Make(*Index, 2, Files, Release->Changes(Options, Files)));
+	const auto Game = Testing::FGameLoopSession::Start(*Disc);
+	constexpr int32 Flashback = 664;
+	Game->Session->Game().SetSavedEventVariable(0, 324);
+	Game->Session->Game().SetParty({0, 255, 255});
+	Game->EnterField(Flashback);
+	FFieldProgram* Field = Game->Loop->Field();
+	REQUIRE(Field != nullptr);
+	for (int32 Frame = 0; Frame < 5000 && Field->Movie() == nullptr; ++Frame)
+	{
+		REQUIRE_FALSE(Game->Frame(Frame % 12 < 2 ? CrossHeld : FPadState{}));
+	}
+	REQUIRE(Field->Movie() != nullptr);
+	CHECK(Field->Movie()->Request().Movie == 11);
+	CHECK(Field->Movie()->Request().EndFrame == 228);
+	Game->RunUntil([&] { return Field->Movie() == nullptr; }, 600);
+	for (int32 Frame = 0; Frame < 3000 && Field->Runtime().Context().RunningMap == Flashback; ++Frame)
+	{
+		REQUIRE_FALSE(Game->Frame(Frame % 12 < 2 ? CrossHeld : FPadState{}));
+	}
+	CHECK(Field->Runtime().Context().RunningMap == 665);
 }

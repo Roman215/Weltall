@@ -101,8 +101,11 @@ namespace
 			}
 			// The view's yaws turn the other way from the player's turn.
 			const float Degrees = std::clamp(static_cast<float>(-Left) / YawUnitsPerDegree, -1.0f, 1.0f);
-			FieldOf(Game).AddViewInput(FFieldViewInput{Degrees});
+			FFieldProgram& Field = FieldOf(Game);
+			Field.AddViewInput(FFieldViewInput{Degrees});
+			const float LiveTurn = Field.PlayerView().LiveOffsets().Turn;
 			REQUIRE_FALSE(Game.Frame());
+			REQUIRE(Field.Runtime().Context().ViewTurn == -std::lround(LiveTurn * YawUnitsPerDegree));
 		}
 		Wait(Game, 8);
 	}

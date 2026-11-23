@@ -486,7 +486,8 @@ namespace Weltall
 				Context.Fault = EBattleFault::OutsideGameState;
 				return 0;
 			}
-			return BattleGameState::Word(*Context.GameState, Offset);
+			const uint16 Learned = BattleGameState::Word(*Context.GameState, Offset);
+			return Field == GameStateLayout::Skills::Deathblows ? Context.UsableDeathblows(Character, Learned) : Learned;
 		}
 	}
 

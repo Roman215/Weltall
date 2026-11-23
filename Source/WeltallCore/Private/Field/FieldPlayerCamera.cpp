@@ -406,6 +406,6 @@ namespace Weltall
 	int16 FFieldPlayerCamera::ViewTurn() const
 	{
 		// Turning the eye the way R1 does turns the view's yaws the other way.
-		return static_cast<int16>(-std::lround(TurnApplied * YawUnitsPerDegree));
+		return static_cast<int16>(-std::lround(LiveOffsets().Turn * YawUnitsPerDegree));
 	}
 }

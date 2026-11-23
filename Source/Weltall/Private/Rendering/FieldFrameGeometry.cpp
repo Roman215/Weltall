@@ -166,25 +166,41 @@ namespace
 void AddFieldCharacterQuads(const Weltall::FFieldFrame& Latest, const Weltall::FFieldFrame* Previous, float Alpha, const FFieldSceneMesh& Mesh,
 	FFieldSceneDraw& Draw)
 {
-	const uint32 Identity = static_cast<uint32>(Draw.Objects.Num() / 3 - 1);
-	TArray<FVector3f, TInlineAllocator<128>> Offsets;
+	struct FPlacement
+	{
+		uint32 Object;
+		FVector3f Offset;
+	};
+	TArray<FPlacement, TInlineAllocator<128>> Placements;
+	Draw.FirstSpriteRow = Draw.Objects.Num();
 	for (const Weltall::FFieldCharacterView& Character : Latest.Characters)
 	{
-		Offsets.Add(FieldCharacterOffset(Character, Previous, Alpha));
+		const FVector3f Offset = FieldCharacterOffset(Character, Previous, Alpha);
+		if (Character.bOnFloor)
+		{
+			Placements.Add({Mesh.ViewSpaceObject(), Offset});
+			continue;
+		}
+		const FVector3f Origin = ToVector(Character.Origin);
+		const FVector3f At = Origin + Offset;
+		Placements.Add({static_cast<uint32>(Draw.Objects.Num() / 3), -Origin});
+		Draw.Objects.Emplace(1.0f, 0.0f, 0.0f, At.X);
+		Draw.Objects.Emplace(0.0f, 1.0f, 0.0f, At.Y);
+		Draw.Objects.Emplace(0.0f, 0.0f, 1.0f, At.Z);
 	}
 	for (int32 Index = 0; Index < static_cast<int32>(Latest.Quads.size()); ++Index)
 	{
 		const Weltall::FFieldCharacterQuad& Entry = Latest.Quads[static_cast<std::size_t>(Index)];
 		const Weltall::FSpriteQuad& Quad = Entry.Quad;
-		const FVector3f& Offset = Offsets[Entry.Character];
+		const FPlacement& Place = Placements[Entry.Character];
 		const uint32 Polygon = Mesh.Polygons() + static_cast<uint32>(Draw.DynamicPolygons.Num());
 		for (const int32 Corner : QuadTriangleCorners)
 		{
 			FFieldSceneCorner& Out = Draw.DynamicCorners.AddDefaulted_GetRef();
-			Out.Position = ToVector(Quad.ViewCorner(static_cast<std::size_t>(Corner))) + Offset;
+			Out.Position = ToVector(Quad.ViewCorner(static_cast<std::size_t>(Corner))) + Place.Offset;
 			Out.TexCoord = FVector2f((Corner & 1) != 0 ? Quad.U1 : Quad.U0, (Corner & 2) != 0 ? Quad.V1 : Quad.V0);
 			Out.Polygon = Polygon;
-			Out.Object = Identity;
+			Out.Object = Place.Object;
 			Out.Corner = 0;
 		}
 		FFieldScenePolygonState& State = Draw.DynamicPolygons.AddDefaulted_GetRef();
@@ -219,7 +235,7 @@ void AddFieldBackdrop(const Weltall::FFieldFrame& Latest, const Weltall::FFieldF
 	Draw.BackdropRegions.Append(Strip.data(), static_cast<int32>(Strip.size()));
 	const Weltall::FFieldBackdrop Backdrop = Previous != nullptr ? Weltall::BlendFieldBackdrop(Previous->Backdrop, Latest.Backdrop, Alpha) : Latest.Backdrop;
 	Weltall::DrawFieldBackdrop(Backdrop, -BackdropBeyond, Weltall::FieldBackdropWidth + BackdropBeyond, Draw.BackdropQuads);
-	const uint32 Identity = static_cast<uint32>(Draw.Objects.Num() / 3 - 1);
+	const uint32 Identity = Mesh.ViewSpaceObject();
 	// Far behind anything the field draws, placed where it projects onto the screen's pixels.
 	const float Scale = BackdropDepth / FMath::Max(Draw.ProjectionDistance, 1.0f);
 	for (const Weltall::FFieldBackdropQuad& Quad : Draw.BackdropQuads)
@@ -257,7 +273,7 @@ void AddFieldBackdrop(const Weltall::FFieldFrame& Latest, const Weltall::FFieldF
 void AddFieldParticleQuads(const Weltall::FFieldFrame& Latest, const Weltall::FFieldFrame* Previous, float Alpha, const FFieldSceneMesh& Mesh,
 	FFieldSceneDraw& Draw)
 {
-	const uint32 Identity = static_cast<uint32>(Draw.Objects.Num() / 3 - 1);
+	const uint32 Identity = Mesh.ViewSpaceObject();
 	Draw.ParticleCorners = static_cast<uint32>(Draw.DynamicCorners.Num());
 	for (const Weltall::FFieldParticleQuad& Particle : Latest.Particles)
 	{

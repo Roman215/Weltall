@@ -1,5 +1,7 @@
 #include "Media/DiscAssetsInternal.h"
 
+#include "Foundation/WholeFiles.h"
+
 #include <algorithm>
 
 namespace Weltall
@@ -87,7 +89,7 @@ namespace Weltall
 			{
 				State->Output.close();
 				if (!State->Output) return MakeError("cannot finish asset output: " + Entry.Path.generic_string());
-				const auto Published = DiscAssets::Publish(State->Partial, State->Folder / Entry.Path);
+				const auto Published = PublishNewFile(State->Partial, State->Folder / Entry.Path);
 				if (!Published) return Published.Error();
 				State->Partial.clear();
 				++State->Progress.CompletedFiles;

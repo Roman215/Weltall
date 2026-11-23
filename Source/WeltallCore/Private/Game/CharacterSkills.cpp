@@ -16,6 +16,18 @@ namespace Weltall
 		constexpr uint32 Whole = 100;
 	}
 
+	uint16 LearnableDeathblowMask(uint8 Character, std::span<const uint8> GrowthTable)
+	{
+		const std::size_t Start = Character * CharacterSkills::GrowthRecordSize + CharacterSkills::DeathblowLevels;
+		if (Start + CharacterSkills::DeathblowCount > GrowthTable.size())
+		{
+			return 0;
+		}
+		const auto Levels = GrowthTable.subspan(Start, CharacterSkills::DeathblowCount);
+		const auto Count = std::find(Levels.begin(), Levels.end(), uint8{0xFF}) - Levels.begin();
+		return static_cast<uint16>(0xFFFFu << (16 - Count));
+	}
+
 	bool IsDeathblowLearned(const FGameState& State, int32 Character, int32 Deathblow)
 	{
 		using namespace GameStateLayout;

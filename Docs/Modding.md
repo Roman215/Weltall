@@ -444,6 +444,11 @@ with a new translation of the script, rebalanced gameplay and fixes of its own. 
 Weltall isn't affiliated with or endorsed by the Perfect Works Build team. Please report problems you have with the
 mod in Weltall on Weltall's issues page, not to the mod's team. To use it:
 
+Start with clean, supported disc images in `Games`. If you previously patched the images themselves,
+move the patched copies out of `Games` before adding the clean ones. You can continue from an
+existing in-game save. This also lets you get past the Disc 2 cutscene where some patched images end
+movie 11 at frame 12.
+
 1. Download `Xenogears_Perfect_Works_Edition_<version>.7z` from the mod's releases page.
 2. Unpack it into a folder named `PerfectWorks` inside the `Mods` folder next to `Games`, so that
    `Mods/PerfectWorks/gamefiles` exists.

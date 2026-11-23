@@ -62,10 +62,11 @@ namespace Weltall
 		return Options.Crt == ECrtFilter::Monitor ? FCrtLook::Monitor() : Options.Crt == ECrtFilter::Television ? FCrtLook::Television() : Options.CustomCrt;
 	}
 
-	/** What the display offers the options screen: the sizes a window can take, smallest first, and the window's now. None where the game has no window. */
+	/** The sizes the display reports for a window, the current size, and whether the window can go fullscreen. */
 	struct FDisplayModes
 	{
 		std::vector<FDisplaySize> WindowSizes;
 		FDisplaySize Window;
+		bool bSupportsFullscreen = false;
 	};
 }

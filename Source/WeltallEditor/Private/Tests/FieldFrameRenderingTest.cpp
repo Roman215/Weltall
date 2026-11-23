@@ -678,6 +678,34 @@ bool FFieldViewMoveTest::RunTest(const FString&)
 		const float Drawn = Rows.X * InFrom.X + Rows.Y * InFrom.Y + Rows.Z * InFrom.Z + Rows.W;
 		TestTrue(FString::Printf(TEXT("axis %d at %f, not %f"), Row, Drawn, Expected[Row]), FMath::IsNearlyEqual(Drawn, Expected[Row], 0.01f));
 	}
+
+	FTestFrame Field;
+	Field.Sprite(140, 120, 1000);
+	Field.Part(156, 120, 1000, 60);
+	Field.Sprite(140, 120, 1000, true);
+	Field.Frame.Characters.front().Origin = {-40.0f, 16.0f, 1000.0f};
+	Field.Evaluate();
+	const FFieldSceneMesh Mesh(Field.Scene);
+	BuildFieldFrameDraw(Field.Scene, Field.Frame, nullptr, 1.0f, Mesh, {}, Draw);
+	const auto CornerPosition = [&Draw](int32 Index)
+	{
+		const FFieldSceneCorner& Corner = Draw.DynamicCorners[Index];
+		FVector3f Position;
+		for (int32 Axis = 0; Axis < 3; ++Axis)
+		{
+			const FVector4f& Row = Draw.Objects[3 * Corner.Object + Axis];
+			Position[Axis] = FVector3f::DotProduct(FVector3f(Row), Corner.Position) + Row.W;
+		}
+		return Position;
+	};
+	const FVector3f Origin = CornerPosition(0);
+	const FVector3f FarCorner = CornerPosition(11);
+	const FVector3f ShadowCorner = CornerPosition(17);
+	const Weltall::FGteMatrix Identity = Weltall::FGteMatrix::Identity();
+	MoveFieldSceneView(Draw, Weltall::FAffine::From(Identity), Weltall::FAffine::From(From));
+	TestTrue(TEXT("The sprite follows its base into the new view"), CornerPosition(0).Equals(Through(From, Origin)));
+	TestTrue(TEXT("Both sprite parts keep their screen orientation"), (CornerPosition(11) - CornerPosition(0)).Equals(FarCorner - Origin));
+	TestTrue(TEXT("The shadow turns with the floor"), CornerPosition(17).Equals(Through(From, ShadowCorner)));
 	return true;
 }
 

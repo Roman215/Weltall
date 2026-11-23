@@ -143,7 +143,7 @@ namespace Weltall
 		void MoveCharacters(const FGteMatrix& From, const FGteMatrix& To, FFieldFrame& Frame);
 		void CaptureShadows(const FFieldRuntime& Runtime, const FGteMatrix& View, FFieldFrame& Frame);
 		std::optional<FError> CaptureParticles(const FEventContext& Context, const FFieldView& View, FFieldFrame& Frame);
-		void CaptureScreen(const FFieldRuntime& Runtime, const FFieldPresentedView& Shown, FFieldFrame& Frame);
+		void CaptureScreen(const FFieldRuntime& Runtime, const FFieldPresentedView& Shown, bool bPictureOnly, FFieldFrame& Frame);
 		/** Where the windows opened since the last frame are shown under the view the player sees. */
 		void PlaceWindowsForView(const FEventContext& Context, const FFieldPresentedView& Shown);
 		std::optional<FError> CaptureGears(const FFieldRuntime& Runtime, EFieldCulling Culling, const FFieldPresentedView& Shown, FFieldFrame& Frame);

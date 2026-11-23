@@ -139,6 +139,7 @@ void BuildFieldSceneDraw(const Weltall::FFieldScene& Scene, const Weltall::FFiel
 	const FFieldSceneMesh& Mesh, const FFieldRenderOptions& Options, FFieldSceneDraw& Draw)
 {
 	Draw.Objects.Reset();
+	Draw.FirstSpriteRow = MAX_int32;
 	Draw.PictureStretch.bStaged = false;
 	for (const Weltall::FFieldObjectView& Object : Frame.Objects)
 	{

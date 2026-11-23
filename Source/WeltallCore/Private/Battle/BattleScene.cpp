@@ -42,6 +42,31 @@ namespace Weltall
 		/** A scene file's word naming where its name table is: its enemies' names, then what their scripts say. */
 		constexpr std::size_t NameTableOffset = 0x30;
 
+		void RepairGElementsNameTable(std::span<uint8> File)
+		{
+			// Perfect Works Story Mode with revised text duplicates the table's first byte without moving its offset.
+			constexpr uint16 TableStart = 0x14FA;
+			constexpr int32 EntryCount = 64;
+			if (File.size() != 6030 || LittleEndian::ReadU16(File, NameTableOffset) != TableStart
+				|| LittleEndian::ReadU16(File, TableStart) != 0x3F3F)
+			{
+				return;
+			}
+			const auto Table = FMessageTable::Parse(File.subspan(TableStart + 1));
+			if (!Table || Table->Count() != EntryCount)
+			{
+				return;
+			}
+			for (int32 Entry = 0; Entry < EntryCount; ++Entry)
+			{
+				if (Table->StartsPastBytes(Entry))
+				{
+					return;
+				}
+			}
+			LittleEndian::WriteU16(File, NameTableOffset, TableStart + 1);
+		}
+
 		/** The scene's file with the player's names and messages in place: a changed table after the file's end, its word moved there. */
 		void UsePlayersNames(const FCdImage& Image, int32 Scene, std::vector<uint8>& File)
 		{
@@ -115,6 +140,10 @@ namespace Weltall
 		if (!File)
 		{
 			return File.Error();
+		}
+		if (Number == 55)
+		{
+			RepairGElementsNameTable(*File);
 		}
 		UsePlayersNames(Image, Number, *File);
 		return Parse(std::move(*File));

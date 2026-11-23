@@ -91,8 +91,7 @@ namespace Weltall
 	public:
 		WELTALLCORE_API static std::string_view Title(ESettingsPage Page);
 		/**
-		 * The page's rows; the Display page has its window's rows only where the display offers sizes, the Sound page its
-		 * subtitles' source only where some are given.
+		 * The page's rows, including fullscreen and window size where available, and the subtitle source where some are given.
 		 */
 		WELTALLCORE_API static int32 RowCount(ESettingsPage Page, const FSettingsContext& Context = {});
 

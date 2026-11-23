@@ -291,6 +291,9 @@ namespace Weltall
 		/** The maps loaded so far (EnterMap and the map changes): each changes the map's data and sprites. */
 		int32 MapLoads() const { return Loads; }
 
+		/** The new map is running its entry under the transition picture. */
+		bool IsEnteringUnderPicture() const { return Phase == EPhase::MapEntry; }
+
 		/**
 		 * The light matrix the GTE holds: nothing but a lit drawing loads it. A map's load leaves the map's lights
 		 * under its reset camera (zeros), each tick the last relit model's, then the last gear part's; the program

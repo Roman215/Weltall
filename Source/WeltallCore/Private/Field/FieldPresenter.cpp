@@ -391,7 +391,9 @@ namespace Weltall
 		// A map change's fade and Select's picture draw on black, without the field; the menu's shading
 		// darkens the field's last picture.
 		const EFieldFrame Kind = Runtime.LastFrame();
-		const bool bFieldDrawn = bSceneDrawn && (Kind == EFieldFrame::Tick || Kind == EFieldFrame::Paused || Kind == EFieldFrame::MenuShade);
+		// The load replaced the scene after the outgoing map's tick. Its picture stays up until the new map draws.
+		const bool bPictureOnly = bNewMap && Runtime.IsEnteringUnderPicture();
+		const bool bFieldDrawn = !bPictureOnly && bSceneDrawn && (Kind == EFieldFrame::Tick || Kind == EFieldFrame::Paused || Kind == EFieldFrame::MenuShade);
 		Frame.Tick = Ticks++;
 		Frame.bSceneDrawn = bFieldDrawn;
 		Frame.Background = bFieldDrawn ? Context.Render.BackgroundColor : FMdlColor{};
@@ -435,7 +437,7 @@ namespace Weltall
 		WriteOverScreen();
 		Frame.ScreenInVram.assign(ScreenInVram.begin(), ScreenInVram.end());
 		DrawFieldCompass(Context.Render.Compass, DrawingTables.Compass, Shown.View.Rotation, Shown.View.Pitch, CompassFrame);
-		CaptureScreen(Runtime, Shown, Frame);
+		CaptureScreen(Runtime, Shown, bPictureOnly, Frame);
 		return std::nullopt;
 	}
 

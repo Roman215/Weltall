@@ -743,7 +743,7 @@ TEST_CASE("The Normal Menu's eighth orb, over Status, opens the options screen a
 	const auto Executable = ReadBootExecutable(*Disc);
 	REQUIRE(Executable);
 	FRecordedSettings Settings;
-	Settings.Display = {{{1280, 720}, {1920, 1080}}, {1280, 720}};
+	Settings.Display = {{{1280, 720}, {1920, 1080}}, {1280, 720}, true};
 	auto Play = FMenuPlay::NewGame(Disc->Image(), *Executable, 1, {EMenuMode::Normal, 0, true}, nullptr, &Settings);
 	REQUIRE(Play);
 	FMenuPlay& Menu = **Play;

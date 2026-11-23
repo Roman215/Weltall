@@ -2,6 +2,7 @@
 
 #include "Engine/GameInstance.h"
 #include "Input/TouchControlsSubsystem.h"
+#include "Misc/App.h"
 #include "RenderGraphBuilder.h"
 #include "RenderGraphUtils.h"
 #include "Rendering/TouchControlsRendering.h"
@@ -15,6 +16,20 @@ void UWeltallViewportClient::Init(FWorldContext& WorldContext, UGameInstance* Ow
 {
 	Super::Init(WorldContext, OwningGameInstance, bCreateNewAudioDevice);
 	bDisableWorldRendering = true;
+	if (!GIsEditor && FApp::CanEverRender())
+	{
+		OnToggleFullscreen().AddUObject(this, &UWeltallViewportClient::KeepFullscreen);
+	}
+}
+
+void UWeltallViewportClient::KeepFullscreen(bool bFullscreen)
+{
+	if (UPlayerSettingsSubsystem* Settings = GetGameInstance()->GetSubsystem<UPlayerSettingsSubsystem>())
+	{
+		Weltall::FPlayerSettings Updated = Settings->Settings();
+		Updated.Display.bFullScreen = bFullscreen;
+		Settings->Change(Updated);
+	}
 }
 
 void UWeltallViewportClient::Draw(FViewport* InViewport, FCanvas* SceneCanvas)

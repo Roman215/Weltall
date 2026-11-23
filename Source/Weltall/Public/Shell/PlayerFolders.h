@@ -3,12 +3,11 @@
 #include "CoreMinimal.h"
 
 /**
- * Weltall's folder among the user's settings: Windows' local application data, macOS's application support, the app's
- * own folder on Android's shared storage, XDG's config home elsewhere.
+ * Weltall's settings folder. A desktop package with a Portable folder imports its user profile on first use.
  */
 WELTALL_API FString PlayerSettingsFolder();
 
-/** Weltall's folder for the player's saves: the settings' folder's "Saves" on Windows and macOS, the app's own folder's on Android, XDG's data home elsewhere. */
+/** Weltall's folder for the player's saves, under Portable when using a portable profile. */
 WELTALL_API FString PlayerSavesFolder();
 
 /** Weltall's folder for the player's save states: "States", beside the saves' folder. */

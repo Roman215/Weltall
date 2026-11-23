@@ -1,8 +1,11 @@
 #include "Field/FieldMap.h"
 #include "Field/FieldRuntime.h"
 #include "Field/FieldScriptFixes.h"
+#include "Game/FieldProgram.h"
+#include "Mods/PerfectWorks.h"
 #include "Support/FieldTickSession.h"
 #include "Support/GameDiscs.h"
+#include "Support/GameLoopSession.h"
 #include "Support/GameText.h"
 
 #include <catch_amalgamated.hpp>
@@ -10,6 +13,74 @@
 #include <vector>
 
 using namespace Weltall;
+
+TEST_CASE("The party rides the pirate base platform down with Perfect Works", "[Field][Content][Mods]")
+{
+	REQUIRE_DISC(Disc, EDiscRelease::UsaDisc1);
+	const auto Release = FPerfectWorksRelease::Find(std::filesystem::path(WELTALL_GAMES_DIR).parent_path() / "Mods" / "PerfectWorks");
+	if (!Release || Release->Version() != "0.11.4")
+	{
+		SKIP("Perfect Works Build 0.11.4 not found in Mods/PerfectWorks");
+	}
+	const auto Executable = ReadBootExecutable(*Disc);
+	REQUIRE(Executable);
+	const auto Index = FGameFileIndex::Read(*Executable);
+	REQUIRE(Index);
+	FPerfectWorksOptions Options;
+	Options.bEnabled = true;
+	Options.bScript = true;
+	const auto Files = Release->Files(Options, 1);
+	const Testing::FModFilesGiven Mod(*Disc, FDiscModFiles::Make(*Index, 1, Files, Release->Changes(Options, Files)));
+
+	const auto Game = Testing::FGameLoopSession::Start(*Disc);
+	constexpr int32 Hangar = 84;
+	Game->Session->Game().SetSavedEventVariable(0, 59);
+	Game->Session->Game().SetParty({0, 2, 3});
+	Game->Session->Game().SetJoinedCharacters(0x0D);
+	Game->EnterField(Hangar);
+	REQUIRE(Game->Loop->Field() != nullptr);
+	const FEventContext& Context = Game->Loop->Field()->Runtime().Context();
+	Game->RunUntil([&] { return Context.bFieldRunning && Context.bPlayerControlled && Context.States[2].Layer == 1; }, 400);
+	CHECK(Context.RunningMap == Hangar);
+	CHECK(Context.States[2].Position[0] >> 16 == -566);
+	CHECK(Context.States[2].Position[2] >> 16 == 700);
+}
+
+TEST_CASE("Perfect Works field scenes finish their dialogue and fade on instruction boundaries", "[Field][Content][Mods]")
+{
+	const auto Release = FPerfectWorksRelease::Find(std::filesystem::path(WELTALL_GAMES_DIR).parent_path() / "Mods" / "PerfectWorks");
+	if (!Release || Release->Version() != "0.11.4")
+	{
+		SKIP("Perfect Works Build 0.11.4 not found in Mods/PerfectWorks");
+	}
+	FPerfectWorksOptions Options;
+	Options.bEnabled = true;
+	Options.bScript = true;
+	const auto ReadScripts = [&](const FIso9660& Disc, int32 Number, int32 Map)
+	{
+		const auto Executable = ReadBootExecutable(Disc);
+		REQUIRE(Executable);
+		const auto Index = FGameFileIndex::Read(*Executable);
+		REQUIRE(Index);
+		const auto Files = Release->Files(Options, Number);
+		const Testing::FModFilesGiven Mod(Disc, FDiscModFiles::Make(*Index, Number, Files, Release->Changes(Options, Files)));
+		const auto Field = LoadFieldMap(Disc.Image(), *Index, Map);
+		REQUIRE(Field);
+		auto Scripts = FEventScripts::Parse(Field->EventScripts);
+		REQUIRE(Scripts);
+		ApplyFieldScriptFixes(Map, *Scripts, FEventOptions::Original());
+		return std::move(*Scripts);
+	};
+	REQUIRE_DISC(First, EDiscRelease::UsaDisc1);
+	const FEventScripts Hideout = ReadScripts(*First, 1, 75);
+	CHECK(Hideout.Code()[0x874] == 0x95);
+	CHECK(Hideout.Code()[0x895] == 0);
+	REQUIRE_DISC(Second, EDiscRelease::UsaDisc2);
+	const FEventScripts Narration = ReadScripts(*Second, 2, 618);
+	CHECK(Narration.Code()[0x27A] == 0x8E);
+	CHECK(Narration.Code()[0x28E] == 0x23);
+	CHECK(Narration.Code()[0x28F] == 0);
+}
 
 // The field's fixes of the original's quirks on the real maps they were found on, each against the
 // original's behavior, which the tick oracles check.

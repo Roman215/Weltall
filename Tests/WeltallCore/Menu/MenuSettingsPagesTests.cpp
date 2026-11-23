@@ -33,7 +33,7 @@ namespace
 	}
 
 	/** A display's sizes, the widest a row need show among them, and a window of none of them; every voice and subtitle given. */
-	const FSettingsContext WideDisplay{{{{1280, 720}, {1920, 1080}, {3840, 2160}, {7680, 4320}}, {1600, 900}}, {true, true, true, true}};
+	const FSettingsContext WideDisplay{{{{1280, 720}, {1920, 1080}, {3840, 2160}, {7680, 4320}}, {1600, 900}, true}, {true, true, true, true}};
 
 	/** The Sound page's rows past its volumes: the output's, then the language's. */
 	namespace SoundRow
@@ -595,7 +595,7 @@ TEST_CASE("The CRT filter's parts show the look in use, and changing one makes i
 	// The television's look, part by part.
 	Settings.Display.Crt = ECrtFilter::Television;
 	CHECK(FSettingsPages::Row(ESettingsPage::Crt, 0, Settings).Label == Text::Crt::Scanlines.Label);
-	CHECK(FSettingsPages::Row(ESettingsPage::Crt, 0, Settings).Value == "8");
+	CHECK(FSettingsPages::Row(ESettingsPage::Crt, 0, Settings).Value == std::to_string(FCrtLook::Television().Scanlines));
 	CHECK(FSettingsPages::Row(ESettingsPage::Crt, 1, Settings).Value == "Slots");
 	CHECK(FSettingsPages::Row(ESettingsPage::Crt, 7, Settings).Label == Text::Crt::Curvature.Label);
 	CHECK(FSettingsPages::Row(ESettingsPage::Crt, 7, Settings).Value == "3");
@@ -637,7 +637,7 @@ TEST_CASE("The Display page cycles the field compass through four placements and
 
 TEST_CASE("The window's size is chosen among the display's, from the window's own", "[Menu]")
 {
-	// No window's rows where the display offers no sizes: the page begins with the picture's shape.
+	// Without window controls, the page begins with the picture's shape.
 	CHECK(FSettingsPages::RowCount(ESettingsPage::Display, WideDisplay) == FSettingsPages::RowCount(ESettingsPage::Display) + 2);
 	CHECK(FSettingsPages::Row(ESettingsPage::Display, 0, {}).Label == Text::Display::Aspect.Label);
 	CHECK(FSettingsPages::Row(ESettingsPage::Display, 2, {}, false, WideDisplay).Label == Text::Display::Aspect.Label);
@@ -679,9 +679,22 @@ TEST_CASE("The window's size is chosen among the display's, from the window's ow
 	CHECK(Settings.Display.WindowSize == FDisplaySize{1280, 720});
 
 	// A display with the one size, already chosen, has nothing to change to.
-	const FSettingsContext Single{{{{1280, 720}}, {1280, 720}}, {}};
+	const FSettingsContext Single{{{{1280, 720}}, {1280, 720}, true}, {}};
 	CHECK_FALSE(FSettingsPages::Step(ESettingsPage::Display, 1, 1, Settings, bCustomPicked, Single));
 	CHECK_FALSE(FSettingsPages::Step(ESettingsPage::Display, 1, -1, Settings, bCustomPicked, Single));
+}
+
+TEST_CASE("Fullscreen can be set and saved when the display reports no resolutions", "[Menu]")
+{
+	const FSettingsContext Context{{{}, {1280, 720}, true}, {}};
+	FPlayerSettings Settings;
+	bool bCustomPicked = false;
+	CHECK(FSettingsPages::RowCount(ESettingsPage::Display, Context) == FSettingsPages::RowCount(ESettingsPage::Display) + 1);
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 0, Settings, false, Context).Label == Text::Display::FullScreen.Label);
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 1, Settings, false, Context).Label == Text::Display::Aspect.Label);
+	REQUIRE(FSettingsPages::Step(ESettingsPage::Display, 0, 1, Settings, bCustomPicked, Context));
+	CHECK(FSettingsPages::Row(ESettingsPage::Display, 0, Settings, false, Context).Value == Text::On);
+	CHECK(ReadPlayerSettings(WritePlayerSettings(Settings)).Display.bFullScreen);
 }
 
 TEST_CASE("Every row's words are in the game's font and fit their places on the options screen", "[Menu][Content]")

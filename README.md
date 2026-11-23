@@ -183,6 +183,10 @@ USB controller and a keyboard also work: the on-screen controller hides while yo
 back when you touch the screen. Under **Options → Controls → Touch screen** you can swap its d-pad for
 an analog stick, make it more see-through, and turn off its vibration.
 
+Choose **Exit** at the bottom of the title menu to close Weltall and remove it from Android's recent
+apps. You can also tap **Exit** on the disc setup or error screen. Press Home to leave the game in
+recent apps and come back to it later.
+
 Android keeps Weltall's own folder out of reach of computers and other apps, so **Options → Saves** has
 a **This device** section. **Back up saves** writes all your saves into one zip file wherever you
 choose, and **Restore saves** puts them back from one. A zip of a computer's `Saves` folder restores
@@ -219,7 +223,12 @@ game mentions a PlayStation button, it shows the key or controller button you've
 ### Saves and settings
 
 On Windows, settings and saves are in `%LOCALAPPDATA%\Weltall`. On Linux, settings are in
-`~/.config/Weltall` and saves are in `~/.local/share/Weltall/Saves`.
+`~/.config/Weltall`. Saves and quick save states are in `Saves` and `States` under `~/.local/share/Weltall`.
+
+To keep a self-contained Windows or Linux installation, create a `Portable` folder beside `Games`
+while Weltall is closed. On the next launch, the game copies your existing settings, saves, and quick
+save states into `Portable`, keeping any files already there. It uses that copy from then on. You can
+archive the installation and extract it elsewhere with the same settings and saves.
 
 Use the Saves page in Options to import a PlayStation memory-card image or an individual save file,
 including emulator saves. You can also export a card as an `.mcr` image to `Saves\Cards`.
@@ -298,8 +307,8 @@ python Scripts/package.py --platform Android  # for Android
 ```
 
 Packages are written to `out/builds/<Configuration>/<Platform>`. Run `Weltall.exe` or `Weltall.sh`
-from there. The script links your checkout's disc images into the package's `Games` folder. All
-builds share the same settings and saves in your user folders.
+from there. The script links your checkout's disc images into the package's `Games` folder. Desktop
+packages use the settings and saves described under [Saves and settings](#saves-and-settings).
 
 For Android auxiliary controller buttons, apply [the input patch](Scripts/UnrealAuxiliaryButtons.patch)
 to the Unreal Engine 5.8.2 source tree with `git apply` before building.
@@ -315,7 +324,7 @@ other configurations use the SDK's debug key.
 `python Scripts/package.py --archive Shipping` also creates a release zip in `out/releases`, without
 disc images, and a separate debug symbols archive. For Android, the release file is the arm64 APK.
 
-`python Scripts/release.py 1.0.3` builds the Windows, Linux and Android Shipping packages from a
+`python Scripts/release.py 1.0.4` builds the Windows, Linux and Android Shipping packages from a
 pushed commit whose `ProjectVersion` matches that version. It creates the archives and a GitHub draft
 release with the player downloads and release notes, using the GitHub CLI. Publish the draft from
 the release page.
